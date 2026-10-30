@@ -7,7 +7,7 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "ubcexx-production-db"
-database_id = "d1-ubcexx-4f92-a1b8-e89c629f1234"
+database_id = "database_id = "40f62131-da0e-4c5b-99d0-a1cae4e343d9"
 migrations_dir = "./migrations"
 
 # Environment Variables
