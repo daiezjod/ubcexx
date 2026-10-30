@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, ShieldCheck, AlertCircle, ArrowLeft, KeyRound, Database } from 'lucide-react';
+import { safeFetchJson } from '../utils/api.ts';
 
 interface AdminLoginPageProps {
   onLoginSuccess: (token: string, admin: any) => void;
@@ -21,14 +22,18 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
     setLoading(true);
 
     try {
-      const res = await fetch('/api/admin/login', {
+      const data = await safeFetchJson<{
+        success: boolean;
+        token: string;
+        admin: any;
+        error?: string;
+      }>('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.error || 'Invalid credentials');
       }
 
@@ -36,7 +41,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
       localStorage.setItem('ubcexx_admin_user', JSON.stringify(data.admin));
       onLoginSuccess(data.token, data.admin);
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Authentication failed');
     } finally {
       setLoading(false);
     }

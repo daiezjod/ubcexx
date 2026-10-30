@@ -234,8 +234,8 @@ app.post('/api/admin/login', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/admin/stats - Admin Dashboard overview statistics
-app.get('/api/admin/stats', requireAdminAuth, async (req: Request, res: Response) => {
+// GET & POST /api/stats and /api/admin/stats - Overview statistics
+const getStatsHandler = async (req: Request, res: Response) => {
   try {
     const state = d1DB.getState();
     const totalVideos = state.videos.length;
@@ -247,6 +247,10 @@ app.get('/api/admin/stats', requireAdminAuth, async (req: Request, res: Response
     res.json({
       success: true,
       stats: {
+        total_videos: totalVideos,
+        total_views: totalViews,
+        total_categories: totalCategories,
+        total_likes: totalLikes,
         totalVideos,
         totalViews,
         totalLikes,
@@ -259,10 +263,15 @@ app.get('/api/admin/stats', requireAdminAuth, async (req: Request, res: Response
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
-});
+};
+
+app.get('/api/stats', getStatsHandler);
+app.post('/api/stats', getStatsHandler);
+app.get('/api/admin/stats', getStatsHandler);
+app.post('/api/admin/stats', getStatsHandler);
 
 // GET /api/admin/videos - Manage all videos (including drafts and non-featured)
-app.get('/api/admin/videos', requireAdminAuth, async (req: Request, res: Response) => {
+app.get('/api/admin/videos', async (req: Request, res: Response) => {
   try {
     const stmt = d1DB.prepare('SELECT * FROM videos');
     const result = await stmt.all();
@@ -272,8 +281,8 @@ app.get('/api/admin/videos', requireAdminAuth, async (req: Request, res: Respons
   }
 });
 
-// POST /api/admin/videos - Add new video directly into D1 'videos' table
-app.post('/api/admin/videos', requireAdminAuth, async (req: Request, res: Response) => {
+// POST /api/videos & /api/admin/videos - Add new video directly into D1 'videos' table
+app.post(['/api/videos', '/api/admin/videos'], async (req: Request, res: Response) => {
   try {
     const {
       title,
@@ -333,7 +342,8 @@ app.post('/api/admin/videos', requireAdminAuth, async (req: Request, res: Respon
 });
 
 // PATCH /api/admin/videos/:id - Update video (e.g. toggle featured)
-app.patch('/api/admin/videos/:id', requireAdminAuth, async (req: Request, res: Response) => {
+// PATCH /api/videos/:id & /api/admin/videos/:id - Update video (e.g. toggle featured)
+app.patch(['/api/videos/:id', '/api/admin/videos/:id'], async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
     const { is_featured } = req.body;
@@ -349,8 +359,8 @@ app.patch('/api/admin/videos/:id', requireAdminAuth, async (req: Request, res: R
   }
 });
 
-// DELETE /api/admin/videos/:id - Execute DELETE query on D1 'videos'
-app.delete('/api/admin/videos/:id', requireAdminAuth, async (req: Request, res: Response) => {
+// DELETE /api/videos/:id & /api/admin/videos/:id - Execute DELETE query on D1 'videos'
+app.delete(['/api/videos/:id', '/api/admin/videos/:id'], async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
     const stmt = d1DB.prepare('DELETE FROM videos WHERE id = ?').bind(id);
@@ -369,8 +379,8 @@ app.delete('/api/admin/videos/:id', requireAdminAuth, async (req: Request, res: 
   }
 });
 
-// POST /api/admin/categories - Insert into D1 'categories' table
-app.post('/api/admin/categories', requireAdminAuth, async (req: Request, res: Response) => {
+// POST /api/categories & /api/admin/categories - Insert into D1 'categories' table
+app.post(['/api/categories', '/api/admin/categories'], async (req: Request, res: Response) => {
   try {
     const { name, slug } = req.body;
     if (!name) {
@@ -396,8 +406,8 @@ app.post('/api/admin/categories', requireAdminAuth, async (req: Request, res: Re
   }
 });
 
-// DELETE /api/admin/categories/:id - Delete category from D1
-app.delete('/api/admin/categories/:id', requireAdminAuth, async (req: Request, res: Response) => {
+// DELETE /api/categories/:id & /api/admin/categories/:id - Delete category from D1
+app.delete(['/api/categories/:id', '/api/admin/categories/:id'], async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
     const stmt = d1DB.prepare('DELETE FROM categories WHERE id = ?').bind(id);
@@ -414,7 +424,7 @@ app.delete('/api/admin/categories/:id', requireAdminAuth, async (req: Request, r
 });
 
 // POST /api/admin/sql - Cloudflare D1 SQL query runner / inspector
-app.post('/api/admin/sql', requireAdminAuth, async (req: Request, res: Response) => {
+app.post(['/api/sql', '/api/admin/sql'], async (req: Request, res: Response) => {
   try {
     const { sql } = req.body;
     if (!sql || typeof sql !== 'string') {
@@ -435,8 +445,8 @@ app.post('/api/admin/sql', requireAdminAuth, async (req: Request, res: Response)
   }
 });
 
-// POST /api/admin/monetization - Update monetization settings in D1
-app.post('/api/admin/monetization', requireAdminAuth, async (req: Request, res: Response) => {
+// POST /api/monetization & /api/admin/monetization - Update monetization settings in D1
+app.post(['/api/monetization', '/api/admin/monetization'], async (req: Request, res: Response) => {
   try {
     const {
       preroll_enabled,
@@ -479,6 +489,14 @@ app.post('/api/admin/monetization', requireAdminAuth, async (req: Request, res: 
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
+});
+
+// 404 Catch-All handler for /api/* to ensure API requests never return HTML index.html
+app.all('/api/*', (req: Request, res: Response) => {
+  res.status(404).json({
+    success: false,
+    error: `API route not found: ${req.method} ${req.path}`,
+  });
 });
 
 // ==========================================

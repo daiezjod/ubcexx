@@ -27,13 +27,17 @@ export interface Video {
 }
 
 export interface AdminStats {
-  totalVideos: number;
-  totalViews: number;
-  totalLikes: number;
-  totalCategories: number;
-  featuredVideos: number;
-  database: string;
-  status: string;
+  totalVideos?: number;
+  totalViews?: number;
+  totalLikes?: number;
+  totalCategories?: number;
+  total_videos?: number;
+  total_views?: number;
+  total_likes?: number;
+  total_categories?: number;
+  featuredVideos?: number;
+  database?: string;
+  status?: string;
 }
 
 export interface AdminUser {

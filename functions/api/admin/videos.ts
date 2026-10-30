@@ -1,33 +1,69 @@
-// Cloudflare Pages Function: /api/admin/videos (GET list all, POST insert into D1)
+// Cloudflare Pages Function: /api/admin/videos
+// GET (list all videos with category names) and POST (insert video into D1)
 
 interface Env {
   DB: D1Database;
 }
 
+const corsHeaders: Record<string, string> = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+};
+
+export const onRequestOptions: PagesFunction<Env> = async () => {
+  return new Response(null, {
+    status: 204,
+    headers: corsHeaders,
+  });
+};
+
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   try {
+    const authHeader = context.request.headers.get('Authorization') || '';
+    if (!authHeader.includes('Bearer')) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Unauthorized: UBCEXX Admin token required' }),
+        { status: 401, headers: corsHeaders }
+      );
+    }
+
     const stmt = context.env.DB.prepare(`
-      SELECT v.*, c.name as category_name
+      SELECT 
+        v.id, v.title, v.slug, v.description, v.video_url, v.backup_video_url,
+        v.thumbnail_url, v.duration, v.views, v.likes, v.category_id,
+        v.tags, v.is_featured, v.status, v.created_at,
+        c.name as category_name, c.slug as category_slug
       FROM videos v
       LEFT JOIN categories c ON v.category_id = c.id
       ORDER BY v.created_at DESC
     `);
     const { results } = await stmt.all();
 
-    return new Response(JSON.stringify({ success: true, videos: results }), {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ success: true, videos: results || [] }),
+      { status: 200, headers: corsHeaders }
+    );
   } catch (err: any) {
-    return new Response(JSON.stringify({ success: false, error: err.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ success: false, error: err.message || 'Failed to fetch videos from D1' }),
+      { status: 500, headers: corsHeaders }
+    );
   }
 };
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
-    const body: any = await context.request.json();
+    const authHeader = context.request.headers.get('Authorization') || '';
+    if (!authHeader.includes('Bearer')) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Unauthorized: UBCEXX Admin token required' }),
+        { status: 401, headers: corsHeaders }
+      );
+    }
+
+    const body: any = await context.request.json().catch(() => ({}));
     const {
       title,
       slug,
@@ -43,10 +79,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     } = body;
 
     if (!title || !video_url || !thumbnail_url) {
-      return new Response(JSON.stringify({ success: false, error: 'Title, Primary Video URL, and Thumbnail URL required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({ success: false, error: 'Title, Primary Video URL, and Thumbnail URL required' }),
+        { status: 400, headers: corsHeaders }
+      );
     }
 
     const cleanSlug = (slug || title)
@@ -74,19 +110,19 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     const result = await stmt.run();
 
-    return new Response(JSON.stringify({
-      success: true,
-      message: 'Video inserted into Cloudflare D1',
-      id: result.meta?.last_row_id,
-      slug: cleanSlug,
-    }), {
-      status: 201,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: 'Video successfully inserted into Cloudflare D1',
+        id: result.meta?.last_row_id,
+        slug: cleanSlug,
+      }),
+      { status: 201, headers: corsHeaders }
+    );
   } catch (err: any) {
-    return new Response(JSON.stringify({ success: false, error: err.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ success: false, error: err.message || 'Failed to insert video' }),
+      { status: 500, headers: corsHeaders }
+    );
   }
 };

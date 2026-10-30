@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { Video, Category, AdminStats, MonetizationSettings } from '../types.ts';
 import { formatDuration, formatViews, formatNumber, formatTimeAgo } from '../utils/formatters.ts';
+import { safeFetchJson } from '../utils/api.ts';
 
 interface AdminDashboardProps {
   token: string;
@@ -116,51 +117,93 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setTimeout(() => setNotification(null), 4000);
   };
 
-  // Fetch initial admin data
+  // Fetch initial admin data safely
   const fetchData = async () => {
     setLoading(true);
     try {
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [statsRes, videosRes, catRes, monetRes] = await Promise.all([
-        fetch('/api/admin/stats', { headers }),
-        fetch('/api/admin/videos', { headers }),
-        fetch('/api/categories'),
-        fetch('/api/monetization'),
-      ]);
+      // 1. Fetch Stats from /api/stats
+      try {
+        const statsRes = await fetch('/api/stats', { headers });
+        const statsContentType = statsRes.headers.get("content-type");
+        if (!statsRes.ok || !statsContentType || !statsContentType.includes("application/json")) {
+          console.error("Non-JSON API response received", statsRes.status);
+        } else {
+          const statsData = await statsRes.json();
+          if (statsData?.success && statsData.stats) {
+            setStats(statsData.stats);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching stats:", err);
+      }
 
-      if (statsRes.status === 401 || videosRes.status === 401) {
+      // 2. Fetch Videos from /api/videos
+      try {
+        const vidsRes = await fetch('/api/videos?limit=100', { headers });
+        const vidsContentType = vidsRes.headers.get("content-type");
+        if (!vidsRes.ok || !vidsContentType || !vidsContentType.includes("application/json")) {
+          console.error("Non-JSON API response received", vidsRes.status);
+        } else {
+          const vidsData = await vidsRes.json();
+          if (vidsData?.success && vidsData.videos) {
+            setVideos(vidsData.videos);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching videos:", err);
+      }
+
+      // 3. Fetch Categories from /api/categories
+      try {
+        const catsRes = await fetch('/api/categories');
+        const catsContentType = catsRes.headers.get("content-type");
+        if (!catsRes.ok || !catsContentType || !catsContentType.includes("application/json")) {
+          console.error("Non-JSON API response received", catsRes.status);
+        } else {
+          const catsData = await catsRes.json();
+          if (catsData?.success && catsData.categories) {
+            setCategories(catsData.categories);
+            if (catsData.categories.length > 0 && !categoryId) {
+              setCategoryId(catsData.categories[0].id);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching categories:", err);
+      }
+
+      // 4. Fetch Monetization from /api/monetization
+      try {
+        const monetRes = await fetch('/api/monetization');
+        const monetContentType = monetRes.headers.get("content-type");
+        if (!monetRes.ok || !monetContentType || !monetContentType.includes("application/json")) {
+          console.error("Non-JSON API response received", monetRes.status);
+        } else {
+          const monetData = await monetRes.json();
+          if (monetData?.success && monetData.monetization) {
+            const m = monetData.monetization;
+            setPrerollEnabled(m.preroll_enabled === 1);
+            setPrerollVideoUrl(m.preroll_video_url || '');
+            setPrerollClickUrl(m.preroll_click_url || '');
+            setPrerollSkipOffset(String(m.preroll_skip_offset ?? 5));
+            setNativeEnabled(m.native_enabled === 1);
+            setNativeCode(m.native_code || '');
+            const placements = (m.native_placements || '').split(',');
+            setPlacementUnderPlayer(placements.includes('under_player'));
+            setPlacementInFeed(placements.includes('in_feed'));
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching monetization:", err);
+      }
+    } catch (err: any) {
+      if (err.status === 401) {
         onLogout();
         return;
       }
-
-      const statsData = await statsRes.json();
-      const videosData = await videosRes.json();
-      const catData = await catRes.json();
-      const monetData = await monetRes.json();
-
-      if (statsData.success) setStats(statsData.stats);
-      if (videosData.success) setVideos(videosData.videos);
-      if (catData.success) {
-        setCategories(catData.categories);
-        if (catData.categories.length > 0 && !categoryId) {
-          setCategoryId(catData.categories[0].id);
-        }
-      }
-      if (monetData.success && monetData.monetization) {
-        const m = monetData.monetization;
-        setPrerollEnabled(m.preroll_enabled === 1);
-        setPrerollVideoUrl(m.preroll_video_url || '');
-        setPrerollClickUrl(m.preroll_click_url || '');
-        setPrerollSkipOffset(String(m.preroll_skip_offset ?? 5));
-        setNativeEnabled(m.native_enabled === 1);
-        setNativeCode(m.native_code || '');
-        const placements = (m.native_placements || '').split(',');
-        setPlacementUnderPlayer(placements.includes('under_player'));
-        setPlacementInFeed(placements.includes('in_feed'));
-      }
-    } catch (err: any) {
-      showNotification('error', err.message || 'Failed to load D1 data');
+      showNotification('error', err.message || 'Failed to load Cloudflare D1 data');
     } finally {
       setLoading(false);
     }
@@ -170,7 +213,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     fetchData();
   }, [token]);
 
-  // Handle Video Form Submit (Insert into D1)
+  // Handle Video Form Submit (Insert into D1 via /api/videos)
   const handleCreateVideo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !videoUrl || !thumbnailUrl) {
@@ -180,7 +223,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/admin/videos', {
+      const res = await fetch('/api/videos', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -201,8 +244,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         }),
       });
 
+      const contentType = res.headers.get("content-type");
+      if (!res.ok || !contentType || !contentType.includes("application/json")) {
+        console.error("Non-JSON API response received", res.status);
+        showNotification('error', `Server returned invalid response (HTTP ${res.status})`);
+        return;
+      }
+
       const data = await res.json();
-      if (!res.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.error || 'Failed to insert video into D1');
       }
 
@@ -221,19 +271,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // Handle Delete Video (DELETE query on D1)
+  // Handle Delete Video (DELETE query on D1 via /api/videos/:id)
   const handleDeleteVideo = async (id: number, videoTitle: string) => {
     if (!window.confirm(`Are you sure you want to delete "${videoTitle}" (ID: ${id}) from Cloudflare D1?`)) {
       return;
     }
 
     try {
-      const res = await fetch(`/api/admin/videos/${id}`, {
+      const res = await fetch(`/api/videos/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      const contentType = res.headers.get("content-type");
+      if (!res.ok || !contentType || !contentType.includes("application/json")) {
+        console.error("Non-JSON API response received", res.status);
+        showNotification('error', `Failed to delete video (HTTP ${res.status})`);
+        return;
+      }
+
       const data = await res.json();
-      if (!res.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.error || 'Delete failed');
       }
 
@@ -244,11 +302,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // Toggle Featured status
+  // Toggle Featured status via PATCH /api/videos/:id
   const handleToggleFeatured = async (v: Video) => {
     try {
       const newStatus = v.is_featured === 1 ? 0 : 1;
-      const res = await fetch(`/api/admin/videos/${v.id}`, {
+      const res = await fetch(`/api/videos/${v.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -256,6 +314,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         },
         body: JSON.stringify({ is_featured: newStatus }),
       });
+
+      const contentType = res.headers.get("content-type");
+      if (!res.ok || !contentType || !contentType.includes("application/json")) {
+        console.error("Non-JSON API response received", res.status);
+        return;
+      }
+
       const data = await res.json();
       if (data.success) {
         showNotification('success', `Updated featured status for #${v.id}`);
@@ -266,7 +331,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // Handle Add Category
+  // Handle Add Category via POST /api/categories
   const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!catName) {
@@ -276,7 +341,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     setIsCatSubmitting(true);
     try {
-      const res = await fetch('/api/admin/categories', {
+      const res = await fetch('/api/categories', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -284,8 +349,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         },
         body: JSON.stringify({ name: catName, slug: catSlug }),
       });
+
+      const contentType = res.headers.get("content-type");
+      if (!res.ok || !contentType || !contentType.includes("application/json")) {
+        console.error("Non-JSON API response received", res.status);
+        showNotification('error', `Failed to create category (HTTP ${res.status})`);
+        return;
+      }
+
       const data = await res.json();
-      if (!res.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.error || 'Failed to create category');
       }
 
@@ -300,17 +373,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // Handle Delete Category
+  // Handle Delete Category via DELETE /api/categories/:id
   const handleDeleteCategory = async (id: number, name: string) => {
     if (!window.confirm(`Delete category "${name}"?`)) return;
 
     try {
-      const res = await fetch(`/api/admin/categories/${id}`, {
+      const res = await fetch(`/api/categories/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      const contentType = res.headers.get("content-type");
+      if (!res.ok || !contentType || !contentType.includes("application/json")) {
+        console.error("Non-JSON API response received", res.status);
+        showNotification('error', `Failed to delete category (HTTP ${res.status})`);
+        return;
+      }
+
       const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error);
+      if (!data.success) throw new Error(data.error);
 
       showNotification('success', `Category #${id} removed from D1`);
       fetchData();
@@ -319,7 +400,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // Handle Save Monetization (Persist to Cloudflare D1 'monetization' table)
+  // Handle Save Monetization (Persist to Cloudflare D1 via POST /api/monetization)
   const handleSaveMonetization = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingMonetization(true);
@@ -328,7 +409,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (placementUnderPlayer) placements.push('under_player');
       if (placementInFeed) placements.push('in_feed');
 
-      const res = await fetch('/api/admin/monetization', {
+      const res = await fetch('/api/monetization', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -345,8 +426,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         }),
       });
 
+      const contentType = res.headers.get("content-type");
+      if (!res.ok || !contentType || !contentType.includes("application/json")) {
+        console.error("Non-JSON API response received", res.status);
+        showNotification('error', `Failed to save monetization (HTTP ${res.status})`);
+        return;
+      }
+
       const data = await res.json();
-      if (!res.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.error || 'Failed to save monetization settings');
       }
 
@@ -374,8 +462,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         },
         body: JSON.stringify({ sql: sqlQuery }),
       });
+
+      const contentType = res.headers.get("content-type");
+      if (!res.ok || !contentType || !contentType.includes("application/json")) {
+        console.error("Non-JSON API response received", res.status);
+        setSqlError(`Non-JSON response received (HTTP ${res.status})`);
+        return;
+      }
+
       const data = await res.json();
-      if (!res.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.error || 'SQL execution error');
       }
       setSqlResults(data.results || []);
@@ -473,7 +569,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <Film className="w-4 h-4 text-[#F59E0B]" />
             </div>
             <div className="text-2xl font-bold font-mono text-[#F8FAFC] tabular-nums">
-              {stats?.totalVideos ?? videos.length}
+              {stats?.total_videos ?? stats?.totalVideos ?? videos.length}
             </div>
             <div className="text-[11px] text-[#94A3B8] mt-1">
               {stats?.featuredVideos ?? videos.filter(v => v.is_featured === 1).length} featured streams
@@ -486,7 +582,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <Eye className="w-4 h-4 text-[#F59E0B]" />
             </div>
             <div className="text-2xl font-bold font-mono text-[#F8FAFC] tabular-nums">
-              {formatNumber(stats?.totalViews ?? 0)}
+              {formatNumber(stats?.total_views ?? stats?.totalViews ?? 0)}
             </div>
             <div className="text-[11px] text-[#94A3B8] mt-1">
               Live D1 increment tracking
@@ -499,7 +595,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <Layers className="w-4 h-4 text-[#F59E0B]" />
             </div>
             <div className="text-2xl font-bold font-mono text-[#F8FAFC] tabular-nums">
-              {stats?.totalCategories ?? categories.length}
+              {stats?.total_categories ?? stats?.totalCategories ?? categories.length}
             </div>
             <div className="text-[11px] text-[#94A3B8] mt-1">
               Organized tube taxonomies
@@ -512,7 +608,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <Heart className="w-4 h-4 text-[#FB7185]" />
             </div>
             <div className="text-2xl font-bold font-mono text-[#F8FAFC] tabular-nums">
-              {formatNumber(stats?.totalLikes ?? 0)}
+              {formatNumber(stats?.total_likes ?? stats?.totalLikes ?? 0)}
             </div>
             <div className="text-[11px] text-[#94A3B8] mt-1">
               Audience appreciation

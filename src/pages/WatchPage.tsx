@@ -16,6 +16,7 @@ import { Video, MonetizationSettings } from '../types.ts';
 import { VideoPlayer } from '../components/VideoPlayer.tsx';
 import { VideoCard } from '../components/VideoCard.tsx';
 import { formatDuration, formatViews, formatTimeAgo, formatNumber } from '../utils/formatters.ts';
+import { safeFetchJson } from '../utils/api.ts';
 
 interface WatchPageProps {
   videoIdOrSlug: string | number;
@@ -47,28 +48,28 @@ export const WatchPage: React.FC<WatchPageProps> = ({
     if (initialMonetization) {
       setMonetization(initialMonetization);
     } else {
-      fetch('/api/monetization')
-        .then((res) => res.json())
+      safeFetchJson<{ success: boolean; monetization?: MonetizationSettings }>('/api/monetization')
         .then((data) => {
-          if (data.success && data.monetization) {
+          if (data?.success && data.monetization) {
             setMonetization(data.monetization);
           }
         })
-        .catch((e) => console.warn('Could not load monetization settings:', e));
+        .catch((e) => console.warn('Could not load monetization settings:', e.message));
     }
   }, [initialMonetization]);
 
-  // Fetch video details + related
+  // Fetch video details + related safely
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
     setError(null);
 
-    fetch(`/api/videos/${videoIdOrSlug}`)
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to load video details');
-        return res.json();
-      })
+    safeFetchJson<{
+      success: boolean;
+      video?: Video;
+      relatedVideos?: Video[];
+      error?: string;
+    }>(`/api/videos/${videoIdOrSlug}`)
       .then((data) => {
         if (!isMounted) return;
         if (data.success && data.video) {
@@ -81,7 +82,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
       })
       .catch((err) => {
         if (!isMounted) return;
-        setError(err.message);
+        setError(err.message || 'Failed to load video');
       })
       .finally(() => {
         if (isMounted) setLoading(false);
@@ -92,33 +93,32 @@ export const WatchPage: React.FC<WatchPageProps> = ({
     };
   }, [videoIdOrSlug]);
 
-  // View count increment in D1
+  // View count increment in D1 safely
   const handleFirstPlay = () => {
     if (!video) return;
-    fetch(`/api/videos/${video.id}/view`, { method: 'POST' })
-      .then((res) => res.json())
+    safeFetchJson<{ success: boolean; views?: number }>(`/api/videos/${video.id}/view`, { method: 'POST' })
       .then((data) => {
-        if (data.success && typeof data.views === 'number') {
-          setVideo((prev) => (prev ? { ...prev, views: data.views } : null));
+        if (data?.success && typeof data.views === 'number') {
+          const newViews = data.views;
+          setVideo((prev) => (prev ? { ...prev, views: newViews } : null));
         }
       })
-      .catch((e) => console.warn('Could not record view in D1:', e));
+      .catch((e) => console.warn('Could not record view in D1:', e.message));
   };
 
-  // Like increment in D1
+  // Like increment in D1 safely
   const handleLike = () => {
     if (!video || hasLiked) return;
     setHasLiked(true);
     setLikes((prev) => prev + 1);
 
-    fetch(`/api/videos/${video.id}/like`, { method: 'POST' })
-      .then((res) => res.json())
+    safeFetchJson<{ success: boolean; likes?: number }>(`/api/videos/${video.id}/like`, { method: 'POST' })
       .then((data) => {
-        if (data.success && typeof data.likes === 'number') {
+        if (data?.success && typeof data.likes === 'number') {
           setLikes(data.likes);
         }
       })
-      .catch((e) => console.warn('Could not record like in D1:', e));
+      .catch((e) => console.warn('Could not record like in D1:', e.message));
   };
 
   const currentUrl = typeof window !== 'undefined' ? window.location.href : '';

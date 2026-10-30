@@ -6,6 +6,7 @@ import { WatchPage } from './pages/WatchPage.tsx';
 import { AdminLoginPage } from './pages/AdminLoginPage.tsx';
 import { AdminDashboard } from './pages/AdminDashboard.tsx';
 import { Video, Category, MonetizationSettings } from './types.ts';
+import { safeFetchJson } from './utils/api.ts';
 import { Play, Sparkles, Filter, Database, Shield, Radio, RefreshCw } from 'lucide-react';
 
 export default function App() {
@@ -62,28 +63,25 @@ export default function App() {
     return () => window.removeEventListener('popstate', handleUrlRoute);
   }, []);
 
-  // Fetch categories, videos, and monetization
+  // Fetch categories, videos, and monetization safely
   const loadData = async () => {
     setLoading(true);
     try {
-      const [catsRes, vidsRes, featRes, monetRes] = await Promise.all([
-        fetch('/api/categories'),
-        fetch(`/api/videos?limit=${pageLimit}${selectedCategoryId ? `&category_id=${selectedCategoryId}` : ''}${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`),
-        fetch('/api/videos?featured=1'),
-        fetch('/api/monetization'),
+      const [catsData, vidsData, featData, monetData] = await Promise.all([
+        safeFetchJson<{ success: boolean; categories?: Category[] }>('/api/categories').catch(() => ({ success: false, categories: [] })),
+        safeFetchJson<{ success: boolean; videos?: Video[] }>(
+          `/api/videos?limit=${pageLimit}${selectedCategoryId ? `&category_id=${selectedCategoryId}` : ''}${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`
+        ).catch(() => ({ success: false, videos: [] })),
+        safeFetchJson<{ success: boolean; videos?: Video[] }>('/api/videos?featured=1').catch(() => ({ success: false, videos: [] })),
+        safeFetchJson<{ success: boolean; monetization?: MonetizationSettings }>('/api/monetization').catch(() => ({ success: false, monetization: null })),
       ]);
 
-      const catsData = await catsRes.json();
-      const vidsData = await vidsRes.json();
-      const featData = await featRes.json();
-      const monetData = await monetRes.json();
-
-      if (catsData.success) setCategories(catsData.categories || []);
-      if (vidsData.success) setVideos(vidsData.videos || []);
-      if (featData.success) setFeaturedVideos(featData.videos || []);
-      if (monetData.success && monetData.monetization) setMonetization(monetData.monetization);
-    } catch (e) {
-      console.error('Failed to fetch tube data:', e);
+      if (catsData?.success && catsData.categories) setCategories(catsData.categories);
+      if (vidsData?.success && vidsData.videos) setVideos(vidsData.videos);
+      if (featData?.success && featData.videos) setFeaturedVideos(featData.videos);
+      if (monetData?.success && monetData.monetization) setMonetization(monetData.monetization);
+    } catch (e: any) {
+      console.error('Failed to fetch tube data:', e.message);
     } finally {
       setLoading(false);
     }

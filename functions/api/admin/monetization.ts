@@ -1,28 +1,52 @@
-// Cloudflare Pages Function: /api/admin/monetization (GET & POST)
+// Cloudflare Pages Function: /api/admin/monetization
+// GET & POST - UBCEXX Monetization settings (Pre-Roll & Native Banners)
 
 interface Env {
   DB: D1Database;
 }
+
+const corsHeaders: Record<string, string> = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+};
+
+export const onRequestOptions: PagesFunction<Env> = async () => {
+  return new Response(null, {
+    status: 204,
+    headers: corsHeaders,
+  });
+};
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   try {
     const stmt = context.env.DB.prepare('SELECT * FROM monetization WHERE id = 1');
     const monetization = await stmt.first();
 
-    return new Response(JSON.stringify({ success: true, monetization }), {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ success: true, monetization: monetization || null }),
+      { status: 200, headers: corsHeaders }
+    );
   } catch (err: any) {
-    return new Response(JSON.stringify({ success: false, error: err.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ success: false, error: err.message || 'Failed to fetch monetization settings' }),
+      { status: 500, headers: corsHeaders }
+    );
   }
 };
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
-    const body: any = await context.request.json();
+    const authHeader = context.request.headers.get('Authorization') || '';
+    if (!authHeader.includes('Bearer')) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Unauthorized: UBCEXX Admin token required' }),
+        { status: 401, headers: corsHeaders }
+      );
+    }
+
+    const body: any = await context.request.json().catch(() => ({}));
     const {
       preroll_enabled,
       preroll_video_url,
@@ -57,16 +81,17 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     await stmt.run();
 
-    return new Response(JSON.stringify({
-      success: true,
-      message: 'Monetization settings updated in Cloudflare D1',
-    }), {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: 'Monetization settings updated in Cloudflare D1',
+      }),
+      { status: 200, headers: corsHeaders }
+    );
   } catch (err: any) {
-    return new Response(JSON.stringify({ success: false, error: err.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ success: false, error: err.message || 'Failed to update monetization settings' }),
+      { status: 500, headers: corsHeaders }
+    );
   }
 };
