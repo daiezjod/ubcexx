@@ -1,0 +1,16 @@
+name = "ubcexx-video-streaming"
+pages_build_output_dir = "dist"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# Cloudflare D1 Database Binding
+[[d1_databases]]
+binding = "DB"
+database_name = "ubcexx-production-db"
+database_id = "d1-ubcexx-4f92-a1b8-e89c629f1234"
+migrations_dir = "./migrations"
+
+# Environment Variables
+[vars]
+ENVIRONMENT = "production"
+JWT_SECRET = "ubcexx_super_secure_jwt_secret_token_cloudflare_d1"

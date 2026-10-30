@@ -1,0 +1,7 @@
+{
+  "name": "UBCEXX - Tube Video Streaming & Admin Panel",
+  "description": "Production-ready tube video streaming platform with featured carousel, dark mode UI, custom video player, and exclusive UBCEXX Admin Panel with Cloudflare D1 database support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
