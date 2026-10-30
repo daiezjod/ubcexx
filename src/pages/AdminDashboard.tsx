@@ -520,16 +520,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           <div className="flex items-center gap-3">
             <button
-              onClick={onNavigateHome}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#94A3B8] hover:text-[#F8FAFC] bg-[#131C2E] hover:bg-[#1E293B] border border-[#1E293B] transition-colors cursor-pointer"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-              <span>Public Tube</span>
-            </button>
-
-            <button
               onClick={onLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-[#FB7185] bg-[#3B0713] hover:bg-[#4C0D1A] border border-[#4C0D1A] transition-colors cursor-pointer shadow-sm"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-[#FB7185] bg-[#3B0713] hover:bg-[#4C0D1A] border border-[#4C0D1A] transition-colors cursor-pointer shadow-sm"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>Logout</span>

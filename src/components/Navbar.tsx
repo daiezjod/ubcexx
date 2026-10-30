@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, X, Play, SlidersHorizontal, Flame } from 'lucide-react';
+import { Search, X, Play, Flame } from 'lucide-react';
 import { Category } from '../types.ts';
 
 interface NavbarProps {
@@ -9,7 +9,6 @@ interface NavbarProps {
   searchQuery: string;
   onSearch: (query: string) => void;
   onNavigateHome: () => void;
-  onNavigateAdmin: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -19,7 +18,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   searchQuery,
   onSearch,
   onNavigateHome,
-  onNavigateAdmin,
 }) => {
   const [localSearch, setLocalSearch] = useState(searchQuery);
 
@@ -89,16 +87,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <Flame className="w-3.5 h-3.5 text-current" />
             <span>Trending</span>
-          </button>
-
-          {/* Discreet portal link for UBCEXX Admin */}
-          <button
-            onClick={onNavigateAdmin}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-[#94A3B8] hover:text-[#F8FAFC] border border-[#1E293B] hover:border-[#253349] bg-[#131C2E] transition-all cursor-pointer"
-            title="UBCEXX Admin Portal"
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5 text-[#94A3B8]" />
-            <span className="hidden md:inline">Admin</span>
           </button>
         </div>
       </div>

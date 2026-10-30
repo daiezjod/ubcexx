@@ -172,7 +172,6 @@ export default function App() {
             handleNavigateHome();
           }}
           onNavigateHome={handleNavigateHome}
-          onNavigateAdmin={handleNavigateAdmin}
         />
         <main className="flex-1">
           <WatchPage
@@ -183,7 +182,7 @@ export default function App() {
           />
         </main>
         {/* Sleek Tube Footer */}
-        <TubeFooter onNavigateAdmin={handleNavigateAdmin} />
+        <TubeFooter />
       </div>
     );
   }
@@ -199,7 +198,6 @@ export default function App() {
         searchQuery={searchQuery}
         onSearch={setSearchQuery}
         onNavigateHome={handleNavigateHome}
-        onNavigateAdmin={handleNavigateAdmin}
       />
 
       {/* Main Browse Container */}
@@ -328,12 +326,12 @@ export default function App() {
       </main>
 
       {/* Sleek Tube Footer */}
-      <TubeFooter onNavigateAdmin={handleNavigateAdmin} />
+      <TubeFooter />
     </div>
   );
 }
 
-function TubeFooter({ onNavigateAdmin }: { onNavigateAdmin: () => void }) {
+function TubeFooter() {
   return (
     <footer className="border-t border-[#1E293B] bg-[#0F172A] py-8 mt-16 text-[#94A3B8] text-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
@@ -358,14 +356,6 @@ function TubeFooter({ onNavigateAdmin }: { onNavigateAdmin: () => void }) {
           </span>
           <span aria-hidden="true" className="text-[#253349]">·</span>
           <span>Ultra-Low Latency Edge CDN</span>
-          <span aria-hidden="true" className="text-[#253349]">·</span>
-          
-          <button
-            onClick={onNavigateAdmin}
-            className="text-[#94A3B8] hover:text-[#F59E0B] transition-colors cursor-pointer font-medium underline underline-offset-2"
-          >
-            UBCEXX Admin Panel
-          </button>
         </div>
 
       </div>
