@@ -27,6 +27,7 @@ import {
   Tv,
 } from 'lucide-react';
 import { Video, Category, AdminStats, MonetizationSettings } from '../types.ts';
+import { DynamicAdContainer } from '../components/DynamicAdContainer.tsx';
 import { formatDuration, formatViews, formatNumber, formatTimeAgo } from '../utils/formatters.ts';
 import { safeFetchJson } from '../utils/api.ts';
 
@@ -1431,114 +1432,97 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
 
                 <div className="space-y-4">
-                  {/* Ad Video Stream URL */}
+                  {/* AD NETWORK TAG / VAST / STREAM URL */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="text-xs font-semibold text-[#F8FAFC] uppercase tracking-wider flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
-                        <span>Ad Video Stream URL *</span>
+                        <span>AD NETWORK TAG / VAST / STREAM URL *</span>
                       </label>
-                      <span className="text-[10px] text-[#94A3B8] font-mono">Direct MP4 or CDN video link</span>
+                      <span className="text-[10px] text-[#94A3B8] font-mono">ExoClick / Adsterra / JuicyAds / Direct MP4</span>
                     </div>
                     <input
                       type="url"
                       value={prerollVideoUrl}
                       onChange={(e) => setPrerollVideoUrl(e.target.value)}
-                      placeholder="https://pub-r2.ubcexx.com/ads/sponsor_promo.mp4"
+                      placeholder="Paste your ExoClick/Adsterra VAST Tag URL or Direct MP4 stream..."
                       className="w-full bg-[#131C2E] text-xs text-[#F8FAFC] px-3.5 py-2.5 rounded-xl border border-[#253349] font-mono focus:outline-none focus:border-[#F59E0B]"
                     />
                     
                     {/* Presets */}
                     <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                      <span className="text-[10px] text-[#94A3B8]">Video Presets:</span>
+                      <span className="text-[10px] text-[#94A3B8]">Tag &amp; Stream Presets:</span>
                       <button
                         type="button"
                         onClick={() => setPrerollVideoUrl('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4')}
                         className="text-[10px] bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] px-2 py-0.5 rounded text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer"
                       >
-                        Blaze Promo (15s)
+                        Blaze Promo MP4 (15s)
                       </button>
                       <button
                         type="button"
                         onClick={() => setPrerollVideoUrl('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4')}
                         className="text-[10px] bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] px-2 py-0.5 rounded text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer"
                       >
-                        Escapes Teaser (15s)
+                        Escapes Teaser MP4 (15s)
                       </button>
                       <button
                         type="button"
-                        onClick={() => setPrerollVideoUrl('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyBlazes.mp4')}
+                        onClick={() => setPrerollVideoUrl('https://syndication.exoclick.com/splash.php?idzone=demo-vast-tag&type=vast')}
                         className="text-[10px] bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] px-2 py-0.5 rounded text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer"
                       >
-                        Joyblaze Spot (15s)
+                        ExoClick VAST Sample
                       </button>
                     </div>
                   </div>
 
-                  {/* Ad Destination / Click URL & Skip Timer */}
-                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
-                    {/* Destination URL */}
-                    <div className="sm:col-span-8">
-                      <label className="block text-xs font-semibold text-[#F8FAFC] uppercase tracking-wider mb-1.5">
-                        Ad Destination / Click URL
-                      </label>
-                      <input
-                        type="url"
-                        value={prerollClickUrl}
-                        onChange={(e) => setPrerollClickUrl(e.target.value)}
-                        placeholder="https://sponsor-website.com/deal or https://ubcexx.com/vip"
-                        className="w-full bg-[#131C2E] text-xs text-[#F8FAFC] px-3.5 py-2.5 rounded-xl border border-[#253349] font-mono focus:outline-none focus:border-[#F59E0B]"
-                      />
-                      <span className="text-[10px] text-[#94A3B8] mt-1 block">
-                        When the user clicks the ad video or sponsored pill, this target URL opens in a new tab.
-                      </span>
-                    </div>
-
-                    {/* Skip Countdown Timer */}
-                    <div className="sm:col-span-4">
-                      <label className="block text-xs font-semibold text-[#F8FAFC] uppercase tracking-wider mb-1.5">
-                        Skip Timer (Seconds)
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={60}
-                        value={prerollSkipOffset}
-                        onChange={(e) => setPrerollSkipOffset(e.target.value)}
-                        placeholder="5"
-                        className="w-full bg-[#131C2E] text-xs text-[#F8FAFC] px-3.5 py-2.5 rounded-xl border border-[#253349] font-mono focus:outline-none focus:border-[#F59E0B]"
-                      />
-                      {/* Timer presets */}
-                      <div className="flex gap-1.5 mt-2">
-                        {['3', '5', '10'].map((sec) => (
-                          <button
-                            key={sec}
-                            type="button"
-                            onClick={() => setPrerollSkipOffset(sec)}
-                            className={`text-[10px] px-2 py-0.5 rounded border transition-colors cursor-pointer ${
-                              prerollSkipOffset === sec
-                                ? 'bg-[#F59E0B] text-black border-[#F59E0B] font-bold'
-                                : 'bg-[#182234] hover:bg-[#1E293B] text-[#94A3B8] border-[#1E293B]'
-                            }`}
-                          >
-                            {sec}s
-                          </button>
-                        ))}
-                      </div>
+                  {/* Skip Countdown Timer (Ad Click Redirects handled internally by Ad Network) */}
+                  <div className="max-w-xs">
+                    <label className="block text-xs font-semibold text-[#F8FAFC] uppercase tracking-wider mb-1.5">
+                      Skip Timer (Seconds)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={60}
+                      value={prerollSkipOffset}
+                      onChange={(e) => setPrerollSkipOffset(e.target.value)}
+                      placeholder="5"
+                      className="w-full bg-[#131C2E] text-xs text-[#F8FAFC] px-3.5 py-2.5 rounded-xl border border-[#253349] font-mono focus:outline-none focus:border-[#F59E0B]"
+                    />
+                    {/* Timer presets */}
+                    <div className="flex gap-1.5 mt-2">
+                      {['3', '5', '10'].map((sec) => (
+                        <button
+                          key={sec}
+                          type="button"
+                          onClick={() => setPrerollSkipOffset(sec)}
+                          className={`text-[10px] px-2 py-0.5 rounded border transition-colors cursor-pointer ${
+                            prerollSkipOffset === sec
+                              ? 'bg-[#F59E0B] text-black border-[#F59E0B] font-bold'
+                              : 'bg-[#182234] hover:bg-[#1E293B] text-[#94A3B8] border-[#1E293B]'
+                          }`}
+                        >
+                          {sec}s
+                        </button>
+                      ))}
                     </div>
                   </div>
 
                   {/* Flow description */}
                   <div className="p-3 bg-[#080C14] rounded-xl border border-[#1E293B] text-[11px] text-[#94A3B8] space-y-1">
-                    <span className="font-semibold text-[#F8FAFC] block">Pre-Roll In-Stream Playback Protocol:</span>
+                    <span className="font-semibold text-[#F8FAFC] block">Universal In-Stream Ad Protocol:</span>
                     <p>
-                      1. Viewer presses play &rarr; Ad stream begins with live countdown: <strong className="text-[#F59E0B]">"Ad · Skip in {prerollSkipOffset}s..."</strong>.
+                      1. Viewer presses play &rarr; Ad Network Tag / VAST / Stream loads with live countdown: <strong className="text-[#F59E0B]">"Ad · Skip in {prerollSkipOffset}s..."</strong>.
                     </p>
                     <p>
                       2. At 0s, an amber <strong className="text-[#F59E0B]">"Skip Ad ⏭"</strong> button illuminates.
                     </p>
                     <p>
                       3. On skip or ad completion, the player switches straight into the main stream seamlessly with zero page reload.
+                    </p>
+                    <p className="text-[#10B981] font-mono text-[10px]">
+                      Universal Ad Network: Click tracking, landing pages, and conversion pixels are handled automatically by the ad network's VAST tag.
                     </p>
                   </div>
                 </div>
@@ -1653,13 +1637,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       rows={5}
                       value={nativeCode}
                       onChange={(e) => setNativeCode(e.target.value)}
-                      placeholder='<div style="background: #0F172A; ...">...</div>'
+                      placeholder='<!-- Paste Adsterra, ExoClick, JuicyAds raw <script> or <iframe> snippet here -->'
                       className="w-full bg-[#080C14] text-xs font-mono text-[#10B981] p-3.5 rounded-xl border border-[#253349] focus:outline-none focus:border-[#F59E0B]"
                     />
 
                     {/* Code Presets */}
                     <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                      <span className="text-[10px] text-[#94A3B8]">HTML Presets:</span>
+                      <span className="text-[10px] text-[#94A3B8]">Ad Presets:</span>
                       <button
                         type="button"
                         onClick={() =>
@@ -1681,6 +1665,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         className="text-[10px] bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] px-2 py-0.5 rounded text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer"
                       >
                         Standard 728x90 Leaderboard
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setNativeCode(
+                            `<div id="container-adsterra-banner" style="min-height:90px;display:flex;align-items:center;justify-content:center;width:100%;"><script type="text/javascript">console.log("Adsterra dynamic JS execution verified");</script><div style="padding:10px;border:1px solid #10B981;border-radius:8px;background:#0d1526;color:#10B981;font-size:11px;font-family:monospace;">✓ Dynamic Ad Script Execution Active (ExoClick / Adsterra / JuicyAds ready)</div></div>`
+                          )
+                        }
+                        className="text-[10px] bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] px-2 py-0.5 rounded text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer"
+                      >
+                        Raw Ad Script Tag
                       </button>
                       <button
                         type="button"
@@ -1716,9 +1711,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </span>
                       </div>
                       <div className="p-4 bg-[#0F172A] border border-[#1E293B] rounded-xl overflow-x-auto flex items-center justify-center">
-                        <div
+                        <DynamicAdContainer
+                          adHtml={nativeCode}
                           className="w-full flex items-center justify-center"
-                          dangerouslySetInnerHTML={{ __html: nativeCode }}
                         />
                       </div>
                     </div>

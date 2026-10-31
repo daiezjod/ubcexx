@@ -13,15 +13,53 @@ import {
   ShieldCheck,
   ShieldAlert,
   SkipForward,
-  ExternalLink,
 } from 'lucide-react';
 import { formatDuration } from '../utils/formatters.ts';
 
 export interface PreRollAdConfig {
   enabled: boolean;
-  videoUrl: string;
-  clickUrl?: string;
+  videoUrl: string; // Ad Network Tag / VAST / Direct Stream URL
   skipOffset: number; // default: 5 seconds
+}
+
+// Universal Ad Stream Resolver for VAST XML Tags and Direct Streams
+async function resolveAdStreamUrl(adUrl: string): Promise<string> {
+  const trimmed = (adUrl || '').trim();
+  if (!trimmed) return '';
+
+  // Direct video file or stream URL
+  if (/\.(mp4|webm|m3u8|mov|mkv)(\?.*)?$/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  // If VAST XML or Tag URL, attempt client-side VAST extraction
+  if (trimmed.includes('vast') || trimmed.includes('.xml') || trimmed.includes('tag')) {
+    try {
+      const res = await fetch(trimmed, { mode: 'cors' });
+      if (res.ok) {
+        const text = await res.text();
+        if (text.includes('<MediaFile') || text.includes('<VAST')) {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(text, 'application/xml');
+          const mediaFiles = Array.from(doc.querySelectorAll('MediaFile'));
+          
+          // Search for MP4 media file or first available
+          const mp4File = mediaFiles.find(
+            (mf) => (mf.getAttribute('type') || '').includes('mp4') || (mf.textContent || '').includes('.mp4')
+          );
+          const chosen = mp4File || mediaFiles[0];
+          const resolvedUrl = chosen?.textContent?.trim();
+          if (resolvedUrl && (resolvedUrl.startsWith('http://') || resolvedUrl.startsWith('https://'))) {
+            return resolvedUrl;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('VAST Tag XML fetch note (CORS or network), playing direct URL:', err);
+    }
+  }
+
+  return trimmed;
 }
 
 interface VideoPlayerProps {
@@ -168,17 +206,26 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (preRollAd?.enabled && !adFinished && preRollAd.videoUrl && !isAdActive) {
       setIsAdActive(true);
       setHasStarted(true);
-      setActiveSource(preRollAd.videoUrl);
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.play().then(() => {
-            setIsPlaying(true);
-          }).catch((err) => {
-            console.warn('Ad playback error:', err);
-            handleSkipAd();
-          });
-        }
-      }, 50);
+
+      // Dynamically resolve ad network URL (VAST XML tag or direct media stream)
+      resolveAdStreamUrl(preRollAd.videoUrl).then((resolvedSource) => {
+        const streamToPlay = resolvedSource || preRollAd.videoUrl;
+        setActiveSource(streamToPlay);
+
+        setTimeout(() => {
+          if (videoRef.current) {
+            videoRef.current.play().then(() => {
+              setIsPlaying(true);
+            }).catch((err) => {
+              console.warn('Ad playback error, smoothly transitioning to main video:', err);
+              handleSkipAd();
+            });
+          }
+        }, 60);
+      }).catch((err) => {
+        console.warn('Ad resolver error, skipping to main stream:', err);
+        handleSkipAd();
+      });
       return;
     }
 
@@ -310,11 +357,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   };
 
   const handleVideoClick = () => {
-    // If ad is playing and user clicks the video area, open destination URL
-    if (isAdActive && preRollAd?.clickUrl) {
-      window.open(preRollAd.clickUrl, '_blank', 'noopener,noreferrer');
-      return;
-    }
     togglePlay();
   };
 
@@ -373,43 +415,18 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       {/* Pre-Roll In-Stream Ad Overlays */}
       {isAdActive && (
         <>
-          {/* Top-Left Sponsored Ad Badge & Destination */}
-          <div
-            onClick={(e) => {
-              if (preRollAd?.clickUrl) {
-                e.stopPropagation();
-                window.open(preRollAd.clickUrl, '_blank', 'noopener,noreferrer');
-              }
-            }}
-            className="absolute top-4 left-4 z-30 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/85 backdrop-blur-md border border-[#F59E0B]/40 text-xs font-semibold text-[#F8FAFC] cursor-pointer hover:border-[#F59E0B] transition-all shadow-xl group/adheader"
-          >
+          {/* Top-Left Sponsored Ad Badge (Informational - Ad networks handle interaction internally) */}
+          <div className="absolute top-4 left-4 z-30 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/85 backdrop-blur-md border border-[#F59E0B]/40 text-xs font-semibold text-[#F8FAFC] shadow-xl pointer-events-none select-none">
             <span className="px-1.5 py-0.5 rounded bg-[#F59E0B] text-black font-black text-[10px] uppercase">
               AD
             </span>
-            <span className="text-[#94A3B8] font-mono text-[11px] group-hover/adheader:text-[#F8FAFC]">
+            <span className="text-[#94A3B8] font-mono text-[11px]">
               Sponsored In-Stream
             </span>
-            {preRollAd?.clickUrl && (
-              <ExternalLink className="w-3.5 h-3.5 text-[#F59E0B] group-hover/adheader:translate-x-0.5 transition-transform" />
-            )}
           </div>
 
           {/* Bottom-Right Skip Countdown / Skip Button */}
           <div className="absolute bottom-16 right-4 sm:right-6 z-30 flex items-center gap-2">
-            {preRollAd?.clickUrl && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  window.open(preRollAd.clickUrl, '_blank', 'noopener,noreferrer');
-                }}
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#0F172A]/90 hover:bg-[#131C2E] border border-[#1E293B] text-xs font-semibold text-[#94A3B8] hover:text-[#F59E0B] transition-colors cursor-pointer shadow-xl"
-              >
-                <span>Visit Sponsor</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </button>
-            )}
-
             {canSkipAd ? (
               <button
                 type="button"

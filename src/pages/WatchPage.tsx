@@ -15,6 +15,7 @@ import {
 import { Video, MonetizationSettings } from '../types.ts';
 import { VideoPlayer } from '../components/VideoPlayer.tsx';
 import { VideoCard } from '../components/VideoCard.tsx';
+import { DynamicAdContainer } from '../components/DynamicAdContainer.tsx';
 import { formatDuration, formatViews, formatTimeAgo, formatNumber } from '../utils/formatters.ts';
 import { safeFetchJson } from '../utils/api.ts';
 
@@ -198,7 +199,6 @@ export const WatchPage: React.FC<WatchPageProps> = ({
                   ? {
                       enabled: true,
                       videoUrl: monetization.preroll_video_url,
-                      clickUrl: monetization.preroll_click_url,
                       skipOffset: monetization.preroll_skip_offset || 5,
                     }
                   : undefined
@@ -259,7 +259,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
               </div>
             </div>
 
-            {/* Native Ad Placement: Directly Under Video Player & Title */}
+            {/* Native Ad Placement: Directly Under Video Player & Title (Dynamic Ad Network Injection) */}
             {monetization &&
               monetization.native_enabled === 1 &&
               monetization.native_placements?.includes('under_player') &&
@@ -276,9 +276,9 @@ export const WatchPage: React.FC<WatchPageProps> = ({
                       UBCEXX Ad Network
                     </span>
                   </div>
-                  <div
-                    className="native-ad-content flex items-center justify-center text-center overflow-x-auto py-1"
-                    dangerouslySetInnerHTML={{ __html: monetization.native_code }}
+                  <DynamicAdContainer
+                    adHtml={monetization.native_code}
+                    className="flex items-center justify-center text-center py-1"
                   />
                 </div>
               )}

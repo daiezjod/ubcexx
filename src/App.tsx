@@ -3,6 +3,7 @@ import { Navbar } from './components/Navbar.tsx';
 import { HeroFeatured } from './components/HeroFeatured.tsx';
 import { VideoCard } from './components/VideoCard.tsx';
 import { WatchPage } from './pages/WatchPage.tsx';
+import { DynamicAdContainer } from './components/DynamicAdContainer.tsx';
 import { Video, Category, MonetizationSettings } from './types.ts';
 import { safeFetchJson } from './utils/api.ts';
 import { Play, Sparkles, Filter, Database, Shield, Radio, RefreshCw } from 'lucide-react';
@@ -342,9 +343,9 @@ export default function App() {
                             UBCEXX Ad Network
                           </span>
                         </div>
-                        <div
+                        <DynamicAdContainer
+                          adHtml={monetization.native_code}
                           className="native-feed-ad flex items-center justify-center overflow-x-auto py-1"
-                          dangerouslySetInnerHTML={{ __html: monetization.native_code }}
                         />
                       </div>
                     )}
