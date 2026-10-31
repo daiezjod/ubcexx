@@ -15,6 +15,8 @@ import {
   SkipForward,
 } from 'lucide-react';
 import { formatDuration } from '../utils/formatters.ts';
+import { safeFetchJson } from '../utils/api.ts';
+import { MonetizationSettings } from '../types.ts';
 
 export interface PreRollAdConfig {
   enabled: boolean;
@@ -27,7 +29,7 @@ async function resolveAdStreamUrl(adUrl: string): Promise<string> {
   const trimmed = (adUrl || '').trim();
   if (!trimmed) return '';
 
-  // Direct video file or stream URL
+  // Direct video file or stream URL (MP4, WebM, HLS m3u8, MKV)
   if (/\.(mp4|webm|m3u8|mov|mkv)(\?.*)?$/i.test(trimmed)) {
     return trimmed;
   }
@@ -38,12 +40,18 @@ async function resolveAdStreamUrl(adUrl: string): Promise<string> {
       const res = await fetch(trimmed, { mode: 'cors' });
       if (res.ok) {
         const text = await res.text();
-        if (text.includes('<MediaFile') || text.includes('<VAST')) {
+        if (text.includes('<MediaFile') || text.includes('<VAST') || text.includes('VASTAdTagURI')) {
           const parser = new DOMParser();
           const doc = parser.parseFromString(text, 'application/xml');
-          const mediaFiles = Array.from(doc.querySelectorAll('MediaFile'));
           
-          // Search for MP4 media file or first available
+          // Check for VAST Wrapper redirect
+          const wrapperUri = doc.querySelector('VASTAdTagURI')?.textContent?.trim();
+          if (wrapperUri && wrapperUri !== trimmed) {
+            return resolveAdStreamUrl(wrapperUri);
+          }
+
+          const mediaFiles = Array.from(doc.querySelectorAll('MediaFile'));
+          // Prefer MP4 format or highest quality
           const mp4File = mediaFiles.find(
             (mf) => (mf.getAttribute('type') || '').includes('mp4') || (mf.textContent || '').includes('.mp4')
           );
@@ -199,34 +207,54 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   };
 
-  const togglePlay = useCallback(() => {
+  const togglePlay = useCallback(async () => {
     if (!videoRef.current) return;
 
-    // Check if Pre-roll Ad should play first
-    if (preRollAd?.enabled && !adFinished && preRollAd.videoUrl && !isAdActive) {
-      setIsAdActive(true);
-      setHasStarted(true);
+    // Support Universal In-Stream Ads: Check D1 dynamically on play
+    if (!adFinished && !isAdActive) {
+      let adConfigToUse = preRollAd;
+      try {
+        const d1Data = await safeFetchJson<{ success: boolean; monetization?: MonetizationSettings }>('/api/monetization');
+        if (d1Data?.success && d1Data.monetization) {
+          adConfigToUse = {
+            enabled: d1Data.monetization.preroll_enabled === 1,
+            videoUrl: d1Data.monetization.preroll_video_url,
+            skipOffset: d1Data.monetization.preroll_skip_offset || 5,
+          };
+        }
+      } catch {
+        // Fall back to preRollAd prop
+      }
 
-      // Dynamically resolve ad network URL (VAST XML tag or direct media stream)
-      resolveAdStreamUrl(preRollAd.videoUrl).then((resolvedSource) => {
-        const streamToPlay = resolvedSource || preRollAd.videoUrl;
-        setActiveSource(streamToPlay);
+      if (adConfigToUse?.enabled && adConfigToUse.videoUrl) {
+        setIsAdActive(true);
+        setHasStarted(true);
+        const timerSeconds = adConfigToUse.skipOffset || 5;
+        setAdCountdown(timerSeconds);
 
-        setTimeout(() => {
-          if (videoRef.current) {
-            videoRef.current.play().then(() => {
-              setIsPlaying(true);
-            }).catch((err) => {
-              console.warn('Ad playback error, smoothly transitioning to main video:', err);
-              handleSkipAd();
-            });
-          }
-        }, 60);
-      }).catch((err) => {
-        console.warn('Ad resolver error, skipping to main stream:', err);
-        handleSkipAd();
-      });
-      return;
+        try {
+          // Dynamically resolve ad network URL (VAST XML tag or direct media stream)
+          const resolvedSource = await resolveAdStreamUrl(adConfigToUse.videoUrl);
+          const streamToPlay = resolvedSource || adConfigToUse.videoUrl;
+          setActiveSource(streamToPlay);
+
+          setTimeout(() => {
+            if (videoRef.current) {
+              videoRef.current.play().then(() => {
+                setIsPlaying(true);
+              }).catch((err) => {
+                console.warn('Ad playback error, smoothly transitioning to main video:', err);
+                handleSkipAd();
+              });
+            }
+          }, 60);
+          return;
+        } catch (err) {
+          console.warn('Ad resolver error, skipping to main stream:', err);
+          handleSkipAd();
+          return;
+        }
+      }
     }
 
     if (videoRef.current.paused) {

@@ -72,6 +72,24 @@ export const DynamicAdContainer: React.FC<DynamicAdContainerProps> = ({
       // Append all non-script elements (HTML, iframes, styles, divs)
       container.appendChild(fragment);
 
+      // Intercept document.write/writeln during script execution so legacy ad network scripts don't wipe the page
+      const originalWrite = document.write.bind(document);
+      const originalWriteln = document.writeln.bind(document);
+      document.write = (html: string) => {
+        try {
+          container.insertAdjacentHTML('beforeend', html);
+        } catch {
+          // ignore
+        }
+      };
+      document.writeln = (html: string) => {
+        try {
+          container.insertAdjacentHTML('beforeend', html + '\n');
+        } catch {
+          // ignore
+        }
+      };
+
       // Sequentially execute and mount the scripts so browser runs them
       scriptExecutables.forEach(({ element, placeholder }) => {
         try {
@@ -84,6 +102,12 @@ export const DynamicAdContainer: React.FC<DynamicAdContainerProps> = ({
           console.warn('Ad script insertion error:', scriptErr);
         }
       });
+
+      // Restore document.write after script attachment queue
+      setTimeout(() => {
+        document.write = originalWrite;
+        document.writeln = originalWriteln;
+      }, 500);
     } catch (err) {
       console.warn('Dynamic ad container render error:', err);
     }
