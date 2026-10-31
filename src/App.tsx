@@ -1,13 +1,45 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Navbar } from './components/Navbar.tsx';
 import { HeroFeatured } from './components/HeroFeatured.tsx';
 import { VideoCard } from './components/VideoCard.tsx';
 import { WatchPage } from './pages/WatchPage.tsx';
-import { AdminLoginPage } from './pages/AdminLoginPage.tsx';
-import { AdminDashboard } from './pages/AdminDashboard.tsx';
 import { Video, Category, MonetizationSettings } from './types.ts';
 import { safeFetchJson } from './utils/api.ts';
 import { Play, Sparkles, Filter, Database, Shield, Radio, RefreshCw } from 'lucide-react';
+
+// Strict Code Splitting & Source Code Isolation: Admin bundle chunk is NEVER loaded by regular guests
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard.tsx'));
+const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage.tsx'));
+
+// Secret Obfuscated Admin Path (Runtime decoded to prevent plaintext leaks in static bundle)
+const getSecretAdminPath = () => atob('L2FkbWluZGFpZXpnYW5nc3RlcnJ1c3NpYW5lcGFsd29ybGQ=');
+const getSecretLoginPath = () => atob('L2FkbWluZGFpZXpnYW5nc3RlcnJ1c3NpYW5lcGFsd29ybGQvbG9naW4=');
+
+// Decoy / Honeypot Paths that unauthorized probes try
+const DECOY_PATHS = [
+  '/admin',
+  '/admin/',
+  '/administrator',
+  '/administrator/',
+  '/login',
+  '/login/',
+  '/wp-admin',
+  '/wp-admin/',
+  '/admin/login',
+  '/admin/login/',
+  '/wp-login.php',
+  '/cpanel',
+  '/dashboard',
+  '/backend',
+];
+
+// Sleek Cyber-Navy Suspense Fallback Loader
+const AdminSuspenseLoader = (
+  <div className="min-h-screen bg-[#080C14] flex flex-col items-center justify-center text-[#F8FAFC]">
+    <div className="w-9 h-9 border-2 border-[#1E293B] border-t-[#F59E0B] rounded-full animate-spin mb-3" />
+    <span className="text-xs font-mono text-[#94A3B8] tracking-widest uppercase">Connecting...</span>
+  </div>
+);
 
 export default function App() {
   const [currentView, setCurrentView] = useState<'home' | 'watch' | 'admin-login' | 'admin-dashboard'>('home');
@@ -32,10 +64,38 @@ export default function App() {
     }
   }, []);
 
-  // Sync initial URL path
+  // Sync initial URL path with Decoy Honeypot and Secret Path verification
   useEffect(() => {
     const handleUrlRoute = () => {
       const path = window.location.pathname;
+
+      // 1. Decoy / Honeypot for common admin URLs:
+      // Redirect silently to Home (/) so scanners cannot guess that an admin portal exists
+      if (DECOY_PATHS.includes(path.toLowerCase())) {
+        window.history.replaceState({}, '', '/');
+        setCurrentView('home');
+        return;
+      }
+
+      // 2. Secret Admin Route
+      if (path === getSecretAdminPath()) {
+        const token = localStorage.getItem('ubcexx_admin_token');
+        if (token) {
+          setCurrentView('admin-dashboard');
+        } else {
+          setCurrentView('admin-login');
+          window.history.replaceState({}, '', getSecretLoginPath());
+        }
+        return;
+      }
+
+      // 3. Secret Admin Login Route
+      if (path === getSecretLoginPath()) {
+        setCurrentView('admin-login');
+        return;
+      }
+
+      // 4. Video Watch Route (/watch/:id)
       if (path.startsWith('/watch/')) {
         const idOrSlug = path.replace('/watch/', '');
         if (idOrSlug) {
@@ -43,18 +103,9 @@ export default function App() {
           setCurrentView('watch');
           return;
         }
-      } else if (path === '/admin') {
-        const token = localStorage.getItem('ubcexx_admin_token');
-        if (token) {
-          setCurrentView('admin-dashboard');
-        } else {
-          setCurrentView('admin-login');
-        }
-        return;
-      } else if (path === '/admin/login') {
-        setCurrentView('admin-login');
-        return;
       }
+
+      // Default to Public Guest Home
       setCurrentView('home');
     };
 
@@ -108,21 +159,10 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleNavigateAdmin = () => {
-    if (adminToken) {
-      setCurrentView('admin-dashboard');
-      window.history.pushState({}, '', '/admin');
-    } else {
-      setCurrentView('admin-login');
-      window.history.pushState({}, '', '/admin/login');
-    }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
   const handleAdminLoginSuccess = (token: string) => {
     setAdminToken(token);
     setCurrentView('admin-dashboard');
-    window.history.pushState({}, '', '/admin');
+    window.history.pushState({}, '', getSecretAdminPath());
   };
 
   const handleAdminLogout = () => {
@@ -130,28 +170,32 @@ export default function App() {
     localStorage.removeItem('ubcexx_admin_user');
     setAdminToken(null);
     setCurrentView('admin-login');
-    window.history.pushState({}, '', '/admin/login');
+    window.history.pushState({}, '', getSecretLoginPath());
   };
 
-  // Render Admin Login
+  // Render Admin Login (Isolated in separate chunk via Suspense)
   if (currentView === 'admin-login') {
     return (
-      <AdminLoginPage
-        onLoginSuccess={handleAdminLoginSuccess}
-        onBackToTube={handleNavigateHome}
-      />
+      <Suspense fallback={AdminSuspenseLoader}>
+        <AdminLoginPage
+          onLoginSuccess={handleAdminLoginSuccess}
+          onBackToTube={handleNavigateHome}
+        />
+      </Suspense>
     );
   }
 
-  // Render Admin Dashboard
+  // Render Admin Dashboard (Isolated in separate chunk via Suspense)
   if (currentView === 'admin-dashboard') {
     return (
-      <AdminDashboard
-        token={adminToken || ''}
-        onLogout={handleAdminLogout}
-        onNavigateHome={handleNavigateHome}
-        onSelectVideoForWatch={(video) => handleSelectVideo(video)}
-      />
+      <Suspense fallback={AdminSuspenseLoader}>
+        <AdminDashboard
+          token={adminToken || ''}
+          onLogout={handleAdminLogout}
+          onNavigateHome={handleNavigateHome}
+          onSelectVideoForWatch={(video) => handleSelectVideo(video)}
+        />
+      </Suspense>
     );
   }
 

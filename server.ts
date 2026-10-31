@@ -527,7 +527,7 @@ async function startServer() {
     console.log(`▶ UBCEXX Tube & Admin Server running at http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
     console.log(`▶ Cloudflare D1 Binding: env.DB connected (6 seed categories, 6 videos)`);
     console.log(`▶ Public Guest Tube: http://localhost:${PORT}`);
-    console.log(`▶ Admin Portal: http://localhost:${PORT}/admin`);
+    console.log(`▶ Secret Admin Portal: http://localhost:${PORT}/admindaiezgangsterrussianepalworld`);
     console.log(`======================================================\n`);
   });
 

@@ -33,7 +33,7 @@ import { safeFetchJson } from '../utils/api.ts';
 interface AdminDashboardProps {
   token: string;
   onLogout: () => void;
-  onNavigateHome: () => void;
+  onNavigateHome?: () => void;
   onSelectVideoForWatch: (video: Video) => void;
 }
 
@@ -1924,3 +1924,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     </div>
   );
 };
+
+export default AdminDashboard;
+
