@@ -13,7 +13,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { Video, MonetizationSettings } from '../types.ts';
-import { VideoPlayer } from '../components/VideoPlayer.tsx';
+import { VideoPlayer, parseOkRuVideoId } from '../components/VideoPlayer.tsx';
 import { VideoCard } from '../components/VideoCard.tsx';
 import { DynamicAdContainer } from '../components/DynamicAdContainer.tsx';
 import { TopSponsoredRail } from '../components/TopSponsoredRail.tsx';
@@ -124,7 +124,10 @@ export const WatchPage: React.FC<WatchPageProps> = ({
   };
 
   const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
-  const embedCode = `<iframe width="100%" height="480" src="${currentUrl}" frameborder="0" allowfullscreen></iframe>`;
+  const okRuEmbedId = video ? parseOkRuVideoId(video.video_url) : null;
+  const embedCode = okRuEmbedId
+    ? `<iframe width="100%" height="480" src="https://ok.ru/videoembed/${okRuEmbedId}?autoplay=1" frameborder="0" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen></iframe>`
+    : `<iframe width="100%" height="480" src="${currentUrl}" frameborder="0" allowfullscreen></iframe>`;
 
   const copyToClipboard = (text: string, isEmbed = false) => {
     navigator.clipboard.writeText(text);
@@ -223,6 +226,24 @@ export const WatchPage: React.FC<WatchPageProps> = ({
                   <span>{formatTimeAgo(video.created_at)}</span>
                   <span aria-hidden="true" className="text-[#253349]">·</span>
                   <span className="text-[#F8FAFC] font-medium">{video.category_name || 'General'}</span>
+
+                  <span aria-hidden="true" className="text-[#253349]">·</span>
+                  {okRuEmbedId ? (
+                    <span
+                      className="inline-flex items-center gap-1 text-[11px] font-mono text-[#F59E0B] bg-[#F59E0B]/10 px-2 py-0.5 rounded border border-[#F59E0B]/30"
+                      title="Stream playing via OK.ru Embed Engine"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-pulse" />
+                      <span>OK.ru Embed</span>
+                    </span>
+                  ) : (
+                    <span
+                      className="inline-flex items-center gap-1 text-[11px] font-mono text-[#38BDF8] bg-[#38BDF8]/10 px-2 py-0.5 rounded border border-[#38BDF8]/30"
+                      title="Direct high-bitrate video stream"
+                    >
+                      <span>Direct 4K Stream</span>
+                    </span>
+                  )}
 
                   {video.backup_video_url && (
                     <>
