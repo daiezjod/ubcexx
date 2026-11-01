@@ -456,11 +456,13 @@ app.post(['/api/monetization', '/api/admin/monetization'], async (req: Request, 
       native_enabled,
       native_code,
       native_placements,
+      top_rail_enabled,
+      top_rail_cards,
     } = req.body;
 
     const stmt = d1DB.prepare(`
-      INSERT INTO monetization (id, preroll_enabled, preroll_video_url, preroll_click_url, preroll_skip_offset, native_enabled, native_code, native_placements, updated_at)
-      VALUES (1, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      INSERT INTO monetization (id, preroll_enabled, preroll_video_url, preroll_click_url, preroll_skip_offset, native_enabled, native_code, native_placements, top_rail_enabled, top_rail_cards, updated_at)
+      VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
       ON CONFLICT (id) DO UPDATE SET
         preroll_enabled = excluded.preroll_enabled,
         preroll_video_url = excluded.preroll_video_url,
@@ -469,6 +471,8 @@ app.post(['/api/monetization', '/api/admin/monetization'], async (req: Request, 
         native_enabled = excluded.native_enabled,
         native_code = excluded.native_code,
         native_placements = excluded.native_placements,
+        top_rail_enabled = excluded.top_rail_enabled,
+        top_rail_cards = excluded.top_rail_cards,
         updated_at = datetime('now')
     `).bind(
       preroll_enabled ? 1 : 0,
@@ -477,7 +481,9 @@ app.post(['/api/monetization', '/api/admin/monetization'], async (req: Request, 
       Number(preroll_skip_offset) || 5,
       native_enabled ? 1 : 0,
       native_code || '',
-      native_placements || 'under_player,in_feed'
+      native_placements || 'top_rail,under_player,in_feed',
+      top_rail_enabled !== undefined ? (Number(top_rail_enabled) === 1 ? 1 : 0) : 1,
+      typeof top_rail_cards === 'string' ? top_rail_cards : JSON.stringify(top_rail_cards || [])
     );
 
     await stmt.run();

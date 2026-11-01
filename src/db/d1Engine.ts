@@ -1,5 +1,8 @@
 import fs from 'fs';
 import path from 'path';
+import { defaultTopRailCards } from '../constants/ads.ts';
+
+export { defaultTopRailCards };
 
 export interface Category {
   id: number;
@@ -44,6 +47,8 @@ export interface MonetizationSettings {
   native_enabled: number;
   native_code: string;
   native_placements: string;
+  top_rail_enabled?: number;
+  top_rail_cards?: string;
   updated_at?: string;
 }
 
@@ -190,7 +195,9 @@ const initialMonetization: MonetizationSettings = {
   preroll_skip_offset: 5,
   native_enabled: 1,
   native_code: '<div style="background:linear-gradient(135deg, #131C2E, #0F172A);border:1px solid #253349;padding:16px;border-radius:12px;text-align:center;color:#F8FAFC;"><span style="color:#F59E0B;font-weight:800;font-size:11px;letter-spacing:1px;text-transform:uppercase;">SPONSORED PARTNER</span><h4 style="margin:6px 0;font-size:15px;font-weight:700;">CYBERPUNK VPN · 80% OFF ULTRA-SPEED BANDWIDTH</h4><p style="margin:0 0 10px 0;font-size:12px;color:#94A3B8;">Zero latency streaming with anonymous P2P routing across 120 global edge locations.</p><a href="https://ubcexx.com/vpn-deal" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#F59E0B;color:#000000;font-weight:700;font-size:12px;padding:6px 16px;border-radius:8px;text-decoration:none;">CLAIM EXCLUSIVE 80% OFF →</a></div>',
-  native_placements: 'under_player,in_feed',
+  native_placements: 'top_rail,under_player,in_feed',
+  top_rail_enabled: 1,
+  top_rail_cards: JSON.stringify(defaultTopRailCards),
   updated_at: new Date().toISOString(),
 };
 
@@ -218,6 +225,16 @@ export class CloudflareD1Database {
           });
           if (!parsed.monetization) {
             parsed.monetization = initialMonetization;
+          } else {
+            if (parsed.monetization.top_rail_enabled === undefined) {
+              parsed.monetization.top_rail_enabled = 1;
+            }
+            if (!parsed.monetization.top_rail_cards) {
+              parsed.monetization.top_rail_cards = JSON.stringify(defaultTopRailCards);
+            }
+            if (!parsed.monetization.native_placements?.includes('top_rail')) {
+              parsed.monetization.native_placements = `top_rail,${parsed.monetization.native_placements || 'under_player,in_feed'}`;
+            }
           }
           return parsed;
         }
@@ -572,6 +589,8 @@ export class D1PreparedStatement {
         native_enabled,
         native_code,
         native_placements,
+        top_rail_enabled,
+        top_rail_cards,
       ] = this.boundValues;
 
       state.monetization = {
@@ -582,7 +601,9 @@ export class D1PreparedStatement {
         preroll_skip_offset: Number(preroll_skip_offset) || 5,
         native_enabled: Number(native_enabled) === 1 ? 1 : 0,
         native_code: String(native_code || ''),
-        native_placements: String(native_placements || 'under_player,in_feed'),
+        native_placements: String(native_placements || 'top_rail,under_player,in_feed'),
+        top_rail_enabled: top_rail_enabled !== undefined ? (Number(top_rail_enabled) === 1 ? 1 : 0) : (state.monetization?.top_rail_enabled ?? 1),
+        top_rail_cards: top_rail_cards !== undefined ? String(top_rail_cards) : (state.monetization?.top_rail_cards || JSON.stringify(defaultTopRailCards)),
         updated_at: new Date().toISOString(),
       };
       changes = 1;

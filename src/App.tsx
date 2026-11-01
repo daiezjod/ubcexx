@@ -4,6 +4,7 @@ import { HeroFeatured } from './components/HeroFeatured.tsx';
 import { VideoCard } from './components/VideoCard.tsx';
 import { WatchPage } from './pages/WatchPage.tsx';
 import { DynamicAdContainer } from './components/DynamicAdContainer.tsx';
+import { TopSponsoredRail } from './components/TopSponsoredRail.tsx';
 import { Video, Category, MonetizationSettings } from './types.ts';
 import { safeFetchJson } from './utils/api.ts';
 import { Play, Sparkles, Filter, Database, Shield, Radio, RefreshCw } from 'lucide-react';
@@ -235,7 +236,7 @@ export default function App() {
   // Render Public Tube Home Page
   return (
     <div className="min-h-screen bg-[#080C14] text-[#F8FAFC] flex flex-col selection:bg-[#F59E0B] selection:text-black">
-      {/* Top Navbar */}
+      {/* Top Navbar with Category Pills */}
       <Navbar
         categories={categories}
         selectedCategoryId={selectedCategoryId}
@@ -245,8 +246,11 @@ export default function App() {
         onNavigateHome={handleNavigateHome}
       />
 
+      {/* xHamster-style Top Native Sponsored Rail (1:1 Aspect Ratio) */}
+      <TopSponsoredRail monetization={monetization} />
+
       {/* Main Browse Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
         
         {/* Hero Featured Video Banner (Shown on home when no active search/category filter) */}
         {!searchQuery && selectedCategoryId === null && featuredVideos.length > 0 && (

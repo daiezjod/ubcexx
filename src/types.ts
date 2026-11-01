@@ -46,6 +46,14 @@ export interface AdminUser {
   role: string;
 }
 
+export interface TopRailCard {
+  id: string;
+  title: string;
+  image_url: string;
+  badge_text: string;
+  click_url: string;
+}
+
 export interface MonetizationSettings {
   id: number;
   preroll_enabled: number; // 1 or 0
@@ -54,6 +62,9 @@ export interface MonetizationSettings {
   preroll_skip_offset: number; // in seconds
   native_enabled: number; // 1 or 0
   native_code: string;
-  native_placements: string; // comma-separated e.g. "under_player,in_feed"
+  native_placements: string; // comma-separated e.g. "top_rail,under_player,in_feed"
+  top_rail_enabled?: number; // 1 or 0
+  top_rail_cards?: string; // JSON string of TopRailCard[]
   updated_at?: string;
 }
+

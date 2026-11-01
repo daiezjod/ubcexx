@@ -25,9 +25,15 @@ import {
   Megaphone,
   Sliders,
   Tv,
+  LayoutGrid,
+  Image as ImageIcon,
+  Link as LinkIcon,
+  RotateCcw,
+  Plus,
 } from 'lucide-react';
-import { Video, Category, AdminStats, MonetizationSettings } from '../types.ts';
+import { Video, Category, AdminStats, MonetizationSettings, TopRailCard } from '../types.ts';
 import { DynamicAdContainer } from '../components/DynamicAdContainer.tsx';
+import { defaultTopRailCards } from '../constants/ads.ts';
 import { formatDuration, formatViews, formatNumber, formatTimeAgo } from '../utils/formatters.ts';
 import { safeFetchJson } from '../utils/api.ts';
 
@@ -58,8 +64,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [prerollSkipOffset, setPrerollSkipOffset] = useState('5');
   const [nativeEnabled, setNativeEnabled] = useState(true);
   const [nativeCode, setNativeCode] = useState('');
+  const [placementTopRail, setPlacementTopRail] = useState(true);
   const [placementUnderPlayer, setPlacementUnderPlayer] = useState(true);
   const [placementInFeed, setPlacementInFeed] = useState(true);
+  const [topRailCards, setTopRailCards] = useState<TopRailCard[]>(defaultTopRailCards);
   const [isSavingMonetization, setIsSavingMonetization] = useState(false);
   const [monetizationSubTab, setMonetizationSubTab] = useState<'preroll' | 'native'>('preroll');
 
@@ -192,8 +200,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             setNativeEnabled(m.native_enabled === 1);
             setNativeCode(m.native_code || '');
             const placements = (m.native_placements || '').split(',');
+            setPlacementTopRail(placements.includes('top_rail') || m.top_rail_enabled === 1 || !m.native_placements);
             setPlacementUnderPlayer(placements.includes('under_player'));
             setPlacementInFeed(placements.includes('in_feed'));
+
+            if (m.top_rail_cards) {
+              try {
+                const parsedCards = JSON.parse(m.top_rail_cards);
+                if (Array.isArray(parsedCards) && parsedCards.length > 0) {
+                  setTopRailCards(parsedCards);
+                }
+              } catch {
+                setTopRailCards(defaultTopRailCards);
+              }
+            }
           }
         }
       } catch (err) {
@@ -407,6 +427,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setIsSavingMonetization(true);
     try {
       const placements: string[] = [];
+      if (placementTopRail) placements.push('top_rail');
       if (placementUnderPlayer) placements.push('under_player');
       if (placementInFeed) placements.push('in_feed');
 
@@ -424,6 +445,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           native_enabled: nativeEnabled ? 1 : 0,
           native_code: nativeCode,
           native_placements: placements.join(','),
+          top_rail_enabled: placementTopRail ? 1 : 0,
+          top_rail_cards: JSON.stringify(topRailCards),
         }),
       });
 
@@ -445,6 +468,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     } finally {
       setIsSavingMonetization(false);
     }
+  };
+
+  const handleUpdateCard = (index: number, field: keyof TopRailCard, value: string) => {
+    setTopRailCards((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  const handleAddCard = () => {
+    const newCard: TopRailCard = {
+      id: `rail-${Date.now()}`,
+      title: 'NEW SPONSORED STREAM · VIP Partner Pass',
+      image_url: '/src/assets/images/ubcexx_hero_cyberpunk_1793264277456.jpg',
+      badge_text: 'Promo',
+      click_url: 'https://ubcexx.com/vip-offer',
+    };
+    setTopRailCards((prev) => [...prev, newCard]);
+  };
+
+  const handleDeleteCard = (index: number) => {
+    if (topRailCards.length <= 1) {
+      showNotification('error', 'Must keep at least 1 sponsored card in rail');
+      return;
+    }
+    setTopRailCards((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleResetCards = () => {
+    setTopRailCards(defaultTopRailCards);
+    showNotification('success', 'Reset sponsored cards to 6 default presets');
   };
 
   // Execute D1 SQL query
@@ -1577,7 +1632,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <label className="block text-xs font-semibold text-[#F8FAFC] uppercase tracking-wider mb-2">
                       Placement Zones
                     </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {/* Top Native Sponsored Rail (1:1 Square) */}
+                      <label className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                        placementTopRail
+                          ? 'bg-[#0F172A] border-[#F59E0B]/60 shadow-sm'
+                          : 'bg-[#131C2E] border-[#1E293B] opacity-70'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={placementTopRail}
+                          onChange={(e) => setPlacementTopRail(e.target.checked)}
+                          className="mt-0.5 w-4 h-4 rounded text-[#F59E0B] focus:ring-[#F59E0B] accent-[#F59E0B] cursor-pointer"
+                        />
+                        <div>
+                          <strong className="text-xs text-[#F8FAFC] block font-semibold flex items-center gap-1.5">
+                            <span>Top Native Rail (1:1)</span>
+                            <span className="text-[9px] bg-[#F59E0B]/20 text-[#F59E0B] px-1.5 py-0.2 rounded font-mono">
+                              Square
+                            </span>
+                          </strong>
+                          <span className="text-[11px] text-[#94A3B8]">
+                            xHamster-style square card rail directly below categories on Home &amp; Watch.
+                          </span>
+                        </div>
+                      </label>
+
                       {/* Under Player */}
                       <label className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
                         placementUnderPlayer
@@ -1624,6 +1704,186 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
 
+                  {/* Top Native Sponsored Rail (1:1 Ratio) Live Preview */}
+                  <div className="p-4 bg-[#080C14] border border-[#1E293B] rounded-xl space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#1E293B] pb-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <LayoutGrid className="w-4 h-4 text-[#F59E0B]" />
+                          <h4 className="text-xs font-bold text-[#F8FAFC] uppercase tracking-wider">
+                            Top Native Sponsored Rail Live Preview (1:1 Aspect Ratio)
+                          </h4>
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#10B981]/15 text-[#10B981]">
+                            {placementTopRail ? 'Enabled' : 'Disabled'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-[#94A3B8] mt-0.5">
+                          Strictly 1:1 square thumbnails, bottom gradient overlay, white bold 2-line title, and glowing cyber badges.
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleAddCard}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] text-[11px] font-bold text-[#F8FAFC] cursor-pointer transition-colors"
+                        >
+                          <Plus className="w-3.5 h-3.5 text-[#F59E0B]" />
+                          <span>Add Card</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleResetCards}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] text-[11px] font-semibold text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer transition-colors"
+                          title="Reset to 6 Default Cyberpunk Presets"
+                        >
+                          <RotateCcw className="w-3 h-3 text-[#94A3B8]" />
+                          <span>Reset</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Rail Preview Cards */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 pt-1">
+                      {topRailCards.map((card, idx) => (
+                        <div
+                          key={card.id || idx}
+                          className="group relative rounded-xl overflow-hidden bg-[#0F172A] border border-[#1E293B] hover:border-[#F59E0B] transition-all shadow-sm"
+                        >
+                          {/* Strict 1:1 Square */}
+                          <div className="relative w-full aspect-square overflow-hidden bg-[#131C2E]">
+                            <img
+                              src={card.image_url}
+                              alt={card.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src =
+                                  '/src/assets/images/ubcexx_hero_cyberpunk_1793264277456.jpg';
+                              }}
+                            />
+                            {/* Glowing Badge */}
+                            <div className="absolute top-1.5 left-1.5 z-10">
+                              <span className="text-[8px] font-mono uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-full bg-[#F59E0B]/25 text-[#F59E0B] border border-[#F59E0B]/40 backdrop-blur-sm">
+                                {card.badge_text || 'Sponsored'}
+                              </span>
+                            </div>
+                            {/* Bottom Dark Gradient */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent pointer-events-none" />
+                            {/* Title (2 lines clamp) */}
+                            <div className="absolute bottom-0 inset-x-0 p-2 z-10 pointer-events-none">
+                              <p className="text-[11px] font-bold text-[#F8FAFC] leading-snug line-clamp-2">
+                                {card.title}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Top Native Rail Cards Editor List */}
+                  <div className="bg-[#080C14] border border-[#1E293B] rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-[#F8FAFC] uppercase tracking-wider flex items-center gap-1.5">
+                        <ImageIcon className="w-3.5 h-3.5 text-[#F59E0B]" />
+                        <span>Manage Top Rail Sponsored Cards ({topRailCards.length} configured in D1)</span>
+                      </span>
+                      <span className="text-[10px] text-[#94A3B8] font-mono">
+                        Stored in D1 'monetization.top_rail_cards'
+                      </span>
+                    </div>
+
+                    <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
+                      {topRailCards.map((card, idx) => (
+                        <div
+                          key={card.id || idx}
+                          className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 bg-[#0F172A] border border-[#1E293B] rounded-xl"
+                        >
+                          {/* 1:1 Thumbnail preview */}
+                          <div className="relative w-14 h-14 aspect-square rounded-lg overflow-hidden bg-[#131C2E] shrink-0 border border-[#253349]">
+                            <img
+                              src={card.image_url}
+                              alt={card.title}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src =
+                                  '/src/assets/images/ubcexx_hero_cyberpunk_1793264277456.jpg';
+                              }}
+                            />
+                            <span className="absolute bottom-0 inset-x-0 bg-black/70 text-[8px] font-mono text-center text-[#F59E0B] py-0.5">
+                              1:1 Ratio
+                            </span>
+                          </div>
+
+                          {/* Inputs */}
+                          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 w-full">
+                            <div>
+                              <label className="text-[9px] uppercase tracking-wider text-[#94A3B8] block mb-0.5">
+                                Title (2 Lines)
+                              </label>
+                              <input
+                                type="text"
+                                value={card.title}
+                                onChange={(e) => handleUpdateCard(idx, 'title', e.target.value)}
+                                className="w-full bg-[#131C2E] text-xs text-[#F8FAFC] px-2.5 py-1.5 rounded-lg border border-[#253349] focus:outline-none focus:border-[#F59E0B]"
+                                placeholder="Card Title"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[9px] uppercase tracking-wider text-[#94A3B8] block mb-0.5">
+                                Badge Text
+                              </label>
+                              <input
+                                type="text"
+                                value={card.badge_text}
+                                onChange={(e) => handleUpdateCard(idx, 'badge_text', e.target.value)}
+                                className="w-full bg-[#131C2E] text-xs text-[#F8FAFC] px-2.5 py-1.5 rounded-lg border border-[#253349] focus:outline-none focus:border-[#F59E0B]"
+                                placeholder="Sponsored / Live / Promo"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[9px] uppercase tracking-wider text-[#94A3B8] block mb-0.5">
+                                Image URL (Square 1:1)
+                              </label>
+                              <input
+                                type="text"
+                                value={card.image_url}
+                                onChange={(e) => handleUpdateCard(idx, 'image_url', e.target.value)}
+                                className="w-full bg-[#131C2E] text-xs text-[#F8FAFC] px-2.5 py-1.5 rounded-lg border border-[#253349] focus:outline-none focus:border-[#F59E0B]"
+                                placeholder="Image URL (1:1 Ratio)"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[9px] uppercase tracking-wider text-[#94A3B8] block mb-0.5">
+                                Click / Destination URL
+                              </label>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="text"
+                                  value={card.click_url}
+                                  onChange={(e) => handleUpdateCard(idx, 'click_url', e.target.value)}
+                                  className="w-full bg-[#131C2E] text-xs text-[#F8FAFC] px-2.5 py-1.5 rounded-lg border border-[#253349] focus:outline-none focus:border-[#F59E0B]"
+                                  placeholder="https://..."
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteCard(idx)}
+                                  className="p-1.5 rounded-lg bg-[#3B0713] hover:bg-[#4C0D1A] text-[#FB7185] border border-[#4C0D1A] cursor-pointer shrink-0"
+                                  title="Remove card"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* Ad Script / HTML Code box */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
@@ -1644,6 +1904,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     {/* Code Presets */}
                     <div className="flex flex-wrap items-center gap-1.5 mt-2">
                       <span className="text-[10px] text-[#94A3B8]">Ad Presets:</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setNativeCode(
+                            `<div class="top-rail-adsterra-widget" style="width:100%;text-align:center;"><div style="display:inline-block;padding:12px 20px;background:#131C2E;border:1px dashed #F59E0B;border-radius:10px;color:#F8FAFC;font-size:12px;"><span style="color:#F59E0B;font-weight:bold;margin-right:8px;">[TOP RAIL AD NETWORK]</span> ExoClick / Adsterra / JuicyAds 1:1 or Banner snippet active</div></div>`
+                          )
+                        }
+                        className="text-[10px] bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] px-2 py-0.5 rounded text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer"
+                      >
+                        Top Rail Ad Widget
+                      </button>
                       <button
                         type="button"
                         onClick={() =>
@@ -1704,10 +1975,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-[11px] font-semibold text-[#94A3B8] flex items-center gap-1.5">
                           <Eye className="w-3.5 h-3.5 text-[#F59E0B]" />
-                          <span>Live Native Ad Render Preview</span>
+                          <span>Live Custom Ad Code Render Preview</span>
                         </span>
                         <span className="text-[10px] font-mono text-[#10B981]">
-                          Container styled in theme
+                          Dynamic DOM Injection Ready
                         </span>
                       </div>
                       <div className="p-4 bg-[#0F172A] border border-[#1E293B] rounded-xl overflow-x-auto flex items-center justify-center">

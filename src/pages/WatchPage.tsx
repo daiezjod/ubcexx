@@ -16,6 +16,7 @@ import { Video, MonetizationSettings } from '../types.ts';
 import { VideoPlayer } from '../components/VideoPlayer.tsx';
 import { VideoCard } from '../components/VideoCard.tsx';
 import { DynamicAdContainer } from '../components/DynamicAdContainer.tsx';
+import { TopSponsoredRail } from '../components/TopSponsoredRail.tsx';
 import { formatDuration, formatViews, formatTimeAgo, formatNumber } from '../utils/formatters.ts';
 import { safeFetchJson } from '../utils/api.ts';
 
@@ -168,7 +169,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
   return (
     <div className="min-h-screen pb-16">
       {/* Top Breadcrumb / Return */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-3">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-1">
         <button
           onClick={onBackToHome}
           className="inline-flex items-center gap-2 text-xs font-semibold text-[#94A3B8] hover:text-[#F8FAFC] transition-colors cursor-pointer group"
@@ -177,6 +178,9 @@ export const WatchPage: React.FC<WatchPageProps> = ({
           <span>Back to All Streams</span>
         </button>
       </div>
+
+      {/* xHamster-style Top Native Sponsored Rail (1:1 Ratio) */}
+      <TopSponsoredRail monetization={monetization} isWatchPage />
 
       {/* Main Container - Responsive 2-column or Theater view */}
       <div className={`mx-auto px-4 sm:px-6 lg:px-8 ${isTheaterMode ? 'max-w-full' : 'max-w-7xl'}`}>
