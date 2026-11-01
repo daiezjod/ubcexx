@@ -82,7 +82,7 @@ export const TopSponsoredRail: React.FC<TopSponsoredRailProps> = ({
   return (
     <section
       aria-label="Sponsored Channels & Partners"
-      className={`w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-4 ${className}`}
+      className={`w-full max-w-7xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 pt-3 pb-3 sm:pb-4 ${className}`}
     >
       {/* Rail Header with Subtle Sponsor Badge & Scroll Buttons */}
       <div className="flex items-center justify-between mb-2.5">

@@ -142,6 +142,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [hasStarted, setHasStarted] = useState(false);
   const [hasReportedView, setHasReportedView] = useState(false);
 
+  // OK.ru Iframe Loading State for seamless animated transition
+  const [isIframeLoading, setIsIframeLoading] = useState<boolean>(true);
+
   // Sync state whenever primary, backup URL, or pre-roll config changes
   useEffect(() => {
     setActiveSource(videoUrl);
@@ -150,6 +153,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setAdFinished(false);
     setAdCountdown(preRollAd?.skipOffset || 5);
     setCanSkipAd(false);
+    setIsIframeLoading(true);
     savedTimestampRef.current = 0;
     wasPlayingRef.current = false;
     setCurrentTime(0);
@@ -157,6 +161,17 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setHasStarted(false);
     setHasReportedView(false);
   }, [videoUrl, backupVideoUrl, preRollAd?.videoUrl, preRollAd?.enabled]);
+
+  // Safety timer so loading state smoothly fades out even if cross-origin iframe load is deferred
+  useEffect(() => {
+    if (isOkRuActive && !isAdActive) {
+      setIsIframeLoading(true);
+      const timer = window.setTimeout(() => {
+        setIsIframeLoading(false);
+      }, 4500);
+      return () => window.clearTimeout(timer);
+    }
+  }, [isOkRuActive, isAdActive, okRuId, activeSource]);
 
   // When an OK.ru iframe is actively mounted and ad is not playing, record view once
   useEffect(() => {
@@ -220,6 +235,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   // Manual Toggle between Primary and Backup Streams
   const handleToggleSource = () => {
+    setIsIframeLoading(true);
     if (hasFailedOver) {
       setHasFailedOver(false);
       setActiveSource(videoUrl);
@@ -487,16 +503,58 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     >
       {/* CASE 1: OK.ru Embed Mode (when activeSource contains ok.ru and pre-roll ad is not active) */}
       {isOkRuActive && !isAdActive ? (
-        <div className="relative w-full h-full aspect-video bg-black">
+        <div className="relative w-full h-full aspect-video bg-black overflow-hidden">
+          {/* Seamless Animated Loading State Backdrop (prevents blank black screen) */}
+          <div
+            className={`absolute inset-0 z-10 flex flex-col items-center justify-center transition-opacity duration-500 ease-out select-none ${
+              isIframeLoading ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+            }`}
+          >
+            {/* Blurry Animated Thumbnail Backdrop */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              <img
+                src={thumbnailUrl}
+                alt={title}
+                className="w-full h-full object-cover scale-110 filter blur-md brightness-50 transition-transform duration-1000 ease-out"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/src/assets/images/ubcexx_hero_cyberpunk_1793264277456.jpg';
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#080C14] via-[#080C14]/70 to-[#080C14]/50 backdrop-blur-md" />
+            </div>
+
+            {/* Centered Pulsing Amber Spinner & Glowing Badge */}
+            <div className="relative z-10 flex flex-col items-center gap-3.5 text-center px-4">
+              <div className="relative flex items-center justify-center">
+                <div className="w-14 h-14 rounded-full border-3 border-[#1E293B] border-t-[#F59E0B] animate-spin shadow-lg shadow-[#F59E0B]/20" />
+                <div className="absolute w-8 h-8 rounded-full bg-[#F59E0B]/20 animate-ping" />
+              </div>
+
+              <div className="flex flex-col items-center gap-1.5">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#131C2E]/90 border border-[#F59E0B]/50 shadow-[0_0_20px_rgba(245,158,11,0.3)]">
+                  <span className="w-2 h-2 rounded-full bg-[#F59E0B] animate-pulse" />
+                  <span className="text-xs font-bold text-[#F8FAFC] tracking-wide">
+                    ⚡ Initializing Ultra-Fast Stream...
+                  </span>
+                </div>
+                <span className="text-[11px] font-mono text-[#94A3B8]/90">
+                  Connecting to OK.ru High-Bitrate CDN Engine
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* OK.ru Responsive Iframe Embed with Eager Loading & onLoad Transition */}
           <iframe
             key={`okru-${okRuId}`}
             src={`https://ok.ru/videoembed/${okRuId}?autoplay=1`}
             title={title}
             loading="eager"
             {...({ fetchpriority: 'high', fetchPriority: 'high' } as any)}
-            className="w-full h-full aspect-video border-0 rounded-2xl"
+            className="w-full h-full aspect-video border-0"
             allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
             allowFullScreen
+            onLoad={() => setIsIframeLoading(false)}
           />
 
           {/* Floating Stream Source Status & Failover Switcher */}

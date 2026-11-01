@@ -249,8 +249,8 @@ export default function App() {
       {/* xHamster-style Top Native Sponsored Rail (1:1 Aspect Ratio) */}
       <TopSponsoredRail monetization={monetization} />
 
-      {/* Main Browse Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+      {/* Main Browse Container with optimized compact mobile padding */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-6">
         
         {/* Hero Featured Video Banner (Shown on home when no active search/category filter) */}
         {!searchQuery && selectedCategoryId === null && featuredVideos.length > 0 && (
@@ -261,10 +261,10 @@ export default function App() {
         )}
 
         {/* Section Header: Feed Title & Count */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-3 border-b border-[#1E293B]">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl sm:text-2xl font-black text-[#F8FAFC] font-display tracking-tight flex items-center gap-2">
-              <span className="w-2.5 h-6 bg-[#F59E0B] rounded-sm inline-block" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6 pb-2.5 sm:pb-3 border-b border-[#1E293B]">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <h2 className="text-lg sm:text-2xl font-black text-[#F8FAFC] font-display tracking-tight flex items-center gap-2">
+              <span className="w-2 sm:w-2.5 h-5 sm:h-6 bg-[#F59E0B] rounded-sm inline-block" />
               <span>
                 {searchQuery
                   ? `Search Results for "${searchQuery}"`
@@ -273,7 +273,7 @@ export default function App() {
                   : 'Trending & Latest Streams'}
               </span>
             </h2>
-            <span className="text-xs text-[#94A3B8] font-mono">
+            <span className="text-[11px] sm:text-xs text-[#94A3B8] font-mono">
               ({videos.length} available)
             </span>
           </div>
@@ -319,9 +319,9 @@ export default function App() {
             </button>
           </div>
         ) : (
-          /* Video Grid (Tube style responsive grid) */
+          /* Video Grid (Compact multi-column xHamster style tube grid) */
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-6">
+            <div className="grid grid-cols-2 min-[440px]:grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
               {videos.map((video, index) => (
                 <React.Fragment key={video.id}>
                   <VideoCard
@@ -335,7 +335,7 @@ export default function App() {
                     monetization.native_enabled === 1 &&
                     monetization.native_placements?.includes('in_feed') &&
                     monetization.native_code && (
-                      <div className="col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-4 my-2 p-4 rounded-2xl bg-[#0F172A] border border-[#1E293B] shadow-xl relative overflow-hidden group">
+                      <div className="col-span-2 min-[440px]:col-span-3 sm:col-span-3 md:col-span-4 lg:col-span-5 my-2 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-[#0F172A] border border-[#1E293B] shadow-xl relative overflow-hidden group">
                         <div className="flex items-center justify-between pb-2 mb-3 border-b border-[#1E293B]">
                           <div className="flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-[#F59E0B] animate-pulse" />
