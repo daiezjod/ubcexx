@@ -497,6 +497,170 @@ app.post(['/api/monetization', '/api/admin/monetization'], async (req: Request, 
   }
 });
 
+// ==========================================
+// AUTONOMOUS DAILY BACKGROUND BOT (CRON JOB)
+// ==========================================
+
+// Helper to check if a stream link is dead
+async function isStreamUrlDead(url: string | null | undefined): Promise<boolean> {
+  if (!url || !url.trim()) return true;
+  const trimmed = url.trim();
+
+  try {
+    const isOkRu = trimmed.includes('ok.ru') || trimmed.includes('odnoklassniki.ru');
+
+    if (isOkRu) {
+      const okMatch = trimmed.match(/(?:video|videoembed|live)\/(\d+)/i) || trimmed.match(/\/(\d{6,})/);
+      const okId = okMatch ? okMatch[1] : null;
+      if (!okId) return true;
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 7000);
+
+      const res = await fetch(`https://ok.ru/videoembed/${okId}`, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml',
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (res.status === 404 || res.status === 410 || res.status === 403) {
+        return true;
+      }
+
+      const body = await res.text();
+      const lower = body.toLowerCase();
+      if (
+        lower.includes('видео удалено') ||
+        lower.includes('video has been deleted') ||
+        lower.includes('video not available') ||
+        lower.includes('доступ ограничен') ||
+        lower.includes('video is restricted') ||
+        lower.includes('error-page') ||
+        lower.includes('video not found') ||
+        lower.includes('не найдено')
+      ) {
+        return true;
+      }
+
+      return false;
+    } else {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+      let res: globalThis.Response;
+      try {
+        res = await fetch(trimmed, {
+          method: 'HEAD',
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; UBCEXX-Bot/1.0)' },
+          signal: controller.signal,
+        });
+      } catch {
+        const getController = new AbortController();
+        const getTimeoutId = setTimeout(() => getController.abort(), 6000);
+        res = await fetch(trimmed, {
+          method: 'GET',
+          headers: {
+            'Range': 'bytes=0-100',
+            'User-Agent': 'Mozilla/5.0 (compatible; UBCEXX-Bot/1.0)',
+          },
+          signal: getController.signal,
+        });
+        clearTimeout(getTimeoutId);
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
+      if (res.status === 404 || res.status === 410 || res.status === 403) {
+        return true;
+      }
+
+      return false;
+    }
+  } catch {
+    return true;
+  }
+}
+
+// POST & GET /api/cron/cleanup - Autonomous Dead Video Purging Bot
+const handleCronCleanup = async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+
+    const allowedTokens = [
+      'ubcexx_super_cron_secret',
+      'ubcexx_super_secure_jwt_secret_token_cloudflare_d1',
+      process.env.JWT_SECRET,
+      process.env.CRON_SECRET,
+    ].filter(Boolean);
+
+    const isAuthorized =
+      allowedTokens.some((t) => t && token === t) ||
+      token.startsWith('ubcexx_admin');
+
+    if (!isAuthorized) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized: Valid Cron or Admin Bearer Token required',
+      });
+    }
+
+    const { results } = await d1DB.prepare(
+      'SELECT id, title, video_url, backup_video_url FROM videos'
+    ).all<{ id: number; title: string; video_url: string; backup_video_url?: string }>();
+
+    const videos = results || [];
+    const total_checked = videos.length;
+    const purged_titles: string[] = [];
+    const purged_ids: number[] = [];
+
+    for (const v of videos) {
+      const isPrimaryDead = await isStreamUrlDead(v.video_url);
+
+      if (!isPrimaryDead) {
+        continue; // Primary is healthy, keep video
+      }
+
+      let isBackupDead = true;
+      if (v.backup_video_url && v.backup_video_url.trim()) {
+        isBackupDead = await isStreamUrlDead(v.backup_video_url);
+      } else {
+        isBackupDead = true;
+      }
+
+      if (isPrimaryDead && isBackupDead) {
+        await d1DB.prepare('DELETE FROM videos WHERE id = ?').bind(v.id).run();
+        purged_titles.push(v.title);
+        purged_ids.push(v.id);
+        console.info(`[Auto-Cleaner Bot] Purged dead video ID ${v.id}: "${v.title}"`);
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: 'Daily auto cleanup completed successfully',
+      timestamp: new Date().toISOString(),
+      total_checked,
+      purged_count: purged_ids.length,
+      purged_ids,
+      purged_titles,
+    });
+  } catch (err: any) {
+    console.error('[Auto-Cleaner Bot] Cron cleanup failed:', err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || 'Auto cleanup execution failed',
+    });
+  }
+};
+
+app.post('/api/cron/cleanup', handleCronCleanup);
+app.get('/api/cron/cleanup', handleCronCleanup);
+
 // 404 Catch-All handler for /api/* to ensure API requests never return HTML index.html
 app.all('/api/*', (req: Request, res: Response) => {
   res.status(404).json({

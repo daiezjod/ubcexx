@@ -6,15 +6,9 @@ import {
   VolumeX,
   Maximize,
   Minimize,
-  Settings,
-  RotateCcw,
   PictureInPicture,
   Tv,
-  ShieldCheck,
-  ShieldAlert,
   SkipForward,
-  Radio,
-  ExternalLink,
 } from 'lucide-react';
 import { formatDuration } from '../utils/formatters.ts';
 import { safeFetchJson } from '../utils/api.ts';
@@ -185,7 +179,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const handleSkipAd = useCallback(() => {
     setIsAdActive(false);
     setAdFinished(true);
-    const mainStreamUrl = hasFailedOver && backupVideoUrl ? backupVideoUrl : videoUrl;
+    const mainStreamUrl = hasFailedOver && backupVideoUrl ? backupVideoUrl : (videoUrl || backupVideoUrl || '');
     setActiveSource(mainStreamUrl);
     setCurrentTime(0);
     setDuration(0);
@@ -209,41 +203,33 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             setHasReportedView(true);
             onFirstPlay();
           }
-        }).catch(err => console.warn('Main video auto-play error after ad:', err));
+        }).catch(err => {
+          console.warn('Main video auto-play error after ad, checking failover:', err);
+          handleVideoError();
+        });
       }
     }, 60);
   }, [videoUrl, backupVideoUrl, hasFailedOver, hasReportedView, onFirstPlay]);
 
-  // Seamless Auto-Failover Handler (switches to backupVideoUrl on stream failure)
+  // 100% Invisible, Automatic, Silent Failover Handler (switches to backupVideoUrl on stream failure)
   const handleVideoError = useCallback(() => {
     if (isAdActive) {
-      console.warn('Pre-roll Ad stream failed or 404ed, auto-skipping to main stream');
+      console.warn('Pre-roll Ad stream failed or 404ed, silently auto-skipping to main stream');
       handleSkipAd();
       return;
     }
 
     if (backupVideoUrl && !hasFailedOver && activeSource !== backupVideoUrl) {
-      console.info('Primary stream error caught. Auto-failing over to backup mirror stream:', backupVideoUrl);
+      console.info('Primary stream error caught. Silently auto-failing over to backup stream:', backupVideoUrl);
       const resumePos = videoRef.current ? videoRef.current.currentTime : currentTime;
       savedTimestampRef.current = resumePos;
-      wasPlayingRef.current = isPlaying || hasStarted;
+      wasPlayingRef.current = isPlaying || hasStarted || true;
 
       setHasFailedOver(true);
       setActiveSource(backupVideoUrl);
+      setIsIframeLoading(true);
     }
   }, [isAdActive, handleSkipAd, backupVideoUrl, hasFailedOver, activeSource, currentTime, isPlaying, hasStarted]);
-
-  // Manual Toggle between Primary and Backup Streams
-  const handleToggleSource = () => {
-    setIsIframeLoading(true);
-    if (hasFailedOver) {
-      setHasFailedOver(false);
-      setActiveSource(videoUrl);
-    } else if (backupVideoUrl) {
-      setHasFailedOver(true);
-      setActiveSource(backupVideoUrl);
-    }
-  };
 
   // Low-level media error listener for HTML5 video
   useEffect(() => {
@@ -555,45 +541,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
             allowFullScreen
             onLoad={() => setIsIframeLoading(false)}
+            onError={handleVideoError}
           />
-
-          {/* Floating Stream Source Status & Failover Switcher */}
-          <div className="absolute top-3 right-3 z-30 flex items-center gap-2 pointer-events-auto">
-            {backupVideoUrl && (
-              <button
-                type="button"
-                onClick={handleToggleSource}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#080C14]/90 hover:bg-[#131C2E] text-xs font-semibold text-[#F8FAFC] border border-[#1E293B] hover:border-[#F59E0B] shadow-xl backdrop-blur-md transition-all cursor-pointer"
-                title={hasFailedOver ? 'Switch back to Primary Stream' : 'Switch to Secondary Backup Stream'}
-              >
-                <Radio className="w-3.5 h-3.5 text-[#F59E0B]" />
-                <span>{hasFailedOver ? 'Backup Stream Active' : 'Switch to Backup'}</span>
-              </button>
-            )}
-
-            {/* Theater Mode Button */}
-            {onToggleTheater && (
-              <button
-                type="button"
-                onClick={onToggleTheater}
-                className="p-1.5 rounded-lg bg-[#080C14]/90 hover:bg-[#131C2E] border border-[#1E293B] hover:border-[#F59E0B] text-[#94A3B8] hover:text-[#F8FAFC] shadow-xl backdrop-blur-md transition-colors cursor-pointer"
-                title={isTheaterMode ? 'Default View' : 'Theater Mode'}
-              >
-                <Tv className={`w-4 h-4 ${isTheaterMode ? 'text-[#F59E0B]' : ''}`} />
-              </button>
-            )}
-
-            {/* External link to source stream */}
-            <a
-              href={activeSource}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-1.5 rounded-lg bg-[#080C14]/90 hover:bg-[#131C2E] border border-[#1E293B] hover:border-[#F59E0B] text-[#94A3B8] hover:text-[#F8FAFC] shadow-xl backdrop-blur-md transition-colors"
-              title="Open stream in new tab"
-            >
-              <ExternalLink className="w-4 h-4" />
-            </a>
-          </div>
         </div>
       ) : (
         /* CASE 2: Native HTML5 Video Player (Direct MP4, M3U8, or Pre-Roll In-Stream Ad) */
@@ -610,20 +559,22 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 setDuration(videoRef.current.duration);
                 if (savedTimestampRef.current > 0) {
                   videoRef.current.currentTime = savedTimestampRef.current;
-                  if (wasPlayingRef.current) {
-                    videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
-                  }
-                  savedTimestampRef.current = 0;
                 }
-              }
-            }}
-            onCanPlay={() => {
-              if (videoRef.current && savedTimestampRef.current > 0) {
-                videoRef.current.currentTime = savedTimestampRef.current;
-                if (wasPlayingRef.current && videoRef.current.paused) {
+                if (wasPlayingRef.current || hasStarted) {
                   videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
                 }
                 savedTimestampRef.current = 0;
+              }
+            }}
+            onCanPlay={() => {
+              if (videoRef.current) {
+                if (savedTimestampRef.current > 0) {
+                  videoRef.current.currentTime = savedTimestampRef.current;
+                  savedTimestampRef.current = 0;
+                }
+                if ((wasPlayingRef.current || hasStarted) && videoRef.current.paused) {
+                  videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+                }
               }
             }}
             onEnded={() => {
@@ -771,32 +722,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
               {/* Right Actions: Failover, Speed, Theater, Fullscreen */}
               <div className="flex items-center gap-2 sm:gap-3">
-                {/* Auto Failover / Dual Stream Status Indicator */}
-                {isAdActive ? (
+                {/* Ad Active Status Badge (only during sponsored pre-roll) */}
+                {isAdActive && (
                   <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/40">
                     <span>Ad Active</span>
                   </span>
-                ) : hasFailedOver ? (
-                  <button
-                    type="button"
-                    onClick={handleToggleSource}
-                    className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/40 hover:bg-[#F59E0B]/30 cursor-pointer"
-                    title="Failover active. Click to switch back to primary."
-                  >
-                    <ShieldAlert className="w-3 h-3 text-[#F59E0B]" />
-                    <span>Backup Active</span>
-                  </button>
-                ) : backupVideoUrl ? (
-                  <button
-                    type="button"
-                    onClick={handleToggleSource}
-                    className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30 hover:bg-[#10B981]/25 cursor-pointer"
-                    title="Dual-Stream Protected. Click to switch to backup stream mirror."
-                  >
-                    <ShieldCheck className="w-3 h-3 text-[#10B981]" />
-                    <span>Dual-Stream</span>
-                  </button>
-                ) : null}
+                )}
 
                 {/* Playback speed selector */}
                 <div className="relative">
