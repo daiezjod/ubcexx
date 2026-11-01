@@ -7,7 +7,7 @@ import { DynamicAdContainer } from './components/DynamicAdContainer.tsx';
 import { TopSponsoredRail } from './components/TopSponsoredRail.tsx';
 import { Video, Category, MonetizationSettings } from './types.ts';
 import { safeFetchJson } from './utils/api.ts';
-import { Play, Sparkles, Filter, Database, Shield, Radio, RefreshCw } from 'lucide-react';
+import { Play, Sparkles, Filter, Shield, Radio, RefreshCw } from 'lucide-react';
 
 // Strict Code Splitting & Source Code Isolation: Admin bundle chunk is NEVER loaded by regular guests
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard.tsx'));
@@ -295,8 +295,7 @@ export default function App() {
         {/* Loading State */}
         {loading ? (
           <div className="py-24 flex flex-col items-center justify-center">
-            <div className="w-10 h-10 border-2 border-[#1E293B] border-t-[#F59E0B] rounded-full animate-spin mb-4" />
-            <span className="text-[#94A3B8] text-xs font-mono">Querying Cloudflare D1 Database (env.DB)...</span>
+            <div className="w-10 h-10 border-2 border-[#1E293B] border-t-[#F59E0B] rounded-full animate-spin" />
           </div>
         ) : videos.length === 0 ? (
           /* Empty State */
@@ -397,14 +396,9 @@ function TubeFooter() {
           </span>
         </div>
 
-        {/* Technical Stack markers */}
-        <div className="flex items-center gap-4 text-[11px] text-[#94A3B8]">
-          <span className="flex items-center gap-1">
-            <Database className="w-3.5 h-3.5 text-[#F59E0B]" />
-            Cloudflare D1 Database
-          </span>
-          <span aria-hidden="true" className="text-[#253349]">·</span>
-          <span>Ultra-Low Latency Edge CDN</span>
+        {/* Clean generic status */}
+        <div className="flex items-center gap-3 text-[11px] text-[#94A3B8]">
+          <span>© UBCEXX • Ultra-Low Latency Streaming</span>
         </div>
 
       </div>

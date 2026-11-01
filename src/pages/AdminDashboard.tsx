@@ -564,12 +564,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   UBCEXX <span className="text-[#F59E0B]">Admin Panel</span>
                 </h1>
                 <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-mono font-medium px-2.5 py-0.5 rounded-full bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30">
-                  <Database className="w-3 h-3 text-[#10B981]" />
-                  D1 env.DB Active
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse" />
+                  System Online
                 </span>
               </div>
               <p className="text-[11px] text-[#94A3B8] hidden sm:block">
-                Cloudflare Pages & D1 Database Engine
+                UBCEXX Control Center
               </p>
             </div>
           </div>
@@ -723,7 +723,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             }`}
           >
             <Terminal className="w-3.5 h-3.5" />
-            <span>D1 SQL Console</span>
+            <span>Live SQL Console</span>
           </button>
 
           <button
@@ -735,7 +735,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             }`}
           >
             <CloudLightning className="w-3.5 h-3.5" />
-            <span>Cloudflare Pages Deploy</span>
+            <span>Production Deployment</span>
           </button>
         </div>
 
@@ -2027,10 +2027,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="border-b border-[#1E293B] pb-4 mb-4">
               <h2 className="text-base font-bold text-[#F8FAFC] flex items-center gap-2">
                 <Terminal className="w-4 h-4 text-[#F59E0B]" />
-                <span>Cloudflare D1 SQL Live Console</span>
+                <span>Live Database SQL Console</span>
               </h2>
               <p className="text-xs text-[#94A3B8] mt-1">
-                Execute SELECT queries directly against your Cloudflare D1 Database binding (`env.DB`).
+                Execute SELECT queries directly against your live database engine.
               </p>
             </div>
 

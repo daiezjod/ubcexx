@@ -140,8 +140,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col items-center justify-center min-h-[50vh]">
-        <div className="w-10 h-10 border-2 border-[#253349] border-t-[#F59E0B] rounded-full animate-spin mb-4" />
-        <span className="text-[#94A3B8] text-sm font-medium">Connecting to Cloudflare D1 & loading stream...</span>
+        <div className="w-10 h-10 border-2 border-[#253349] border-t-[#F59E0B] rounded-full animate-spin" />
       </div>
     );
   }

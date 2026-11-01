@@ -437,7 +437,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   3. Guest-Only Streaming Disclaimer
                 </h4>
                 <p>
-                  UBCEXX is provided strictly for educational, demonstration, and guest streaming preview purposes. Streams are distributed across Cloudflare D1 and global edge cache points. No personal identity verification or user tracking is utilized.
+                  UBCEXX is provided strictly for educational, demonstration, and guest streaming preview purposes. Streams are distributed across high-performance global edge cache points. No personal identity verification or user tracking is utilized.
                 </p>
               </div>
 

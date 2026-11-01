@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, ShieldCheck, AlertCircle, ArrowLeft, KeyRound, Database } from 'lucide-react';
+import { Lock, ShieldCheck, AlertCircle, ArrowLeft, KeyRound, Shield } from 'lucide-react';
 import { safeFetchJson } from '../utils/api.ts';
 
 interface AdminLoginPageProps {
@@ -62,8 +62,8 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
           <span>Public Tube</span>
         </button>
         <span className="text-[11px] font-mono text-[#94A3B8] flex items-center gap-1.5">
-          <Database className="w-3 h-3 text-[#F59E0B]" />
-          Cloudflare D1 Binding
+          <Shield className="w-3 h-3 text-[#10B981]" />
+          Secure Gateway
         </span>
       </div>
 
@@ -79,7 +79,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
             UBCEXX <span className="text-[#F59E0B]">Admin Portal</span>
           </h1>
           <p className="text-xs text-[#94A3B8] mt-1.5">
-            Cloudflare D1 Database Authentication · Restricted Access
+            Authorized Personnel Authentication · Restricted Access
           </p>
         </div>
 
@@ -141,7 +141,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
           <div className="bg-[#131C2E] rounded-xl p-3.5 border border-[#1E293B] text-xs">
             <div className="flex items-center gap-2 text-[#F8FAFC] font-semibold mb-1">
               <ShieldCheck className="w-4 h-4 text-[#10B981]" />
-              <span>D1 Database Default Credentials</span>
+              <span>Default Master Credentials</span>
             </div>
             <div className="flex justify-between items-center text-[#94A3B8] font-mono text-[11px] mt-1.5">
               <span>User: <strong className="text-[#F8FAFC]">admin</strong></span>
