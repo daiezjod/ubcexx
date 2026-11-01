@@ -489,8 +489,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       {isOkRuActive && !isAdActive ? (
         <div className="relative w-full h-full aspect-video bg-black">
           <iframe
+            key={`okru-${okRuId}`}
             src={`https://ok.ru/videoembed/${okRuId}?autoplay=1`}
             title={title}
+            loading="eager"
+            {...({ fetchpriority: 'high', fetchPriority: 'high' } as any)}
             className="w-full h-full aspect-video border-0 rounded-2xl"
             allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
             allowFullScreen
