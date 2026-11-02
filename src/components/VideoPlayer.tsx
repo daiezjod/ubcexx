@@ -112,9 +112,46 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const savedTimestampRef = useRef<number>(0);
   const wasPlayingRef = useRef<boolean>(false);
 
-  // Check if current active stream is an OK.ru embed
-  const okRuId = parseOkRuVideoId(activeSource);
+  // Strict Embed Mode Locking: Detect OK.ru in primary, active, or backup
+  const primaryOkRuId = parseOkRuVideoId(videoUrl);
+  const activeOkRuId = parseOkRuVideoId(activeSource);
+  const backupOkRuId = parseOkRuVideoId(backupVideoUrl);
+  // Lock to OK.ru iframe mode whenever active stream or primary is OK.ru
+  const okRuId = activeOkRuId || primaryOkRuId;
   const isOkRuActive = Boolean(okRuId);
+
+  // Mobile lifecycle & visibility tracking refs to guard against false failovers
+  const isPageHiddenRef = useRef<boolean>(false);
+  const lastVisibilityChangeTimeRef = useRef<number>(Date.now());
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Handle Mobile Lifecycle & Visibility Events (prevent iframe reset on app minimize / background resume)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      lastVisibilityChangeTimeRef.current = Date.now();
+      if (document.visibilityState === 'hidden') {
+        isPageHiddenRef.current = true;
+      } else if (document.visibilityState === 'visible') {
+        isPageHiddenRef.current = false;
+        // Keep iframe mounted and clear any loading overlay
+        setIsIframeLoading(false);
+      }
+    };
+
+    const handlePageShow = () => {
+      isPageHiddenRef.current = false;
+      lastVisibilityChangeTimeRef.current = Date.now();
+      setIsIframeLoading(false);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handlePageShow);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handlePageShow);
+    };
+  }, []);
 
   // Pre-roll Ad State
   const [isAdActive, setIsAdActive] = useState<boolean>(false);
@@ -211,11 +248,34 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }, 60);
   }, [videoUrl, backupVideoUrl, hasFailedOver, hasReportedView, onFirstPlay]);
 
-  // 100% Invisible, Automatic, Silent Failover Handler (switches to backupVideoUrl on stream failure)
+  // 100% Invisible, Automatic, Silent Failover Handler (switches to backupVideoUrl on genuine stream failure)
   const handleVideoError = useCallback(() => {
+    // GUARD 1: Ignore any errors fired while page is hidden or minimized (prevents mobile false failover)
+    if (document.visibilityState === 'hidden' || isPageHiddenRef.current) {
+      console.warn('Video error ignored: page is currently hidden or minimized');
+      return;
+    }
+
+    // GUARD 2: Ignore transient resume errors within 2.5 seconds of returning to the tab
+    if (Date.now() - lastVisibilityChangeTimeRef.current < 2500) {
+      console.warn('Video error ignored: transient mobile resume event');
+      return;
+    }
+
     if (isAdActive) {
       console.warn('Pre-roll Ad stream failed or 404ed, silently auto-skipping to main stream');
       handleSkipAd();
+      return;
+    }
+
+    // Strict Embed Mode Locking: If current stream is OK.ru, NEVER downgrade to HTML5 video
+    if (isOkRuActive) {
+      if (backupOkRuId && backupVideoUrl && !hasFailedOver && activeSource !== backupVideoUrl) {
+        console.info('Switching to backup OK.ru stream:', backupVideoUrl);
+        setHasFailedOver(true);
+        setActiveSource(backupVideoUrl);
+        setIsIframeLoading(true);
+      }
       return;
     }
 
@@ -229,7 +289,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setActiveSource(backupVideoUrl);
       setIsIframeLoading(true);
     }
-  }, [isAdActive, handleSkipAd, backupVideoUrl, hasFailedOver, activeSource, currentTime, isPlaying, hasStarted]);
+  }, [isAdActive, handleSkipAd, isOkRuActive, backupOkRuId, backupVideoUrl, hasFailedOver, activeSource, currentTime, isPlaying, hasStarted]);
 
   // Low-level media error listener for HTML5 video
   useEffect(() => {
@@ -524,24 +584,24 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                   </span>
                 </div>
                 <span className="text-[11px] font-mono text-[#94A3B8]/90">
-                  Connecting to OK.ru High-Bitrate CDN Engine
+                  Connecting to High-Bitrate Stream Engine
                 </span>
               </div>
             </div>
           </div>
 
-          {/* OK.ru Responsive Iframe Embed with Eager Loading & onLoad Transition */}
+          {/* OK.ru Responsive Iframe Embed with Seamless Top-Crop Masking & Eager Loading */}
           <iframe
+            ref={iframeRef}
             key={`okru-${okRuId}`}
             src={`https://ok.ru/videoembed/${okRuId}?autoplay=1`}
             title={title}
             loading="eager"
             {...({ fetchpriority: 'high', fetchPriority: 'high' } as any)}
-            className="w-full h-full aspect-video border-0"
+            className="absolute -top-[44px] left-0 w-full h-[calc(100%+44px)] border-0"
             allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
             allowFullScreen
             onLoad={() => setIsIframeLoading(false)}
-            onError={handleVideoError}
           />
         </div>
       ) : (
