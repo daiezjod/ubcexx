@@ -34,8 +34,8 @@ export const TopSponsoredRail: React.FC<TopSponsoredRailProps> = ({
     return null;
   }
 
-  // Parse custom cards or fallback to defaults
-  let cards: TopRailCard[] = defaultTopRailCards;
+  // Parse custom cards if explicitly provided by admin in D1
+  let cards: TopRailCard[] = [];
   if (monetization?.top_rail_cards) {
     if (Array.isArray(monetization.top_rail_cards)) {
       if (monetization.top_rail_cards.length > 0) {
@@ -48,9 +48,14 @@ export const TopSponsoredRail: React.FC<TopSponsoredRailProps> = ({
           cards = parsed;
         }
       } catch {
-        cards = defaultTopRailCards;
+        cards = [];
       }
     }
+  }
+
+  // If no custom cards are set, do not display any hardcoded demo cards
+  if (cards.length === 0) {
+    return null;
   }
 
   // Smooth scroll helpers for swipeable rail
