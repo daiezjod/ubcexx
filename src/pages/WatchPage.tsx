@@ -12,6 +12,7 @@ import { Video, MonetizationSettings } from '../types.ts';
 import { VideoPlayer } from '../components/VideoPlayer.tsx';
 import { VideoCard } from '../components/VideoCard.tsx';
 import { DynamicAdContainer } from '../components/DynamicAdContainer.tsx';
+import { AdBanner } from '../components/AdBanner.tsx';
 import { TopSponsoredRail } from '../components/TopSponsoredRail.tsx';
 import { formatViews, formatTimeAgo, formatNumber } from '../utils/formatters.ts';
 import { safeFetchJson } from '../utils/api.ts';
@@ -335,6 +336,16 @@ export const WatchPage: React.FC<WatchPageProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Native Ad Placement: Below Player / Title */}
+            {(monetization?.native_ads_enabled === 1 || monetization?.native_enabled === 1) &&
+              Boolean(monetization?.native_ads_code || monetization?.native_code) && (
+                <div className="w-full my-4">
+                  <AdBanner
+                    adHtml={monetization?.native_ads_code || monetization?.native_code || ''}
+                  />
+                </div>
+              )}
           </div>
 
           {/* Section: 🔥 More Related Streams */}

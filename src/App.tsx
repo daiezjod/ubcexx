@@ -4,6 +4,7 @@ import { HeroFeatured } from './components/HeroFeatured.tsx';
 import { VideoCard } from './components/VideoCard.tsx';
 import { WatchPage } from './pages/WatchPage.tsx';
 import { DynamicAdContainer } from './components/DynamicAdContainer.tsx';
+import { AdBanner } from './components/AdBanner.tsx';
 import { TopSponsoredRail } from './components/TopSponsoredRail.tsx';
 import { Video, Category, MonetizationSettings } from './types.ts';
 import { safeFetchJson } from './utils/api.ts';
@@ -246,6 +247,16 @@ export default function App() {
         onNavigateHome={handleNavigateHome}
       />
 
+      {/* Real Native Ad Banner (Adsterra / Third-Party Native Widget) below categories */}
+      {(monetization?.native_ads_enabled === 1 || monetization?.native_enabled === 1) &&
+        Boolean(monetization?.native_ads_code || monetization?.native_code) && (
+          <div className="max-w-7xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 w-full">
+            <AdBanner
+              adHtml={monetization?.native_ads_code || monetization?.native_code || ''}
+            />
+          </div>
+        )}
+
       {/* xHamster-style Top Native Sponsored Rail (1:1 Aspect Ratio) */}
       <TopSponsoredRail monetization={monetization} />
 
@@ -331,9 +342,8 @@ export default function App() {
                   {/* Native Ad Placement: In-Feed Home Grid (rendered after 4th video) */}
                   {index === 3 &&
                     monetization &&
-                    monetization.native_enabled === 1 &&
-                    monetization.native_placements?.includes('in_feed') &&
-                    monetization.native_code && (
+                    (monetization.native_ads_enabled === 1 || monetization.native_enabled === 1) &&
+                    (monetization.native_ads_code || monetization.native_code) && (
                       <div className="col-span-2 min-[440px]:col-span-3 sm:col-span-3 md:col-span-4 lg:col-span-5 my-2 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-[#0F172A] border border-[#1E293B] shadow-xl relative overflow-hidden group">
                         <div className="flex items-center justify-between pb-2 mb-3 border-b border-[#1E293B]">
                           <div className="flex items-center gap-2">
@@ -346,9 +356,9 @@ export default function App() {
                             UBCEXX Ad Network
                           </span>
                         </div>
-                        <DynamicAdContainer
-                          adHtml={monetization.native_code}
-                          className="native-feed-ad flex items-center justify-center overflow-x-auto py-1"
+                        <AdBanner
+                          adHtml={monetization.native_ads_code || monetization.native_code || ''}
+                          className="my-0"
                         />
                       </div>
                     )}

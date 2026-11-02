@@ -36,11 +36,4 @@ export const defaultTopRailCards: TopRailCard[] = [
     badge_text: 'Partner',
     click_url: 'https://ubcexx.com/edge-cdn',
   },
-  {
-    id: 'rail-6',
-    title: 'QUANTUM VR GEAR: Ultra-Low Latency Headset',
-    image_url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=500&h=500&q=80',
-    badge_text: 'Featured',
-    click_url: 'https://ubcexx.com/vr-hardware',
-  },
 ];
