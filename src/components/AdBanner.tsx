@@ -64,19 +64,22 @@ export const AdBanner: React.FC<AdBannerProps> = ({ adHtml, className = '' }) =>
         }
       });
 
-      // MutationObserver to enforce 1:1 square cards on asynchronously inserted elements
+      // MutationObserver to enforce 1:1 square dimensions and prevent 1px collapse in Brave or delayed loads
       const observer = new MutationObserver(() => {
         if (!container) return;
-        // Enforce 130px card item dimensions on direct or nested links and containers
+
+        // Enforce 120px card dimensions on direct or nested links and containers
         const cards = container.querySelectorAll<HTMLElement>(
-          'a, [class*="item"], [class*="card"], [class*="widget"], td, li'
+          'a, [class*="item"], [class*="card"], [class*="widget"], [class*="unit"], td, li'
         );
         cards.forEach((card) => {
           if (card.style) {
-            card.style.setProperty('width', '130px', 'important');
-            card.style.setProperty('min-width', '130px', 'important');
-            card.style.setProperty('max-width', '130px', 'important');
+            card.style.setProperty('width', '120px', 'important');
+            card.style.setProperty('min-width', '120px', 'important');
+            card.style.setProperty('max-width', '120px', 'important');
+            card.style.setProperty('min-height', '160px', 'important');
             card.style.setProperty('flex-shrink', '0', 'important');
+            card.style.setProperty('flex-grow', '0', 'important');
             card.style.setProperty('background-color', '#0F172A', 'important');
             card.style.setProperty('border', '1px solid #1E293B', 'important');
             card.style.setProperty('border-radius', '8px', 'important');
@@ -85,24 +88,32 @@ export const AdBanner: React.FC<AdBannerProps> = ({ adHtml, className = '' }) =>
           }
         });
 
-        // Enforce 130x130 1:1 square aspect ratio on all ad images
-        const imgs = container.querySelectorAll<HTMLImageElement>('img');
-        imgs.forEach((img) => {
-          if (img.style) {
-            img.style.setProperty('width', '130px', 'important');
-            img.style.setProperty('min-width', '130px', 'important');
-            img.style.setProperty('max-width', '130px', 'important');
-            img.style.setProperty('height', '130px', 'important');
-            img.style.setProperty('min-height', '130px', 'important');
-            img.style.setProperty('max-height', '130px', 'important');
-            img.style.setProperty('aspect-ratio', '1 / 1', 'important');
-            img.style.setProperty('object-fit', 'cover', 'important');
-            img.style.setProperty('display', 'block', 'important');
+        // Target all image containers, wrappers, img tags, and background-image elements
+        const mediaElements = container.querySelectorAll<HTMLElement>(
+          'img, picture, [class*="image"], [class*="thumb"], [class*="pic"], [style*="background-image"]'
+        );
+        mediaElements.forEach((el) => {
+          if (el.style) {
+            el.style.setProperty('width', '100%', 'important');
+            el.style.setProperty('height', '120px', 'important');
+            el.style.setProperty('min-height', '120px', 'important');
+            el.style.setProperty('aspect-ratio', '1 / 1', 'important');
+            el.style.setProperty('object-fit', 'cover', 'important');
+            el.style.setProperty('background-size', 'cover', 'important');
+            el.style.setProperty('background-position', 'center', 'important');
+            el.style.setProperty('display', 'block', 'important');
+            el.style.setProperty('border-radius', '8px 8px 0 0', 'important');
+            el.style.setProperty('background-color', '#1E293B', 'important');
           }
         });
       });
 
-      observer.observe(container, { childList: true, subtree: true });
+      observer.observe(container, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['style', 'class'],
+      });
 
       // Restore document.write after script attachments
       const timer = setTimeout(() => {
@@ -127,7 +138,7 @@ export const AdBanner: React.FC<AdBannerProps> = ({ adHtml, className = '' }) =>
   if (!adHtml || !adHtml.trim()) return null;
 
   return (
-    <div className={`w-full overflow-hidden my-3 ${className}`}>
+    <div className={`ad-native-wrapper w-full overflow-hidden my-3 ${className}`}>
       {/* Sleek Promoted Sponsor Indicator */}
       <div className="flex items-center justify-between px-1 pb-1.5 mb-1">
         <div className="flex items-center gap-1.5">
@@ -141,7 +152,7 @@ export const AdBanner: React.FC<AdBannerProps> = ({ adHtml, className = '' }) =>
         </span>
       </div>
 
-      {/* Scoped CSS targeting this specific banner container */}
+      {/* Scoped CSS targeting this specific banner container and .ad-native-wrapper */}
       <style>{`
         #${bannerId} {
           display: flex !important;
@@ -190,22 +201,23 @@ export const AdBanner: React.FC<AdBannerProps> = ({ adHtml, className = '' }) =>
           max-width: none !important;
         }
 
-        /* 1:1 Square Card Items: width 130px, flex-shrink 0, dark navy background (#0F172A), 1px border (#1E293B), rounded-lg */
-        #${bannerId} .ad-item,
-        #${bannerId} .item,
-        #${bannerId} [class*="item"],
-        #${bannerId} [class*="card"],
-        #${bannerId} [class*="widget"],
-        #${bannerId} [class*="unit"],
-        #${bannerId} td,
-        #${bannerId} li,
-        #${bannerId} a,
-        #${bannerId} > div > a,
-        #${bannerId} > div > div > a,
-        #${bannerId} a[href*="http"] {
-          width: 130px !important;
-          min-width: 130px !important;
-          max-width: 130px !important;
+        /* 1:1 Square Card Items: width 120px, flex-shrink 0, dark navy background (#0F172A), 1px border (#1E293B), rounded-lg */
+        .ad-native-wrapper #${bannerId} .ad-item,
+        .ad-native-wrapper #${bannerId} .item,
+        .ad-native-wrapper #${bannerId} [class*="item"],
+        .ad-native-wrapper #${bannerId} [class*="card"],
+        .ad-native-wrapper #${bannerId} [class*="widget"],
+        .ad-native-wrapper #${bannerId} [class*="unit"],
+        .ad-native-wrapper #${bannerId} td,
+        .ad-native-wrapper #${bannerId} li,
+        .ad-native-wrapper #${bannerId} a,
+        .ad-native-wrapper #${bannerId} > div > a,
+        .ad-native-wrapper #${bannerId} > div > div > a,
+        .ad-native-wrapper #${bannerId} a[href*="http"] {
+          width: 120px !important;
+          min-width: 120px !important;
+          max-width: 120px !important;
+          min-height: 160px !important;
           flex-shrink: 0 !important;
           flex-grow: 0 !important;
           background-color: #0F172A !important;
@@ -223,44 +235,41 @@ export const AdBanner: React.FC<AdBannerProps> = ({ adHtml, className = '' }) =>
           transition: border-color 0.2s ease, transform 0.2s ease !important;
         }
 
-        #${bannerId} a:hover,
-        #${bannerId} [class*="item"]:hover {
+        .ad-native-wrapper #${bannerId} a:hover,
+        .ad-native-wrapper #${bannerId} [class*="item"]:hover {
           border-color: #F59E0B !important;
           transform: translateY(-1px) !important;
         }
 
-        /* Force all ad images to: width 130px, height 130px, aspect-ratio 1:1, object-fit cover */
-        #${bannerId} img,
-        #${bannerId} picture,
-        #${bannerId} [class*="image"] img,
-        #${bannerId} [class*="thumb"] img,
-        #${bannerId} [class*="image"],
-        #${bannerId} [class*="thumb"],
-        #${bannerId} [class*="pic"] {
-          width: 130px !important;
-          min-width: 130px !important;
-          max-width: 130px !important;
-          height: 130px !important;
-          min-height: 130px !important;
-          max-height: 130px !important;
+        /* Target all image containers, wrappers, img tags, and background-image elements: strict 1:1 square & 120px height */
+        .ad-native-wrapper img,
+        .ad-native-wrapper [class*="image"],
+        .ad-native-wrapper [class*="thumb"],
+        .ad-native-wrapper [style*="background-image"] {
+          width: 100% !important;
+          height: 120px !important;
+          min-height: 120px !important;
           aspect-ratio: 1 / 1 !important;
           object-fit: cover !important;
+          background-size: cover !important;
+          background-position: center !important;
           display: block !important;
-          border-radius: 7px 7px 0 0 !important;
+          border-radius: 8px 8px 0 0 !important;
+          background-color: #1E293B !important;
           margin: 0 !important;
           padding: 0 !important;
         }
 
         /* Force ad titles to: text-white, 11px, 2-line clamp */
-        #${bannerId} [class*="title"],
-        #${bannerId} [class*="headline"],
-        #${bannerId} [class*="text"],
-        #${bannerId} span:not([class*="badge"]),
-        #${bannerId} p,
-        #${bannerId} h3,
-        #${bannerId} h4,
-        #${bannerId} b,
-        #${bannerId} strong {
+        .ad-native-wrapper [class*="title"],
+        .ad-native-wrapper [class*="headline"],
+        .ad-native-wrapper [class*="text"],
+        .ad-native-wrapper span:not([class*="badge"]),
+        .ad-native-wrapper p,
+        .ad-native-wrapper h3,
+        .ad-native-wrapper h4,
+        .ad-native-wrapper b,
+        .ad-native-wrapper strong {
           color: #FFFFFF !important;
           font-size: 11px !important;
           font-weight: 600 !important;
@@ -277,14 +286,14 @@ export const AdBanner: React.FC<AdBannerProps> = ({ adHtml, className = '' }) =>
         }
 
         /* Prevent any unstyled text or extra descriptions from spilling vertically down the page */
-        #${bannerId} [class*="desc"],
-        #${bannerId} [class*="description"],
-        #${bannerId} [class*="subtitle"],
-        #${bannerId} [class*="details"] {
+        .ad-native-wrapper [class*="desc"],
+        .ad-native-wrapper [class*="description"],
+        .ad-native-wrapper [class*="subtitle"],
+        .ad-native-wrapper [class*="details"] {
           display: none !important;
         }
 
-        #${bannerId} * {
+        .ad-native-wrapper * {
           box-sizing: border-box !important;
         }
       `}</style>
@@ -293,7 +302,7 @@ export const AdBanner: React.FC<AdBannerProps> = ({ adHtml, className = '' }) =>
       <div
         id={bannerId}
         ref={containerRef}
-        className="flex flex-row overflow-x-auto gap-2 py-2 no-scrollbar scroll-smooth w-full min-h-[140px]"
+        className="flex flex-row overflow-x-auto gap-2 py-2 no-scrollbar scroll-smooth w-full min-h-[160px]"
       />
     </div>
   );

@@ -3,7 +3,6 @@ import { Navbar } from '../components/Navbar.tsx';
 import { HeroFeatured } from '../components/HeroFeatured.tsx';
 import { VideoCard } from '../components/VideoCard.tsx';
 import { AdBanner } from '../components/AdBanner.tsx';
-import { TopSponsoredRail } from '../components/TopSponsoredRail.tsx';
 import { Video, Category, MonetizationSettings } from '../types.ts';
 import { Filter, RefreshCw } from 'lucide-react';
 
@@ -63,9 +62,6 @@ export const Home: React.FC<HomeProps> = ({
           <AdBanner adHtml={activeAdHtml} />
         </div>
       )}
-
-      {/* Top Native Sponsored Rail (Only rendered when custom cards are configured in D1) */}
-      <TopSponsoredRail monetization={monetization} />
 
       {/* Main Browse Container with optimized compact mobile padding */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-6">

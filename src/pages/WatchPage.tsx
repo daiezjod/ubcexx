@@ -13,7 +13,6 @@ import { VideoPlayer } from '../components/VideoPlayer.tsx';
 import { VideoCard } from '../components/VideoCard.tsx';
 import { DynamicAdContainer } from '../components/DynamicAdContainer.tsx';
 import { AdBanner } from '../components/AdBanner.tsx';
-import { TopSponsoredRail } from '../components/TopSponsoredRail.tsx';
 import { formatViews, formatTimeAgo, formatNumber } from '../utils/formatters.ts';
 import { safeFetchJson } from '../utils/api.ts';
 
@@ -245,9 +244,6 @@ export const WatchPage: React.FC<WatchPageProps> = ({
           <span>Back to All Streams</span>
         </button>
       </div>
-
-      {/* xHamster-style Top Native Sponsored Rail (1:1 Ratio) */}
-      <TopSponsoredRail monetization={monetization} isWatchPage />
 
       {/* Main Container */}
       <div className={`mx-auto px-2 sm:px-4 md:px-6 lg:px-8 ${isTheaterMode ? 'max-w-full' : 'max-w-7xl'}`}>
