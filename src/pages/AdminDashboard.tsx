@@ -292,16 +292,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // Handle Delete Video (DELETE query on D1 via /api/videos/:id)
-  const handleDeleteVideo = async (id: number, videoTitle: string) => {
-    if (!window.confirm(`Are you sure you want to delete "${videoTitle}" (ID: ${id}) from Cloudflare D1?`)) {
+  // Handle Delete Video (DELETE query on D1 via /api/videos?id=${video.id})
+  const handleDeleteVideo = async (id: number) => {
+    if (!confirm('Are you sure you want to permanently delete this video?')) {
       return;
     }
 
     try {
-      const res = await fetch(`/api/videos/${id}`, {
+      const res = await fetch(`/api/videos?id=${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ id }),
       });
 
       const contentType = res.headers.get("content-type");
@@ -316,10 +320,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         throw new Error(data.error || 'Delete failed');
       }
 
-      showNotification('success', `Video #${id} deleted from D1 database`);
-      fetchData();
+      // Immediately remove the deleted video from local state
+      setVideos((prev) => prev.filter((v) => v.id !== id));
+
+      // Decrement the "Total Videos" stat card by 1
+      setStats((prev) => {
+        if (!prev) return null;
+        const currentCount = prev.total_videos ?? prev.totalVideos ?? 1;
+        const newCount = Math.max(0, currentCount - 1);
+        return {
+          ...prev,
+          total_videos: newCount,
+          totalVideos: newCount,
+        };
+      });
+
+      // Show toast: "Video permanently purged from D1 and site"
+      showNotification('success', 'Video permanently purged from D1 and site');
     } catch (err: any) {
-      showNotification('error', err.message);
+      showNotification('error', err.message || 'Failed to delete video');
     }
   };
 
@@ -897,9 +916,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               <Eye className="w-3.5 h-3.5" />
                             </button>
                             <button
-                              onClick={() => handleDeleteVideo(v.id, v.title)}
+                              onClick={() => handleDeleteVideo(v.id)}
                               className="p-1.5 rounded bg-[#3B0713] hover:bg-[#4C0D1A] text-[#FB7185] transition-colors cursor-pointer border border-[#4C0D1A]"
-                              title="Delete from Cloudflare D1"
+                              title="Permanently Delete Video"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>

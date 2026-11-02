@@ -104,14 +104,24 @@ export const onRequestPatch: PagesFunction<Env> = async (context) => {
 
 export const onRequestDelete: PagesFunction<Env> = async (context) => {
   try {
-    const id = Number(context.params.id);
+    const url = new URL(context.request.url);
+    const body: any = await context.request.json().catch(() => ({}));
+    const rawId = context.params.id || url.searchParams.get('id') || body.id;
+    if (!rawId) {
+      return new Response(JSON.stringify({ success: false, error: 'Video ID required' }), {
+        status: 400,
+        headers: corsHeaders,
+      });
+    }
+
+    const id = Number(rawId);
     const stmt = context.env.DB.prepare('DELETE FROM videos WHERE id = ?').bind(id);
     const result = await stmt.run();
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Video #${id} deleted from Cloudflare D1 database`,
+        message: 'Video deleted successfully',
         deletedCount: result.meta?.changes ?? 1,
       }),
       { status: 200, headers: corsHeaders }

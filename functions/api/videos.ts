@@ -8,7 +8,7 @@ interface Env {
 const corsHeaders: Record<string, string> = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
 };
 
@@ -148,5 +148,32 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       JSON.stringify({ success: false, error: err.message || 'Failed to insert video' }),
       { status: 500, headers: corsHeaders }
     );
+  }
+};
+
+export const onRequestDelete: PagesFunction<Env> = async (context) => {
+  try {
+    const url = new URL(context.request.url);
+    const body: any = await context.request.json().catch(() => ({}));
+    const id = url.searchParams.get('id') || body.id;
+
+    if (!id) {
+      return new Response(JSON.stringify({ success: false, error: 'Video ID required' }), {
+        status: 400,
+        headers: corsHeaders,
+      });
+    }
+
+    // Permanently delete video from Cloudflare D1
+    await context.env.DB.prepare('DELETE FROM videos WHERE id = ?').bind(Number(id)).run();
+
+    return new Response(JSON.stringify({ success: true, message: 'Video deleted successfully' }), {
+      headers: corsHeaders,
+    });
+  } catch (err: any) {
+    return new Response(JSON.stringify({ success: false, error: err.message }), {
+      status: 500,
+      headers: corsHeaders,
+    });
   }
 };

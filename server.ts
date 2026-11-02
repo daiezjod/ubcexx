@@ -359,10 +359,14 @@ app.patch(['/api/videos/:id', '/api/admin/videos/:id'], async (req: Request, res
   }
 });
 
-// DELETE /api/videos/:id & /api/admin/videos/:id - Execute DELETE query on D1 'videos'
-app.delete(['/api/videos/:id', '/api/admin/videos/:id'], async (req: Request, res: Response) => {
+// DELETE /api/videos, /api/videos/:id, /api/admin/videos - Execute DELETE query on D1 'videos'
+app.delete(['/api/videos', '/api/videos/:id', '/api/admin/videos', '/api/admin/videos/:id'], async (req: Request, res: Response) => {
   try {
-    const id = Number(req.params.id);
+    const rawId = req.params.id || req.query.id || req.body?.id;
+    if (!rawId) {
+      return res.status(400).json({ success: false, error: 'Video ID required' });
+    }
+    const id = Number(rawId);
     const stmt = d1DB.prepare('DELETE FROM videos WHERE id = ?').bind(id);
     const result = await stmt.run();
 
@@ -372,7 +376,8 @@ app.delete(['/api/videos/:id', '/api/admin/videos/:id'], async (req: Request, re
 
     res.json({
       success: true,
-      message: `Video #${id} deleted from Cloudflare D1 database`,
+      message: 'Video deleted successfully',
+      id,
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });

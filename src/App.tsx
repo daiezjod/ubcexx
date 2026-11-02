@@ -142,7 +142,7 @@ export default function App() {
 
   useEffect(() => {
     loadData();
-  }, [selectedCategoryId, searchQuery, pageLimit]);
+  }, [currentView, selectedCategoryId, searchQuery, pageLimit]);
 
   // Navigation Handlers
   const handleSelectVideo = (video: Video) => {
