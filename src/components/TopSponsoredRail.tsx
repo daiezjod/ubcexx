@@ -18,10 +18,16 @@ export const TopSponsoredRail: React.FC<TopSponsoredRailProps> = ({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // If monetization is null or native ads are disabled or top_rail placement is unchecked
-  const isEnabled =
-    monetization?.native_enabled === 1 &&
-    (monetization?.top_rail_enabled === undefined || monetization?.top_rail_enabled === 1) &&
-    (!monetization?.native_placements || monetization.native_placements.includes('top_rail'));
+  const isNativeOn = monetization?.native_ads_enabled === 1 || monetization?.native_enabled === 1;
+  const isTopRailOn = monetization?.top_rail_enabled === undefined || monetization?.top_rail_enabled === 1;
+  const hasTopRailPlacement =
+    !monetization?.native_placements && !monetization?.placement_zones
+      ? true
+      : (monetization?.native_placements && monetization.native_placements.includes('top_rail')) ||
+        (typeof monetization?.placement_zones === 'object' && monetization?.placement_zones?.top_rail) ||
+        (typeof monetization?.placement_zones === 'string' && monetization.placement_zones.includes('top_rail'));
+
+  const isEnabled = isNativeOn && isTopRailOn && hasTopRailPlacement;
 
   // If monetization isn't loaded yet or explicitly disabled, don't show
   if (!isEnabled) {
@@ -31,13 +37,19 @@ export const TopSponsoredRail: React.FC<TopSponsoredRailProps> = ({
   // Parse custom cards or fallback to defaults
   let cards: TopRailCard[] = defaultTopRailCards;
   if (monetization?.top_rail_cards) {
-    try {
-      const parsed = JSON.parse(monetization.top_rail_cards);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        cards = parsed;
+    if (Array.isArray(monetization.top_rail_cards)) {
+      if (monetization.top_rail_cards.length > 0) {
+        cards = monetization.top_rail_cards;
       }
-    } catch {
-      cards = defaultTopRailCards;
+    } else if (typeof monetization.top_rail_cards === 'string') {
+      try {
+        const parsed = JSON.parse(monetization.top_rail_cards);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          cards = parsed;
+        }
+      } catch {
+        cards = defaultTopRailCards;
+      }
     }
   }
 
@@ -122,7 +134,7 @@ export const TopSponsoredRail: React.FC<TopSponsoredRailProps> = ({
       {/* If an ad network script specifically targets the top rail, render it */}
       {hasCustomTopRailScript && (
         <div className="mb-3">
-          <DynamicAdContainer adHtml={monetization.native_code} className="w-full" />
+          <DynamicAdContainer adHtml={monetization.native_code || monetization.native_ads_code || ''} className="w-full" />
         </div>
       )}
 

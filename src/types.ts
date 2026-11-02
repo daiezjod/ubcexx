@@ -58,13 +58,18 @@ export interface MonetizationSettings {
   id: number;
   preroll_enabled: number; // 1 or 0
   preroll_video_url: string;
-  preroll_click_url: string;
-  preroll_skip_offset: number; // in seconds
-  native_enabled: number; // 1 or 0
-  native_code: string;
-  native_placements: string; // comma-separated e.g. "top_rail,under_player,in_feed"
+  preroll_click_url?: string;
+  preroll_skip_offset?: number; // in seconds
+  preroll_skip_seconds?: number; // in seconds
+  native_enabled?: number; // 1 or 0
+  native_ads_enabled?: number; // 1 or 0
+  native_code?: string;
+  native_ads_code?: string;
+  native_placements?: string; // comma-separated e.g. "top_rail,under_player,in_feed"
+  placement_zones?: string | Record<string, boolean>;
   top_rail_enabled?: number; // 1 or 0
-  top_rail_cards?: string; // JSON string of TopRailCard[]
+  top_rail_cards?: string | TopRailCard[]; // JSON string or parsed array
   updated_at?: string;
 }
+
 

@@ -269,7 +269,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
                   ? {
                       enabled: true,
                       videoUrl: monetization.preroll_video_url,
-                      skipOffset: monetization.preroll_skip_offset || 5,
+                      skipOffset: Number(monetization.preroll_skip_seconds ?? monetization.preroll_skip_offset ?? 5) || 5,
                     }
                   : undefined
               }

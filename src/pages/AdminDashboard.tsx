@@ -193,25 +193,49 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           const monetData = await monetRes.json();
           if (monetData?.success && monetData.monetization) {
             const m = monetData.monetization;
-            setPrerollEnabled(m.preroll_enabled === 1);
+            setPrerollEnabled(m.preroll_enabled === 1 || m.preroll_enabled === true);
             setPrerollVideoUrl(m.preroll_video_url || '');
             setPrerollClickUrl(m.preroll_click_url || '');
-            setPrerollSkipOffset(String(m.preroll_skip_offset ?? 5));
-            setNativeEnabled(m.native_enabled === 1);
-            setNativeCode(m.native_code || '');
-            const placements = (m.native_placements || '').split(',');
-            setPlacementTopRail(placements.includes('top_rail') || m.top_rail_enabled === 1 || !m.native_placements);
-            setPlacementUnderPlayer(placements.includes('under_player'));
-            setPlacementInFeed(placements.includes('in_feed'));
+            const skipSec = m.preroll_skip_seconds ?? m.preroll_skip_offset ?? 5;
+            setPrerollSkipOffset(String(skipSec));
+            const natEnabled = m.native_ads_enabled !== undefined ? m.native_ads_enabled : m.native_enabled;
+            setNativeEnabled(natEnabled === 1 || natEnabled === true);
+            setNativeCode(m.native_ads_code ?? m.native_code ?? '');
 
-            if (m.top_rail_cards) {
+            // Placement zones handling (object, string, or comma-separated native_placements)
+            if (m.placement_zones) {
               try {
-                const parsedCards = JSON.parse(m.top_rail_cards);
-                if (Array.isArray(parsedCards) && parsedCards.length > 0) {
-                  setTopRailCards(parsedCards);
-                }
+                const pz = typeof m.placement_zones === 'string' ? JSON.parse(m.placement_zones) : m.placement_zones;
+                setPlacementTopRail(pz.top_rail !== false);
+                setPlacementUnderPlayer(pz.under_player !== false);
+                setPlacementInFeed(pz.in_feed !== false);
               } catch {
-                setTopRailCards(defaultTopRailCards);
+                setPlacementTopRail(true);
+                setPlacementUnderPlayer(true);
+                setPlacementInFeed(true);
+              }
+            } else {
+              const placements = (m.native_placements || '').split(',');
+              setPlacementTopRail(placements.includes('top_rail') || m.top_rail_enabled === 1 || !m.native_placements);
+              setPlacementUnderPlayer(placements.includes('under_player'));
+              setPlacementInFeed(placements.includes('in_feed'));
+            }
+
+            // Top rail cards handling (could be string or already parsed array)
+            if (m.top_rail_cards) {
+              if (Array.isArray(m.top_rail_cards)) {
+                if (m.top_rail_cards.length > 0) {
+                  setTopRailCards(m.top_rail_cards);
+                }
+              } else if (typeof m.top_rail_cards === 'string') {
+                try {
+                  const parsedCards = JSON.parse(m.top_rail_cards);
+                  if (Array.isArray(parsedCards) && parsedCards.length > 0) {
+                    setTopRailCards(parsedCards);
+                  }
+                } catch {
+                  setTopRailCards(defaultTopRailCards);
+                }
               }
             }
           }
@@ -450,29 +474,48 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (placementUnderPlayer) placements.push('under_player');
       if (placementInFeed) placements.push('in_feed');
 
+      const placementZones = {
+        top_rail: Boolean(placementTopRail),
+        under_player: Boolean(placementUnderPlayer),
+        in_feed: Boolean(placementInFeed),
+      };
+
+      const skipSeconds = parseInt(prerollSkipOffset, 10) || 5;
+
+      const payload = {
+        preroll_enabled: prerollEnabled ? 1 : 0,
+        preroll_video_url: prerollVideoUrl,
+        preroll_click_url: prerollClickUrl,
+        preroll_skip_seconds: skipSeconds,
+        preroll_skip_offset: skipSeconds,
+        native_ads_enabled: nativeEnabled ? 1 : 0,
+        native_enabled: nativeEnabled ? 1 : 0,
+        native_ads_code: nativeCode,
+        native_code: nativeCode,
+        native_placements: placements.join(','),
+        placement_zones: placementZones,
+        top_rail_enabled: placementTopRail ? 1 : 0,
+        top_rail_cards: topRailCards,
+      };
+
       const res = await fetch('/api/monetization', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          preroll_enabled: prerollEnabled ? 1 : 0,
-          preroll_video_url: prerollVideoUrl,
-          preroll_click_url: prerollClickUrl,
-          preroll_skip_offset: parseInt(prerollSkipOffset, 10) || 5,
-          native_enabled: nativeEnabled ? 1 : 0,
-          native_code: nativeCode,
-          native_placements: placements.join(','),
-          top_rail_enabled: placementTopRail ? 1 : 0,
-          top_rail_cards: JSON.stringify(topRailCards),
-        }),
+        body: JSON.stringify(payload),
       });
 
       const contentType = res.headers.get("content-type");
       if (!res.ok || !contentType || !contentType.includes("application/json")) {
-        console.error("Non-JSON API response received", res.status);
-        showNotification('error', `Failed to save monetization (HTTP ${res.status})`);
+        let errorMsg = `HTTP ${res.status}`;
+        try {
+          const errData = await res.json();
+          if (errData?.error) errorMsg = errData.error;
+        } catch (_) {}
+        console.error("Monetization save error:", res.status, errorMsg);
+        showNotification('error', `Failed to save monetization: ${errorMsg}`);
         return;
       }
 
@@ -481,9 +524,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         throw new Error(data.error || 'Failed to save monetization settings');
       }
 
-      showNotification('success', 'Monetization & Ad Engine configuration persisted in Cloudflare D1!');
+      showNotification('success', 'Monetization settings updated successfully in Cloudflare D1!');
     } catch (err: any) {
-      showNotification('error', err.message);
+      showNotification('error', err.message || 'Failed to save monetization settings');
     } finally {
       setIsSavingMonetization(false);
     }

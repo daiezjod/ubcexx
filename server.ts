@@ -179,13 +179,31 @@ app.get('/api/categories', async (req: Request, res: Response) => {
 });
 
 // GET /api/monetization - Public monetization configuration (pre-roll & native banners)
-app.get('/api/monetization', async (req: Request, res: Response) => {
+app.get(['/api/monetization', '/api/admin/monetization'], async (req: Request, res: Response) => {
   try {
-    const stmt = d1DB.prepare('SELECT * FROM monetization WHERE id = 1');
-    let monetization = await stmt.first();
-    if (!monetization) {
-      monetization = d1DB.getState().monetization;
+    const rawMonetization: any = d1DB.getState().monetization || {};
+    const monetization = { ...rawMonetization };
+
+    if (typeof monetization.top_rail_cards === 'string') {
+      try {
+        monetization.top_rail_cards = JSON.parse(monetization.top_rail_cards);
+      } catch {
+        monetization.top_rail_cards = [];
+      }
+    } else if (!monetization.top_rail_cards) {
+      monetization.top_rail_cards = [];
     }
+
+    if (typeof monetization.placement_zones === 'string') {
+      try {
+        monetization.placement_zones = JSON.parse(monetization.placement_zones);
+      } catch {
+        monetization.placement_zones = {};
+      }
+    } else if (!monetization.placement_zones) {
+      monetization.placement_zones = {};
+    }
+
     res.json({ success: true, monetization });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
@@ -453,52 +471,49 @@ app.post(['/api/sql', '/api/admin/sql'], async (req: Request, res: Response) => 
 // POST /api/monetization & /api/admin/monetization - Update monetization settings in D1
 app.post(['/api/monetization', '/api/admin/monetization'], async (req: Request, res: Response) => {
   try {
-    const {
+    const body = req.body || {};
+    const preroll_enabled = body.preroll_enabled !== undefined ? (body.preroll_enabled ? 1 : 0) : 1;
+    const preroll_video_url = body.preroll_video_url || '';
+    const preroll_click_url = body.preroll_click_url || '';
+    const preroll_skip_seconds = Number(body.preroll_skip_seconds ?? body.preroll_skip_offset ?? 5) || 5;
+    const native_ads_enabled = (body.native_ads_enabled !== undefined ? body.native_ads_enabled : body.native_enabled) ? 1 : 0;
+    const native_ads_code = body.native_ads_code ?? body.native_code ?? '';
+    const native_placements = body.native_placements || 'top_rail,under_player,in_feed';
+    const top_rail_enabled = body.top_rail_enabled !== undefined ? (body.top_rail_enabled ? 1 : 0) : 1;
+    const top_rail_cards = typeof body.top_rail_cards === 'string'
+      ? body.top_rail_cards
+      : JSON.stringify(body.top_rail_cards || []);
+    const placement_zones = typeof body.placement_zones === 'string'
+      ? body.placement_zones
+      : JSON.stringify(body.placement_zones || {});
+
+    const state = d1DB.getState();
+    state.monetization = {
+      id: 1,
       preroll_enabled,
       preroll_video_url,
       preroll_click_url,
-      preroll_skip_offset,
-      native_enabled,
-      native_code,
+      preroll_skip_seconds,
+      preroll_skip_offset: preroll_skip_seconds,
+      native_ads_enabled,
+      native_enabled: native_ads_enabled,
+      native_ads_code,
+      native_code: native_ads_code,
       native_placements,
+      placement_zones,
       top_rail_enabled,
       top_rail_cards,
-    } = req.body;
-
-    const stmt = d1DB.prepare(`
-      INSERT INTO monetization (id, preroll_enabled, preroll_video_url, preroll_click_url, preroll_skip_offset, native_enabled, native_code, native_placements, top_rail_enabled, top_rail_cards, updated_at)
-      VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-      ON CONFLICT (id) DO UPDATE SET
-        preroll_enabled = excluded.preroll_enabled,
-        preroll_video_url = excluded.preroll_video_url,
-        preroll_click_url = excluded.preroll_click_url,
-        preroll_skip_offset = excluded.preroll_skip_offset,
-        native_enabled = excluded.native_enabled,
-        native_code = excluded.native_code,
-        native_placements = excluded.native_placements,
-        top_rail_enabled = excluded.top_rail_enabled,
-        top_rail_cards = excluded.top_rail_cards,
-        updated_at = datetime('now')
-    `).bind(
-      preroll_enabled ? 1 : 0,
-      preroll_video_url || '',
-      preroll_click_url || '',
-      Number(preroll_skip_offset) || 5,
-      native_enabled ? 1 : 0,
-      native_code || '',
-      native_placements || 'top_rail,under_player,in_feed',
-      top_rail_enabled !== undefined ? (Number(top_rail_enabled) === 1 ? 1 : 0) : 1,
-      typeof top_rail_cards === 'string' ? top_rail_cards : JSON.stringify(top_rail_cards || [])
-    );
-
-    await stmt.run();
+      updated_at: new Date().toISOString(),
+    };
+    d1DB.commit();
 
     res.json({
       success: true,
       message: 'Monetization settings successfully updated in Cloudflare D1',
     });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('Monetization update error:', err);
+    res.status(500).json({ success: false, error: err.message || 'Failed to update monetization settings' });
   }
 });
 

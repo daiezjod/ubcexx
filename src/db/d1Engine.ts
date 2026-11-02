@@ -42,13 +42,17 @@ export interface MonetizationSettings {
   id: number;
   preroll_enabled: number;
   preroll_video_url: string;
-  preroll_click_url: string;
+  preroll_click_url?: string;
   preroll_skip_offset: number;
+  preroll_skip_seconds?: number;
   native_enabled: number;
+  native_ads_enabled?: number;
   native_code: string;
+  native_ads_code?: string;
   native_placements: string;
+  placement_zones?: string | any;
   top_rail_enabled?: number;
-  top_rail_cards?: string;
+  top_rail_cards?: string | any;
   updated_at?: string;
 }
 
@@ -581,31 +585,64 @@ export class D1PreparedStatement {
 
     // 8. UPDATE / INSERT monetization
     else if (q.includes('monetization')) {
-      const [
-        preroll_enabled,
-        preroll_video_url,
-        preroll_click_url,
-        preroll_skip_offset,
-        native_enabled,
-        native_code,
-        native_placements,
-        top_rail_enabled,
-        top_rail_cards,
-      ] = this.boundValues;
+      const prev = state.monetization || initialMonetization;
+      if (q.includes('preroll_skip_seconds') || this.boundValues.length === 7) {
+        const [
+          preroll_enabled,
+          preroll_video_url,
+          preroll_skip_seconds,
+          native_ads_enabled,
+          native_ads_code,
+          top_rail_cards,
+          placement_zones
+        ] = this.boundValues;
 
-      state.monetization = {
-        id: 1,
-        preroll_enabled: Number(preroll_enabled) === 1 ? 1 : 0,
-        preroll_video_url: String(preroll_video_url || ''),
-        preroll_click_url: String(preroll_click_url || ''),
-        preroll_skip_offset: Number(preroll_skip_offset) || 5,
-        native_enabled: Number(native_enabled) === 1 ? 1 : 0,
-        native_code: String(native_code || ''),
-        native_placements: String(native_placements || 'top_rail,under_player,in_feed'),
-        top_rail_enabled: top_rail_enabled !== undefined ? (Number(top_rail_enabled) === 1 ? 1 : 0) : (state.monetization?.top_rail_enabled ?? 1),
-        top_rail_cards: top_rail_cards !== undefined ? String(top_rail_cards) : (state.monetization?.top_rail_cards || JSON.stringify(defaultTopRailCards)),
-        updated_at: new Date().toISOString(),
-      };
+        state.monetization = {
+          ...prev,
+          id: 1,
+          preroll_enabled: Number(preroll_enabled) === 1 ? 1 : 0,
+          preroll_video_url: String(preroll_video_url || ''),
+          preroll_skip_seconds: Number(preroll_skip_seconds) || 5,
+          preroll_skip_offset: Number(preroll_skip_seconds) || 5,
+          native_ads_enabled: Number(native_ads_enabled) === 1 ? 1 : 0,
+          native_enabled: Number(native_ads_enabled) === 1 ? 1 : 0,
+          native_ads_code: String(native_ads_code || ''),
+          native_code: String(native_ads_code || ''),
+          top_rail_cards: typeof top_rail_cards === 'string' ? top_rail_cards : JSON.stringify(top_rail_cards || []),
+          placement_zones: typeof placement_zones === 'string' ? placement_zones : JSON.stringify(placement_zones || {}),
+          updated_at: new Date().toISOString(),
+        };
+      } else {
+        const [
+          preroll_enabled,
+          preroll_video_url,
+          preroll_click_url,
+          preroll_skip_offset,
+          native_enabled,
+          native_code,
+          native_placements,
+          top_rail_enabled,
+          top_rail_cards,
+        ] = this.boundValues;
+
+        state.monetization = {
+          ...prev,
+          id: 1,
+          preroll_enabled: Number(preroll_enabled) === 1 ? 1 : 0,
+          preroll_video_url: String(preroll_video_url || ''),
+          preroll_click_url: String(preroll_click_url || ''),
+          preroll_skip_seconds: Number(preroll_skip_offset) || 5,
+          preroll_skip_offset: Number(preroll_skip_offset) || 5,
+          native_ads_enabled: Number(native_enabled) === 1 ? 1 : 0,
+          native_enabled: Number(native_enabled) === 1 ? 1 : 0,
+          native_ads_code: String(native_code || ''),
+          native_code: String(native_code || ''),
+          native_placements: String(native_placements || 'top_rail,under_player,in_feed'),
+          top_rail_enabled: top_rail_enabled !== undefined ? (Number(top_rail_enabled) === 1 ? 1 : 0) : (prev.top_rail_enabled ?? 1),
+          top_rail_cards: top_rail_cards !== undefined ? String(top_rail_cards) : (prev.top_rail_cards || JSON.stringify(defaultTopRailCards)),
+          updated_at: new Date().toISOString(),
+        };
+      }
       changes = 1;
       this.db.commit();
     }
