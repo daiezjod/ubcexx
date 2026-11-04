@@ -112,6 +112,100 @@ export default function App() {
     return () => window.removeEventListener('popstate', handleUrlRoute);
   }, []);
 
+  // Global Automatic Page Reload on App Resume / Un-minimize
+  useEffect(() => {
+    const HIDDEN_KEY = 'ubcexx_last_hidden_time';
+    const RELOAD_KEY = 'ubcexx_just_reloaded';
+    let hiddenTimestamp = 0;
+
+    const handleVisibilityChange = () => {
+      const now = Date.now();
+
+      if (document.visibilityState === 'hidden') {
+        hiddenTimestamp = now;
+        try {
+          sessionStorage.setItem(HIDDEN_KEY, String(now));
+        } catch {
+          // ignore storage error
+        }
+      } else if (document.visibilityState === 'visible') {
+        let storedHidden = 0;
+        try {
+          storedHidden = Number(sessionStorage.getItem(HIDDEN_KEY) || 0);
+        } catch {
+          // ignore
+        }
+
+        const effectiveHiddenTime = hiddenTimestamp || storedHidden;
+
+        // Check if page was backgrounded for more than 2 seconds (2000ms)
+        if (effectiveHiddenTime > 0 && now - effectiveHiddenTime > 2000) {
+          // Loop prevention guard: do not reload if a reload occurred in the last 4 seconds
+          let lastReload = 0;
+          try {
+            lastReload = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
+          } catch {
+            // ignore
+          }
+
+          if (now - lastReload > 4000) {
+            try {
+              sessionStorage.removeItem(HIDDEN_KEY);
+              sessionStorage.setItem(RELOAD_KEY, String(now));
+            } catch {
+              // ignore
+            }
+            hiddenTimestamp = 0;
+            // Full automatic reload: restarts the current route (Home, Watch, etc.) fresh
+            window.location.reload();
+            return;
+          }
+        }
+
+        // Reset tracking if returning within < 2 seconds or after reload
+        hiddenTimestamp = 0;
+        try {
+          sessionStorage.removeItem(HIDDEN_KEY);
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    const handlePageShow = (event: PageTransitionEvent) => {
+      const now = Date.now();
+      let storedHidden = 0;
+      let lastReload = 0;
+      try {
+        storedHidden = Number(sessionStorage.getItem(HIDDEN_KEY) || 0);
+        lastReload = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
+      } catch {
+        // ignore
+      }
+
+      // Check if restored from bfcache or if suspended in background for > 2 seconds
+      if (event.persisted || (storedHidden > 0 && now - storedHidden > 2000)) {
+        if (now - lastReload > 4000) {
+          try {
+            sessionStorage.removeItem(HIDDEN_KEY);
+            sessionStorage.setItem(RELOAD_KEY, String(now));
+          } catch {
+            // ignore
+          }
+          window.location.reload();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handlePageShow);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handlePageShow);
+    };
+  }, []);
+
   // Fetch categories, videos, and monetization safely
   const loadData = async () => {
     setLoading(true);
