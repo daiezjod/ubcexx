@@ -295,27 +295,29 @@ export default function App() {
   if (currentView === 'watch' && activeVideoId) {
     return (
       <div className="min-h-screen bg-[#080C14] text-[#F8FAFC] flex flex-col selection:bg-[#F59E0B] selection:text-black">
-        <Navbar
-          categories={categories}
-          selectedCategoryId={selectedCategoryId}
-          onSelectCategory={(id) => {
-            setSelectedCategoryId(id);
-            handleNavigateHome();
-          }}
-          searchQuery={searchQuery}
-          onSearch={(q) => {
-            setSearchQuery(q);
-            handleNavigateHome();
-          }}
-          onNavigateHome={handleNavigateHome}
-          isSticky={false}
-        />
         <main className="flex-1">
           <WatchPage
             videoIdOrSlug={activeVideoId}
             onSelectVideo={handleSelectVideo}
             onBackToHome={handleNavigateHome}
             monetization={monetization}
+            navbar={
+              <Navbar
+                categories={categories}
+                selectedCategoryId={selectedCategoryId}
+                onSelectCategory={(id) => {
+                  setSelectedCategoryId(id);
+                  handleNavigateHome();
+                }}
+                searchQuery={searchQuery}
+                onSearch={(q) => {
+                  setSearchQuery(q);
+                  handleNavigateHome();
+                }}
+                onNavigateHome={handleNavigateHome}
+                isSticky={false}
+              />
+            }
           />
         </main>
         {/* Sleek Tube Footer */}

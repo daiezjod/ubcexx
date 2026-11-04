@@ -48,6 +48,7 @@ interface WatchPageProps {
   onSelectVideo: (video: Video) => void;
   onBackToHome: () => void;
   monetization?: MonetizationSettings | null;
+  navbar?: React.ReactNode;
 }
 
 export const WatchPage: React.FC<WatchPageProps> = ({
@@ -55,6 +56,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
   onSelectVideo,
   onBackToHome,
   monetization: initialMonetization,
+  navbar,
 }) => {
   const [monetization, setMonetization] = useState<MonetizationSettings | null>(initialMonetization || null);
   const [video, setVideo] = useState<Video | null>(null);
@@ -309,25 +311,31 @@ export const WatchPage: React.FC<WatchPageProps> = ({
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col items-center justify-center min-h-[50vh]">
-        <div className="w-10 h-10 border-2 border-[#253349] border-t-[#F59E0B] rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#080C14] text-[#F8FAFC]">
+        {navbar}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col items-center justify-center min-h-[50vh]">
+          <div className="w-10 h-10 border-2 border-[#253349] border-t-[#F59E0B] rounded-full animate-spin" />
+        </div>
       </div>
     );
   }
 
   if (error || !video) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-        <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl p-8 shadow-xl">
-          <h2 className="text-xl font-bold text-[#F8FAFC] mb-2">Video Unavailable</h2>
-          <p className="text-[#94A3B8] text-sm mb-6">{error || 'The requested stream could not be found in the database.'}</p>
-          <button
-            onClick={onBackToHome}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#131C2E] hover:bg-[#1E293B] border border-[#1E293B] text-[#F8FAFC] rounded-lg text-sm font-medium transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Return to UBCEXX Tube</span>
-          </button>
+      <div className="min-h-screen bg-[#080C14] text-[#F8FAFC]">
+        {navbar}
+        <div className="max-w-4xl mx-auto px-4 py-16 text-center">
+          <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl p-8 shadow-xl">
+            <h2 className="text-xl font-bold text-[#F8FAFC] mb-2">Video Unavailable</h2>
+            <p className="text-[#94A3B8] text-sm mb-6">{error || 'The requested stream could not be found in the database.'}</p>
+            <button
+              onClick={onBackToHome}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#131C2E] hover:bg-[#1E293B] border border-[#1E293B] text-[#F8FAFC] rounded-lg text-sm font-medium transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Return to UBCEXX Tube</span>
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -335,48 +343,52 @@ export const WatchPage: React.FC<WatchPageProps> = ({
 
   return (
     <div className="min-h-screen pb-16">
-      {/* Top Breadcrumb / Return */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-1">
-        <button
-          onClick={onBackToHome}
-          className="inline-flex items-center gap-2 text-xs font-semibold text-[#94A3B8] hover:text-[#F8FAFC] transition-colors cursor-pointer group"
-        >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          <span>Back to All Streams</span>
-        </button>
+      {/* 1. Sticky Top Header Block: Navbar + Back Navigation + Entire Video Player */}
+      <div className="sticky top-0 z-50 bg-[#080C14] shadow-2xl shadow-black/90 border-b border-[#1E293B]/60">
+        {/* Navbar */}
+        {navbar}
+
+        {/* Back Navigation Bar */}
+        <div className={`w-full mx-auto px-3 sm:px-6 lg:px-8 py-1.5 flex items-center justify-between ${isTheaterMode ? 'max-w-full' : 'max-w-7xl'}`}>
+          <button
+            onClick={onBackToHome}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#94A3B8] hover:text-[#F8FAFC] transition-colors cursor-pointer group py-0.5"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
+            <span>Back to All Streams</span>
+          </button>
+        </div>
+
+        {/* Video Player Pinned Container */}
+        <div className={`w-full mx-auto px-0 sm:px-6 lg:px-8 pb-1 sm:pb-2 ${isTheaterMode ? 'max-w-full' : 'max-w-7xl'}`}>
+          <VideoPlayer
+            key={`watch-player-${playerMountKey}-${video.id}`}
+            videoUrl={video.video_url}
+            backupVideoUrl={video.backup_video_url}
+            thumbnailUrl={video.thumbnail_url}
+            title={video.title}
+            onFirstPlay={handleFirstPlay}
+            isTheaterMode={isTheaterMode}
+            onToggleTheater={() => setIsTheaterMode(!isTheaterMode)}
+            preRollAd={
+              monetization && monetization.preroll_enabled === 1 && monetization.preroll_video_url
+                ? {
+                    enabled: true,
+                    videoUrl: monetization.preroll_video_url,
+                    skipOffset: Number(monetization.preroll_skip_seconds ?? monetization.preroll_skip_offset ?? 5) || 5,
+                  }
+                : undefined
+            }
+          />
+        </div>
       </div>
 
-      {/* Main Container */}
-      <div className={`mx-auto px-2 sm:px-4 md:px-6 lg:px-8 ${isTheaterMode ? 'max-w-full' : 'max-w-7xl'}`}>
+      {/* 2. Scrollable Lower Section (Below the Player) */}
+      <div className={`mx-auto px-3 sm:px-6 lg:px-8 ${isTheaterMode ? 'max-w-full' : 'max-w-7xl'}`}>
         <div className="flex flex-col gap-6">
           
-          {/* Main Column: Player + Details */}
+          {/* Main Column: Details */}
           <div className="w-full">
-            
-            {/* YouTube-style Sticky Video Player Container on Scroll */}
-            <div className="sticky top-0 z-40 bg-[#080C14] -mx-2 px-2 sm:-mx-4 sm:px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8 py-1 sm:py-2 border-b border-[#1E293B]/40 shadow-2xl shadow-black/90">
-              <div className={`w-full mx-auto ${isTheaterMode ? 'max-w-full' : 'max-w-7xl'}`}>
-                <VideoPlayer
-                  key={`watch-player-${playerMountKey}-${video.id}`}
-                  videoUrl={video.video_url}
-                  backupVideoUrl={video.backup_video_url}
-                  thumbnailUrl={video.thumbnail_url}
-                  title={video.title}
-                  onFirstPlay={handleFirstPlay}
-                  isTheaterMode={isTheaterMode}
-                  onToggleTheater={() => setIsTheaterMode(!isTheaterMode)}
-                  preRollAd={
-                    monetization && monetization.preroll_enabled === 1 && monetization.preroll_video_url
-                      ? {
-                          enabled: true,
-                          videoUrl: monetization.preroll_video_url,
-                          skipOffset: Number(monetization.preroll_skip_seconds ?? monetization.preroll_skip_offset ?? 5) || 5,
-                        }
-                      : undefined
-                  }
-                />
-              </div>
-            </div>
 
             {/* Video Metadata Header */}
             <div className="mt-4 pb-4 border-b border-[#1E293B]">
@@ -495,7 +507,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
       {showShareModal && (
         <div
           onClick={() => setShowShareModal(false)}
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col justify-end sm:justify-center sm:items-center p-0 sm:p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex flex-col justify-end sm:justify-center sm:items-center p-0 sm:p-4 animate-in fade-in duration-200"
         >
           <div
             onClick={(e) => e.stopPropagation()}

@@ -204,13 +204,13 @@ export const Navbar: React.FC<NavbarProps> = ({
       {isMenuOpen && (
         <div
           onClick={() => setIsMenuOpen(false)}
-          className="fixed inset-0 bg-[#080C14]/75 backdrop-blur-sm z-50 transition-opacity animate-in fade-in duration-200"
+          className="fixed inset-0 bg-[#080C14]/75 backdrop-blur-sm z-[60] transition-opacity animate-in fade-in duration-200"
         />
       )}
 
       {/* Sleek Slide-Out Drawer Menu */}
       <aside
-        className={`fixed top-0 right-0 h-full w-[85vw] max-w-sm bg-[#0B111E] border-l border-[#1E293B] shadow-2xl z-50 flex flex-col text-[#F8FAFC] transform transition-transform duration-300 ease-out ${
+        className={`fixed top-0 right-0 h-full w-[85vw] max-w-sm bg-[#0B111E] border-l border-[#1E293B] shadow-2xl z-[60] flex flex-col text-[#F8FAFC] transform transition-transform duration-300 ease-out ${
           isMenuOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
         aria-hidden={!isMenuOpen}
@@ -391,7 +391,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* DMCA & Disclaimer Modal */}
       {showDmcaModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#080C14]/85 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-[#080C14]/85 backdrop-blur-md animate-in fade-in duration-200">
           <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl max-w-lg w-full p-6 shadow-2xl relative max-h-[90vh] flex flex-col text-[#F8FAFC]">
             
             {/* Modal Header */}
