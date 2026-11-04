@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useId } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 interface AdBannerProps {
   adHtml: string;
@@ -7,9 +7,6 @@ interface AdBannerProps {
 
 export const AdBanner: React.FC<AdBannerProps> = ({ adHtml, className = '' }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const rawId = useId();
-  // Safe CSS ID selector without special characters
-  const bannerId = `ad-rail-${rawId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -48,15 +45,25 @@ export const AdBanner: React.FC<AdBannerProps> = ({ adHtml, className = '' }) =>
       // Append static/HTML content first
       container.appendChild(fragment);
 
-      // Re-create and execute scripts sequentially
+      // Re-create and execute scripts sequentially, preserving all original attributes
       scripts.forEach((oldScript) => {
         const newScript = document.createElement('script');
         Array.from(oldScript.attributes).forEach((attr) => {
           newScript.setAttribute(attr.name, attr.value);
         });
+
+        // Retain async / data-cfasync attributes explicitly
+        if (oldScript.async || oldScript.getAttribute('async') !== null) {
+          newScript.async = true;
+        }
+        if (oldScript.getAttribute('data-cfasync') !== null) {
+          newScript.setAttribute('data-cfasync', oldScript.getAttribute('data-cfasync') || 'false');
+        }
+
         if (oldScript.innerHTML) {
           newScript.text = oldScript.innerHTML;
         }
+
         if (oldScript.parentNode) {
           oldScript.parentNode.replaceChild(newScript, oldScript);
         } else {
@@ -100,159 +107,13 @@ export const AdBanner: React.FC<AdBannerProps> = ({ adHtml, className = '' }) =>
         </span>
       </div>
 
-      {/* Scoped CSS targeting this carousel container to enforce xHamster-style 130px 1:1 square cards in a horizontal scroll rail */}
-      <style>{`
-        #${bannerId} {
-          display: flex !important;
-          flex-direction: row !important;
-          flex-wrap: nowrap !important;
-          overflow-x: auto !important;
-          overflow-y: hidden !important;
-          gap: 8px !important;
-          padding: 6px 2px !important;
-          width: 100% !important;
-          -webkit-overflow-scrolling: touch !important;
-          scrollbar-width: thin !important;
-          scrollbar-color: #1E293B transparent !important;
-        }
-
-        #${bannerId}::-webkit-scrollbar {
-          height: 4px !important;
-        }
-        #${bannerId}::-webkit-scrollbar-track {
-          background: transparent !important;
-        }
-        #${bannerId}::-webkit-scrollbar-thumb {
-          background: #1E293B !important;
-          border-radius: 4px !important;
-        }
-
-        /* Force all nested wrapper containers (tables, rows, divs) into horizontal flex row */
-        #${bannerId} > div,
-        #${bannerId} > div > div,
-        #${bannerId} [id^="container-"],
-        #${bannerId} table,
-        #${bannerId} tbody,
-        #${bannerId} tr,
-        #${bannerId} ul {
-          display: flex !important;
-          flex-direction: row !important;
-          flex-wrap: nowrap !important;
-          align-items: stretch !important;
-          gap: 8px !important;
-          padding: 0 !important;
-          margin: 0 !important;
-          border: none !important;
-          background: transparent !important;
-          width: auto !important;
-          max-width: none !important;
-        }
-
-        /* Fixed 130px cards/links */
-        #${bannerId} a,
-        #${bannerId} .ad-item,
-        #${bannerId} [class*="item"],
-        #${bannerId} [class*="card"],
-        #${bannerId} [class*="widget"],
-        #${bannerId} td,
-        #${bannerId} li {
-          width: 130px !important;
-          min-width: 130px !important;
-          max-width: 130px !important;
-          flex-shrink: 0 !important;
-          flex-grow: 0 !important;
-          display: flex !important;
-          flex-direction: column !important;
-          background-color: #0F172A !important;
-          border: 1px solid #1E293B !important;
-          border-radius: 8px !important;
-          overflow: hidden !important;
-          text-decoration: none !important;
-          box-sizing: border-box !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          transition: border-color 0.2s ease, transform 0.2s ease !important;
-        }
-
-        #${bannerId} a:hover {
-          border-color: #F59E0B !important;
-          transform: translateY(-1px) !important;
-        }
-
-        /* Image wrappers if present: transparent, zero padding, strictly 130x130, no phantom boxes */
-        #${bannerId} [class*="image"],
-        #${bannerId} [class*="thumb"],
-        #${bannerId} [class*="pic"] {
-          width: 130px !important;
-          height: 130px !important;
-          background: transparent !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          border: none !important;
-          overflow: hidden !important;
-        }
-
-        /* Strict 1:1 130px square image */
-        #${bannerId} img,
-        #${bannerId} picture {
-          width: 130px !important;
-          min-width: 130px !important;
-          max-width: 130px !important;
-          height: 130px !important;
-          min-height: 130px !important;
-          max-height: 130px !important;
-          aspect-ratio: 1 / 1 !important;
-          object-fit: cover !important;
-          display: block !important;
-          border-radius: 7px 7px 0 0 !important;
-          margin: 0 !important;
-          padding: 0 !important;
-        }
-
-        /* Clamp titles to 2 lines in small white font */
-        #${bannerId} [class*="title"],
-        #${bannerId} [class*="headline"],
-        #${bannerId} [class*="text"],
-        #${bannerId} span:not([class*="badge"]),
-        #${bannerId} p,
-        #${bannerId} h3,
-        #${bannerId} h4,
-        #${bannerId} b,
-        #${bannerId} strong {
-          color: #FFFFFF !important;
-          font-size: 11px !important;
-          line-height: 1.3 !important;
-          font-weight: 600 !important;
-          padding: 4px 6px !important;
-          margin: 0 !important;
-          display: -webkit-box !important;
-          -webkit-line-clamp: 2 !important;
-          -webkit-box-orient: vertical !important;
-          overflow: hidden !important;
-          text-overflow: ellipsis !important;
-          word-break: break-word !important;
-          text-align: left !important;
-        }
-
-        /* Hide descriptions to keep cards compact and aligned */
-        #${bannerId} [class*="desc"],
-        #${bannerId} [class*="description"],
-        #${bannerId} [class*="sub"],
-        #${bannerId} [class*="details"] {
-          display: none !important;
-        }
-
-        #${bannerId} * {
-          box-sizing: border-box !important;
-        }
-      `}</style>
-
-      {/* Adsterra / Native Ad Mount Container in sleek horizontal scroll row */}
-      <div
-        id={bannerId}
-        ref={containerRef}
-        className="w-full flex flex-row overflow-x-auto gap-2 py-1 no-scrollbar scroll-smooth"
-      />
+      {/* Isolated container with horizontal scrolling enabled */}
+      <div className="w-full overflow-x-auto overflow-y-hidden py-2 no-scrollbar">
+        <div
+          ref={containerRef}
+          className="min-w-fit flex justify-center"
+        />
+      </div>
     </div>
   );
 };
