@@ -67,6 +67,107 @@ export const WatchPage: React.FC<WatchPageProps> = ({
   const [showShareModal, setShowShareModal] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
+  // Remount key to silently refresh video stream when mobile user resumes from background
+  const [playerMountKey, setPlayerMountKey] = useState<number>(0);
+
+  // Auto-Reload on App Resume & bfcache restoration for mobile devices
+  useEffect(() => {
+    const HIDDEN_KEY = 'ubcexx_watch_hidden_time';
+    const RELOAD_KEY = 'ubcexx_watch_reloaded';
+    let hiddenTimestamp = 0;
+
+    const handleVisibilityChange = () => {
+      const now = Date.now();
+
+      if (document.visibilityState === 'hidden') {
+        hiddenTimestamp = now;
+        try {
+          sessionStorage.setItem(HIDDEN_KEY, String(now));
+        } catch {
+          // ignore
+        }
+      } else if (document.visibilityState === 'visible') {
+        let storedHidden = 0;
+        try {
+          storedHidden = Number(sessionStorage.getItem(HIDDEN_KEY) || 0);
+        } catch {
+          // ignore
+        }
+
+        const effectiveHidden = hiddenTimestamp || storedHidden;
+        const elapsed = effectiveHidden > 0 ? now - effectiveHidden : 0;
+
+        // If app was minimized/backgrounded for more than 2.5 seconds, trigger a clean soft-refresh
+        if (elapsed > 2500) {
+          let lastReload = 0;
+          try {
+            lastReload = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
+          } catch {
+            // ignore
+          }
+
+          if (now - lastReload > 3000) {
+            try {
+              sessionStorage.removeItem(HIDDEN_KEY);
+              sessionStorage.setItem(RELOAD_KEY, String(now));
+            } catch {
+              // ignore
+            }
+            window.location.reload();
+            return;
+          }
+        } else if (elapsed > 800) {
+          // Quick switch (0.8s - 2.5s): silently remount player to reconnect stream socket instantly
+          setPlayerMountKey((prev) => prev + 1);
+        }
+
+        hiddenTimestamp = 0;
+        try {
+          sessionStorage.removeItem(HIDDEN_KEY);
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    const handlePageShow = (event: PageTransitionEvent) => {
+      const now = Date.now();
+      let storedHidden = 0;
+      let lastReload = 0;
+      try {
+        storedHidden = Number(sessionStorage.getItem(HIDDEN_KEY) || 0);
+        lastReload = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
+      } catch {
+        // ignore
+      }
+
+      // If restored from bfcache or deeply suspended in background
+      if (event.persisted || (storedHidden > 0 && now - storedHidden > 2500)) {
+        if (now - lastReload > 3000) {
+          try {
+            sessionStorage.removeItem(HIDDEN_KEY);
+            sessionStorage.setItem(RELOAD_KEY, String(now));
+          } catch {
+            // ignore
+          }
+          window.location.reload();
+          return;
+        }
+      }
+
+      // Remount player to ensure stream socket is live
+      setPlayerMountKey((prev) => prev + 1);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handlePageShow);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handlePageShow);
+    };
+  }, []);
+
   // Sync or fetch monetization settings
   useEffect(() => {
     if (initialMonetization) {
@@ -256,6 +357,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
             <div className="sticky top-0 z-40 bg-[#080C14] -mx-2 px-2 sm:-mx-4 sm:px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8 py-1 sm:py-2 border-b border-[#1E293B]/40 shadow-2xl shadow-black/90">
               <div className={`w-full mx-auto ${isTheaterMode ? 'max-w-full' : 'max-w-7xl'}`}>
                 <VideoPlayer
+                  key={`watch-player-${playerMountKey}-${video.id}`}
                   videoUrl={video.video_url}
                   backupVideoUrl={video.backup_video_url}
                   thumbnailUrl={video.thumbnail_url}

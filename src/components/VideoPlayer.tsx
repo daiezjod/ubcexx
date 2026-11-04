@@ -180,35 +180,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   // Mobile lifecycle & visibility tracking refs to guard against false failovers
   const isPageHiddenRef = useRef<boolean>(false);
   const lastVisibilityChangeTimeRef = useRef<number>(Date.now());
+  const hiddenTimestampRef = useRef<number>(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Handle Mobile Lifecycle & Visibility Events (prevent iframe reset on app minimize / background resume)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      lastVisibilityChangeTimeRef.current = Date.now();
-      if (document.visibilityState === 'hidden') {
-        isPageHiddenRef.current = true;
-      } else if (document.visibilityState === 'visible') {
-        isPageHiddenRef.current = false;
-        // Keep iframe mounted and clear any loading overlay
-        setIsIframeLoading(false);
-      }
-    };
-
-    const handlePageShow = () => {
-      isPageHiddenRef.current = false;
-      lastVisibilityChangeTimeRef.current = Date.now();
-      setIsIframeLoading(false);
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('pageshow', handlePageShow);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('pageshow', handlePageShow);
-    };
-  }, []);
+  // Dynamic iframe mount key to silently remount and re-awaken frozen streams on mobile resume
+  const [iframeMountKey, setIframeMountKey] = useState<number>(0);
 
   // Pre-roll Ad State
   const [isAdActive, setIsAdActive] = useState<boolean>(false);
@@ -234,6 +210,59 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   // OK.ru Iframe Loading State for seamless animated transition
   const [isIframeLoading, setIsIframeLoading] = useState<boolean>(true);
+
+  // Handle Mobile Lifecycle & Visibility Events (auto-reconnect stream on app minimize / background resume)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const now = Date.now();
+      lastVisibilityChangeTimeRef.current = now;
+
+      if (document.visibilityState === 'hidden') {
+        isPageHiddenRef.current = true;
+        hiddenTimestampRef.current = now;
+      } else if (document.visibilityState === 'visible') {
+        isPageHiddenRef.current = false;
+        const elapsed = hiddenTimestampRef.current > 0 ? now - hiddenTimestampRef.current : 0;
+        hiddenTimestampRef.current = 0;
+
+        // If returned from background after more than 1 second, cleanly remount the iframe stream
+        if (elapsed > 1000) {
+          if (isOkRuActive) {
+            // Remount OK.ru iframe to re-establish dropped WebSocket/TCP stream socket
+            setIframeMountKey((prev) => prev + 1);
+            setIsIframeLoading(true);
+            setTimeout(() => setIsIframeLoading(false), 2200);
+          } else if (videoRef.current) {
+            // If native HTML5 video, resume playback seamlessly
+            if (videoRef.current.paused && (wasPlayingRef.current || hasStarted)) {
+              videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+            }
+          }
+        } else {
+          setIsIframeLoading(false);
+        }
+      }
+    };
+
+    const handlePageShow = (e: PageTransitionEvent) => {
+      isPageHiddenRef.current = false;
+      lastVisibilityChangeTimeRef.current = Date.now();
+
+      // On bfcache restoration or mobile tab restore, silently remount stream iframe
+      if (e.persisted || isOkRuActive) {
+        setIframeMountKey((prev) => prev + 1);
+        setIsIframeLoading(false);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handlePageShow);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handlePageShow);
+    };
+  }, [isOkRuActive, hasStarted]);
 
   // Sync state whenever primary, backup URL, or pre-roll config changes
   useEffect(() => {
@@ -664,7 +693,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           {/* OK.ru Responsive Iframe Embed with Seamless Top-Crop Masking & Eager Loading */}
           <iframe
             ref={iframeRef}
-            key={`okru-${okRuId}`}
+            key={`okru-${okRuId}-${iframeMountKey}`}
             src={`https://ok.ru/videoembed/${okRuId}?autoplay=1`}
             title={title}
             loading="eager"
