@@ -5,9 +5,49 @@ interface AdBannerProps {
   className?: string;
 }
 
+/**
+ * Transforms external ad script references into local first-party proxy URLs
+ * so Ad Blockers (Brave Shields, uBlock Origin, AdGuard) cannot intercept them.
+ */
+function routeViaProxy(html: string): string {
+  if (!html) return '';
+
+  // 1. Rewrite <script ... src="..." ...> pointing to external origins to route through /api/proxy-ad
+  let transformed = html.replace(
+    /<script\b([^>]*?)\bsrc=(["'])(.*?)\2([^>]*?)>/gi,
+    (match, before, quote, srcUrl, after) => {
+      if (srcUrl.startsWith('/api/proxy-ad')) {
+        return match;
+      }
+      let fullUrl = srcUrl.trim();
+      if (fullUrl.startsWith('//')) {
+        fullUrl = `https:${fullUrl}`;
+      } else if (!fullUrl.startsWith('http://') && !fullUrl.startsWith('https://')) {
+        return match;
+      }
+      const proxiedUrl = `/api/proxy-ad?url=${encodeURIComponent(fullUrl)}`;
+      return `<script${before}src="${proxiedUrl}"${after}>`;
+    }
+  );
+
+  // 2. Also rewrite direct string literals referencing biomanos.org or third-party ad script domains
+  transformed = transformed.replace(
+    /(['"])(https?:)?\/\/([a-z0-9-]+\.)?biomanos\.org([^'"]*)\1/gi,
+    (match, quote, proto, sub, rest) => {
+      const full = `https://${sub || ''}biomanos.org${rest}`;
+      return `${quote}/api/proxy-ad?url=${encodeURIComponent(full)}${quote}`;
+    }
+  );
+
+  return transformed;
+}
+
 export const AdBanner: React.FC<AdBannerProps> = ({ adHtml, className = '' }) => {
   const srcDocContent = useMemo(() => {
     if (!adHtml || !adHtml.trim()) return '';
+
+    // Route scripts through Cloudflare edge reverse proxy
+    const proxiedHtml = routeViaProxy(adHtml);
 
     return `<!DOCTYPE html>
 <html>
@@ -25,7 +65,7 @@ export const AdBanner: React.FC<AdBannerProps> = ({ adHtml, className = '' }) =>
   </style>
 </head>
 <body>
-  ${adHtml}
+  ${proxiedHtml}
 </body>
 </html>`;
   }, [adHtml]);
@@ -33,25 +73,26 @@ export const AdBanner: React.FC<AdBannerProps> = ({ adHtml, className = '' }) =>
   if (!adHtml || !adHtml.trim()) return null;
 
   return (
-    <div className={`w-full overflow-hidden my-3 ${className}`}>
-      {/* Sleek Promoted Sponsor Indicator */}
+    <div className={`ubcexx-promoted-rail w-full overflow-hidden my-3 ${className}`}>
+      {/* UBCEXX Promoted Indicator */}
       <div className="flex items-center justify-between px-1 pb-1.5 mb-1">
         <div className="flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-pulse" />
           <span className="text-[10px] font-mono uppercase tracking-wider text-[#F59E0B] font-bold">
-            Promoted Sponsor
+            Promoted
           </span>
         </div>
         <span className="text-[10px] font-mono text-[#94A3B8]/60">
-          UBCEXX Ad Network
+          UBCEXX Promoted
         </span>
       </div>
 
-      {/* Horizontal scroll container: fixed 540x160 iframe isolated from all parent CSS */}
+      {/* Horizontal scroll container with stealth identifiers */}
       <div className="w-full overflow-x-auto scrollbar-none py-2 flex justify-start sm:justify-center">
         <iframe
+          id="ubcexx-partner-slot"
           srcDoc={srcDocContent}
-          title="Promoted Sponsor Ad"
+          title="Promoted Content"
           width={540}
           height={160}
           scrolling="no"

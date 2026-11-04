@@ -1556,13 +1556,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
                         <span>AD NETWORK TAG / VAST / STREAM URL *</span>
                       </label>
-                      <span className="text-[10px] text-[#94A3B8] font-mono">ExoClick / Adsterra / JuicyAds / Direct MP4</span>
+                      <span className="text-[10px] text-[#94A3B8] font-mono">VAST Tag / Direct MP4 / Stream URL</span>
                     </div>
                     <input
                       type="url"
                       value={prerollVideoUrl}
                       onChange={(e) => setPrerollVideoUrl(e.target.value)}
-                      placeholder="Paste your ExoClick/Adsterra VAST Tag URL or Direct MP4 stream..."
+                      placeholder="Paste your VAST Tag URL or Direct MP4 stream..."
                       className="w-full bg-[#131C2E] text-xs text-[#F8FAFC] px-3.5 py-2.5 rounded-xl border border-[#253349] font-mono focus:outline-none focus:border-[#F59E0B]"
                     />
                     
@@ -1585,10 +1585,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => setPrerollVideoUrl('https://syndication.exoclick.com/splash.php?idzone=demo-vast-tag&type=vast')}
+                        onClick={() => setPrerollVideoUrl('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4')}
                         className="text-[10px] bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] px-2 py-0.5 rounded text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer"
                       >
-                        ExoClick VAST Sample
+                        Sci-Fi Promo MP4 (15s)
                       </button>
                     </div>
                   </div>
@@ -1658,7 +1658,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <h3 className="text-sm font-bold text-[#F8FAFC] flex items-center gap-2">
                         <span>Section B: Native / Banner Ads</span>
                         <span className="text-[10px] font-mono text-[#F59E0B] font-semibold bg-[#F59E0B]/10 px-2 py-0.5 rounded">
-                          Adsterra / ExoClick / Custom HTML
+                          HTML / JS / Dynamic Snippet
                         </span>
                       </h3>
                       <p className="text-[11px] text-[#94A3B8]">
@@ -1952,14 +1952,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <label className="text-xs font-semibold text-[#F8FAFC] uppercase tracking-wider flex items-center gap-1.5">
                         <span>Ad Script / HTML Code Box</span>
                       </label>
-                      <span className="text-[10px] text-[#94A3B8] font-mono">HTML / JS / Adsterra / ExoClick code</span>
+                      <span className="text-[10px] text-[#94A3B8] font-mono">HTML / JS / Dynamic Code</span>
                     </div>
 
                     <textarea
                       rows={5}
                       value={nativeCode}
                       onChange={(e) => setNativeCode(e.target.value)}
-                      placeholder='<!-- Paste Adsterra, ExoClick, JuicyAds raw <script> or <iframe> snippet here -->'
+                      placeholder='<!-- Paste raw <script> or <iframe> snippet here -->'
                       className="w-full bg-[#080C14] text-xs font-mono text-[#10B981] p-3.5 rounded-xl border border-[#253349] focus:outline-none focus:border-[#F59E0B]"
                     />
 
@@ -1970,7 +1970,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         type="button"
                         onClick={() =>
                           setNativeCode(
-                            `<div class="top-rail-adsterra-widget" style="width:100%;text-align:center;"><div style="display:inline-block;padding:12px 20px;background:#131C2E;border:1px dashed #F59E0B;border-radius:10px;color:#F8FAFC;font-size:12px;"><span style="color:#F59E0B;font-weight:bold;margin-right:8px;">[TOP RAIL AD NETWORK]</span> ExoClick / Adsterra / JuicyAds 1:1 or Banner snippet active</div></div>`
+                            `<div class="ubcexx-promoted-widget" style="width:100%;text-align:center;"><div style="display:inline-block;padding:12px 20px;background:#131C2E;border:1px dashed #F59E0B;border-radius:10px;color:#F8FAFC;font-size:12px;"><span style="color:#F59E0B;font-weight:bold;margin-right:8px;">[UBCEXX PROMOTED]</span> Partner 1:1 or Banner snippet active</div></div>`
                           )
                         }
                         className="text-[10px] bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] px-2 py-0.5 rounded text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer"
@@ -1992,7 +1992,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         type="button"
                         onClick={() =>
                           setNativeCode(
-                            `<div style="display:inline-block;width:728px;max-width:100%;height:90px;background:#131C2E;border:1px dashed #253349;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#94A3B8;font-size:12px;font-family:monospace;"><span style="color:#F59E0B;font-weight:bold;margin-right:8px;">[ADSTERRA / EXOCLICK 728x90]</span> Insert your partner ad network tag snippet here</div>`
+                            `<div style="display:inline-block;width:728px;max-width:100%;height:90px;background:#131C2E;border:1px dashed #253349;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#94A3B8;font-size:12px;font-family:monospace;"><span style="color:#F59E0B;font-weight:bold;margin-right:8px;">[UBCEXX PARTNER 728x90]</span> Insert your partner tag snippet here</div>`
                           )
                         }
                         className="text-[10px] bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] px-2 py-0.5 rounded text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer"
@@ -2003,7 +2003,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         type="button"
                         onClick={() =>
                           setNativeCode(
-                            `<div id="container-adsterra-banner" style="min-height:90px;display:flex;align-items:center;justify-content:center;width:100%;"><script type="text/javascript">console.log("Adsterra dynamic JS execution verified");</script><div style="padding:10px;border:1px solid #10B981;border-radius:8px;background:#0d1526;color:#10B981;font-size:11px;font-family:monospace;">✓ Dynamic Ad Script Execution Active (ExoClick / Adsterra / JuicyAds ready)</div></div>`
+                            `<div id="container-partner-banner" style="min-height:90px;display:flex;align-items:center;justify-content:center;width:100%;"><script type="text/javascript">console.log("Dynamic JS execution verified");</script><div style="padding:10px;border:1px solid #10B981;border-radius:8px;background:#0d1526;color:#10B981;font-size:11px;font-family:monospace;">✓ Dynamic Script Execution Active (Partner snippet ready)</div></div>`
                           )
                         }
                         className="text-[10px] bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] px-2 py-0.5 rounded text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer"

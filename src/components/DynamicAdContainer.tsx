@@ -8,8 +8,8 @@ interface DynamicAdContainerProps {
 
 /**
  * DynamicAdContainer
- * Universal Ad Network Script Injector.
- * Executes raw third-party ad scripts (ExoClick, Adsterra, JuicyAds, iframes, banners)
+ * Universal Script Injector.
+ * Executes dynamic partner script elements (iframes, banners, sponsored snippets)
  * by extracting <script> tags and appending active DOM script elements that bypass React's innerHTML execution block.
  */
 export const DynamicAdContainer: React.FC<DynamicAdContainerProps> = ({

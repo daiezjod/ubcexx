@@ -210,6 +210,79 @@ app.get(['/api/monetization', '/api/admin/monetization'], async (req: Request, r
   }
 });
 
+// GET & POST /api/proxy-ad - Server-Side Anti-Adblock Reverse Proxy
+app.all('/api/proxy-ad', async (req: Request, res: Response) => {
+  try {
+    const targetUrl = (req.query.url as string) || (req.body && req.body.url);
+    if (!targetUrl || (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://'))) {
+      return res.status(400).json({ error: 'Valid target HTTP/HTTPS URL parameter required' });
+    }
+
+    const clientIp =
+      (req.headers['cf-connecting-ip'] as string) ||
+      (req.headers['x-real-ip'] as string) ||
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+      req.ip ||
+      '';
+
+    const userAgent = (req.headers['user-agent'] as string) || 'Mozilla/5.0';
+    const referer = (req.headers['referer'] as string) || 'https://ubcexx-50v.pages.dev/';
+    const accept = (req.headers['accept'] as string) || '*/*';
+    const acceptLanguage = (req.headers['accept-language'] as string) || 'en-US,en;q=0.9';
+
+    const upstreamHeaders: Record<string, string> = {
+      'User-Agent': userAgent,
+      'Referer': referer,
+      'Accept': accept,
+      'Accept-Language': acceptLanguage,
+    };
+
+    if (clientIp) {
+      upstreamHeaders['X-Forwarded-For'] = clientIp;
+      upstreamHeaders['X-Real-IP'] = clientIp;
+      upstreamHeaders['CF-Connecting-IP'] = clientIp;
+    }
+
+    const upstreamRes = await fetch(targetUrl, {
+      method: req.method === 'POST' ? 'POST' : 'GET',
+      headers: upstreamHeaders,
+    });
+
+    const contentType =
+      upstreamRes.headers.get('content-type') ||
+      (targetUrl.endsWith('.js')
+        ? 'application/javascript; charset=utf-8'
+        : targetUrl.endsWith('.xml')
+        ? 'application/xml; charset=utf-8'
+        : 'text/plain; charset=utf-8');
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+
+    if (
+      contentType.includes('javascript') ||
+      contentType.includes('text') ||
+      contentType.includes('xml') ||
+      contentType.includes('json')
+    ) {
+      let bodyText = await upstreamRes.text();
+      const currentOrigin = `${req.protocol}://${req.get('host')}`;
+      bodyText = bodyText.replace(/(https?:)?\/\/([a-z0-9-]+\.)?biomanos\.org/gi, (match) => {
+        const fullUrl = match.startsWith('http') ? match : `https:${match}`;
+        return `${currentOrigin}/api/proxy-ad?url=${encodeURIComponent(fullUrl)}`;
+      });
+      return res.status(upstreamRes.status).send(bodyText);
+    }
+
+    const arrayBuffer = await upstreamRes.arrayBuffer();
+    return res.status(upstreamRes.status).send(Buffer.from(arrayBuffer));
+  } catch (err: any) {
+    return res.status(502).json({ error: 'Proxy request failed', details: err?.message || String(err) });
+  }
+});
+
 // ==========================================
 // ADMIN PANEL API ROUTES
 // ==========================================

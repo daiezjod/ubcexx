@@ -36,49 +36,106 @@ export function parseOkRuVideoId(url: string | undefined | null): string | null 
   return fallback ? fallback[1] : null;
 }
 
-// Universal Ad Stream Resolver for VAST XML Tags and Direct Streams
-async function resolveAdStreamUrl(adUrl: string): Promise<string> {
-  const trimmed = (adUrl || '').trim();
-  if (!trimmed) return '';
+export interface ResolvedAdPayload {
+  streamUrl: string;
+  impressionUrls: string[];
+  clickThroughUrl?: string;
+  clickTrackingUrls: string[];
+}
 
-  // Direct video file or stream URL (MP4, WebM, HLS m3u8, MKV)
-  if (/\.(mp4|webm|m3u8|mov|mkv)(\?.*)?$/i.test(trimmed)) {
-    return trimmed;
+// Universal Ad Stream Resolver for VAST XML Tags and Direct Streams via Anti-Adblock Server Proxy
+export async function resolveAdStreamUrl(adUrl: string): Promise<ResolvedAdPayload> {
+  const trimmed = (adUrl || '').trim();
+  if (!trimmed) {
+    return { streamUrl: '', impressionUrls: [], clickTrackingUrls: [] };
   }
 
-  // If VAST XML or Tag URL, attempt client-side VAST extraction
-  if (trimmed.includes('vast') || trimmed.includes('.xml') || trimmed.includes('tag')) {
-    try {
-      const res = await fetch(trimmed, { mode: 'cors' });
-      if (res.ok) {
-        const text = await res.text();
-        if (text.includes('<MediaFile') || text.includes('<VAST') || text.includes('VASTAdTagURI')) {
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(text, 'application/xml');
+  const toProxied = (url: string) => {
+    if (!url || url.startsWith('/api/proxy-ad') || url.startsWith('blob:') || url.startsWith('data:')) {
+      return url;
+    }
+    return `/api/proxy-ad?url=${encodeURIComponent(url)}`;
+  };
 
-          // Check for VAST Wrapper redirect
-          const wrapperUri = doc.querySelector('VASTAdTagURI')?.textContent?.trim();
-          if (wrapperUri && wrapperUri !== trimmed) {
-            return resolveAdStreamUrl(wrapperUri);
-          }
+  // If already a direct video file format (MP4, WebM, HLS m3u8)
+  const isDirectVideo = /\.(mp4|webm|m3u8|mov|mkv)(\?.*)?$/i.test(trimmed);
+  if (isDirectVideo) {
+    // Proxy the video stream so ad blockers cannot abort loading based on ad network domain rules
+    return {
+      streamUrl: toProxied(trimmed),
+      impressionUrls: [],
+      clickTrackingUrls: [],
+    };
+  }
 
-          const mediaFiles = Array.from(doc.querySelectorAll('MediaFile'));
-          const mp4File = mediaFiles.find(
-            (mf) => (mf.getAttribute('type') || '').includes('mp4') || (mf.textContent || '').includes('.mp4')
-          );
-          const chosen = mp4File || mediaFiles[0];
-          const resolvedUrl = chosen?.textContent?.trim();
-          if (resolvedUrl && (resolvedUrl.startsWith('http://') || resolvedUrl.startsWith('https://'))) {
-            return resolvedUrl;
+  // If VAST XML or Tag URL, fetch through the server-side reverse proxy
+  try {
+    const proxiedTagUrl = toProxied(trimmed);
+    const res = await fetch(proxiedTagUrl, { mode: 'cors' });
+    if (res.ok) {
+      const text = await res.text();
+      if (
+        text.includes('<MediaFile') ||
+        text.includes('<VAST') ||
+        text.includes('VASTAdTagURI') ||
+        text.includes('<Impression')
+      ) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'application/xml');
+
+        // Check for VAST Wrapper redirect
+        const wrapperUri = doc.querySelector('VASTAdTagURI')?.textContent?.trim();
+        if (wrapperUri && wrapperUri !== trimmed) {
+          return resolveAdStreamUrl(wrapperUri);
+        }
+
+        // Extract Impression tracking beacons
+        const impressionUrls: string[] = [];
+        doc.querySelectorAll('Impression').forEach((el) => {
+          const u = el.textContent?.trim();
+          if (u && (u.startsWith('http://') || u.startsWith('https://'))) {
+            impressionUrls.push(u);
           }
+        });
+
+        // Extract ClickThrough & ClickTracking
+        const clickTrackingUrls: string[] = [];
+        doc.querySelectorAll('ClickTracking').forEach((el) => {
+          const u = el.textContent?.trim();
+          if (u && (u.startsWith('http://') || u.startsWith('https://'))) {
+            clickTrackingUrls.push(u);
+          }
+        });
+
+        const clickThroughUrl = doc.querySelector('ClickThrough')?.textContent?.trim() || undefined;
+
+        const mediaFiles = Array.from(doc.querySelectorAll('MediaFile'));
+        const mp4File = mediaFiles.find(
+          (mf) =>
+            (mf.getAttribute('type') || '').includes('mp4') ||
+            (mf.textContent || '').includes('.mp4')
+        );
+        const chosen = mp4File || mediaFiles[0];
+        const rawResolved = chosen?.textContent?.trim();
+        if (rawResolved && (rawResolved.startsWith('http://') || rawResolved.startsWith('https://'))) {
+          return {
+            streamUrl: toProxied(rawResolved),
+            impressionUrls,
+            clickThroughUrl,
+            clickTrackingUrls,
+          };
         }
       }
-    } catch (err) {
-      console.warn('VAST Tag XML fetch note (CORS or network), playing direct URL:', err);
     }
+  } catch (err) {
+    console.warn('VAST Tag XML fetch note, playing proxied direct stream:', err);
   }
 
-  return trimmed;
+  return {
+    streamUrl: toProxied(trimmed),
+    impressionUrls: [],
+    clickTrackingUrls: [],
+  };
 }
 
 interface VideoPlayerProps {
@@ -158,6 +215,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [adFinished, setAdFinished] = useState<boolean>(false);
   const [adCountdown, setAdCountdown] = useState<number>(preRollAd?.skipOffset || 5);
   const [canSkipAd, setCanSkipAd] = useState<boolean>(false);
+  const adClickThroughRef = useRef<string | undefined>(undefined);
+  const adClickTrackingRef = useRef<string[]>([]);
 
   // Native HTML5 Player State
   const [isPlaying, setIsPlaying] = useState(false);
@@ -191,6 +250,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setIsPlaying(false);
     setHasStarted(false);
     setHasReportedView(false);
+    adClickThroughRef.current = undefined;
+    adClickTrackingRef.current = [];
   }, [videoUrl, backupVideoUrl, preRollAd?.videoUrl, preRollAd?.enabled]);
 
   // Safety timer so loading state smoothly fades out even if cross-origin iframe load is deferred
@@ -344,9 +405,19 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         setAdCountdown(timerSeconds);
 
         try {
-          const resolvedSource = await resolveAdStreamUrl(adConfigToUse.videoUrl);
-          const streamToPlay = resolvedSource || adConfigToUse.videoUrl;
+          const resolvedAd = await resolveAdStreamUrl(adConfigToUse.videoUrl);
+          const streamToPlay = resolvedAd.streamUrl || adConfigToUse.videoUrl;
           setActiveSource(streamToPlay);
+
+          // Ping Impression beacons through server proxy so ad network registers impressions and credits publisher revenue
+          if (resolvedAd.impressionUrls && resolvedAd.impressionUrls.length > 0) {
+            resolvedAd.impressionUrls.forEach((impUrl) => {
+              fetch(`/api/proxy-ad?url=${encodeURIComponent(impUrl)}`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+            });
+          }
+
+          adClickThroughRef.current = resolvedAd.clickThroughUrl;
+          adClickTrackingRef.current = resolvedAd.clickTrackingUrls;
 
           setTimeout(() => {
             if (videoRef.current) {
@@ -651,13 +722,31 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           {/* Pre-Roll In-Stream Ad Overlays */}
           {isAdActive && (
             <>
-              {/* Top-Left Sponsored Ad Badge */}
-              <div className="absolute top-4 left-4 z-30 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/85 backdrop-blur-md border border-[#F59E0B]/40 text-xs font-semibold text-[#F8FAFC] shadow-xl pointer-events-none select-none">
+              {/* Top-Left Sponsored Ad Badge with anti-adblock click tracking */}
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // Fire click tracking beacons via server proxy
+                  if (adClickTrackingRef.current && adClickTrackingRef.current.length > 0) {
+                    adClickTrackingRef.current.forEach((clickUrl) => {
+                      fetch(`/api/proxy-ad?url=${encodeURIComponent(clickUrl)}`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+                    });
+                  }
+                  if (adClickThroughRef.current) {
+                    window.open(adClickThroughRef.current, '_blank', 'noopener,noreferrer');
+                  }
+                }}
+                className={`absolute top-4 left-4 z-30 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/85 backdrop-blur-md border border-[#F59E0B]/40 text-xs font-semibold text-[#F8FAFC] shadow-xl select-none transition-colors ${
+                  adClickThroughRef.current ? 'cursor-pointer hover:border-[#F59E0B]' : 'pointer-events-none'
+                }`}
+                title={adClickThroughRef.current ? 'Visit Sponsor' : 'Sponsored In-Stream'}
+              >
                 <span className="px-1.5 py-0.5 rounded bg-[#F59E0B] text-black font-black text-[10px] uppercase">
                   AD
                 </span>
-                <span className="text-[#94A3B8] font-mono text-[11px]">
-                  Sponsored In-Stream
+                <span className="text-[#94A3B8] font-mono text-[11px] flex items-center gap-1">
+                  <span>Sponsored In-Stream</span>
+                  {adClickThroughRef.current && <span className="text-[#F59E0B]">↗</span>}
                 </span>
               </div>
 

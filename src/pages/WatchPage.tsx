@@ -333,7 +333,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
               </div>
             </div>
 
-            {/* Native Ad Placement: Below Player / Title */}
+            {/* UBCEXX Promoted Content: Below Player / Title */}
             {(monetization?.native_ads_enabled === 1 || monetization?.native_enabled === 1) &&
               Boolean(monetization?.native_ads_code || monetization?.native_code) && (
                 <div className="w-full my-4">

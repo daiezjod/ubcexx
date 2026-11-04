@@ -56,7 +56,7 @@ export const Home: React.FC<HomeProps> = ({
         onNavigateHome={onNavigateHome}
       />
 
-      {/* Real Native Ad Banner (Adsterra / Third-Party Native 1:1 Square Card Carousel) below categories */}
+      {/* UBCEXX Promoted Rail below categories */}
       {isNativeAdEnabled && (
         <div className="max-w-7xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 w-full">
           <AdBanner adHtml={activeAdHtml} />
