@@ -308,6 +308,7 @@ export default function App() {
             handleNavigateHome();
           }}
           onNavigateHome={handleNavigateHome}
+          isSticky={false}
         />
         <main className="flex-1">
           <WatchPage

@@ -252,25 +252,29 @@ export const WatchPage: React.FC<WatchPageProps> = ({
           {/* Main Column: Player + Details */}
           <div className="w-full">
             
-            {/* Custom Responsive Video Player with Pre-Roll Ad Support */}
-            <VideoPlayer
-              videoUrl={video.video_url}
-              backupVideoUrl={video.backup_video_url}
-              thumbnailUrl={video.thumbnail_url}
-              title={video.title}
-              onFirstPlay={handleFirstPlay}
-              isTheaterMode={isTheaterMode}
-              onToggleTheater={() => setIsTheaterMode(!isTheaterMode)}
-              preRollAd={
-                monetization && monetization.preroll_enabled === 1 && monetization.preroll_video_url
-                  ? {
-                      enabled: true,
-                      videoUrl: monetization.preroll_video_url,
-                      skipOffset: Number(monetization.preroll_skip_seconds ?? monetization.preroll_skip_offset ?? 5) || 5,
-                    }
-                  : undefined
-              }
-            />
+            {/* YouTube-style Sticky Video Player Container on Scroll */}
+            <div className="sticky top-0 z-40 bg-[#080C14] -mx-2 px-2 sm:-mx-4 sm:px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8 py-1 sm:py-2 border-b border-[#1E293B]/40 shadow-2xl shadow-black/90">
+              <div className={`w-full mx-auto ${isTheaterMode ? 'max-w-full' : 'max-w-7xl'}`}>
+                <VideoPlayer
+                  videoUrl={video.video_url}
+                  backupVideoUrl={video.backup_video_url}
+                  thumbnailUrl={video.thumbnail_url}
+                  title={video.title}
+                  onFirstPlay={handleFirstPlay}
+                  isTheaterMode={isTheaterMode}
+                  onToggleTheater={() => setIsTheaterMode(!isTheaterMode)}
+                  preRollAd={
+                    monetization && monetization.preroll_enabled === 1 && monetization.preroll_video_url
+                      ? {
+                          enabled: true,
+                          videoUrl: monetization.preroll_video_url,
+                          skipOffset: Number(monetization.preroll_skip_seconds ?? monetization.preroll_skip_offset ?? 5) || 5,
+                        }
+                      : undefined
+                  }
+                />
+              </div>
+            </div>
 
             {/* Video Metadata Header */}
             <div className="mt-4 pb-4 border-b border-[#1E293B]">

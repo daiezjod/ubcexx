@@ -21,6 +21,7 @@ interface NavbarProps {
   searchQuery: string;
   onSearch: (query: string) => void;
   onNavigateHome: () => void;
+  isSticky?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -30,6 +31,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   searchQuery,
   onSearch,
   onNavigateHome,
+  isSticky = true,
 }) => {
   const [localSearch, setLocalSearch] = useState(searchQuery);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -87,7 +89,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-[#080C14]/95 backdrop-blur-md border-b border-[#1E293B]">
+      <header className={`${isSticky ? 'sticky top-0 z-40' : 'relative z-20'} bg-[#080C14]/95 backdrop-blur-md border-b border-[#1E293B]`}>
         {/* Top 3-Zone Bar */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4 sm:gap-6">
           
