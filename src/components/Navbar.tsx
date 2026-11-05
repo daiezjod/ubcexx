@@ -38,12 +38,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isCategoriesExpanded, setIsCategoriesExpanded] = useState(true);
   const [showDmcaModal, setShowDmcaModal] = useState(false);
 
-  // Sync internal search input with outer search query
   useEffect(() => {
     setLocalSearch(searchQuery);
   }, [searchQuery]);
 
-  // Handle ESC key to close drawer and modal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -90,10 +88,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <>
       <header className={`${isSticky ? 'sticky top-0 z-40' : 'relative z-20'} bg-[#080C14]/95 backdrop-blur-md border-b border-[#1E293B]`}>
-        {/* Top 3-Zone Bar */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4 sm:gap-6">
-          
-          {/* Zone 1: UBCEXX Brand Logo */}
           <button
             onClick={handleNavHome}
             className="flex items-center gap-2 group text-left shrink-0 cursor-pointer focus:outline-none"
@@ -108,7 +103,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </button>
 
-          {/* Zone 2: Live Search Bar */}
           <div className="flex-1 max-w-xl">
             <form onSubmit={handleSubmit} className="relative">
               <div className="relative flex items-center">
@@ -134,7 +128,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             </form>
           </div>
 
-          {/* Zone 3: Modern 3-Line Hamburger Menu Icon Button (☰) */}
           <div className="flex items-center shrink-0">
             <button
               type="button"
@@ -145,7 +138,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 isMenuOpen ? 'border-[#F59E0B] text-[#F59E0B] shadow-[0_0_15px_rgba(245,158,11,0.2)]' : ''
               }`}
             >
-              {/* Modern 3-Line Hamburger Graphic */}
               <div className="w-4 h-3.5 flex flex-col justify-between items-center pointer-events-none">
                 <span
                   className={`h-0.5 w-full bg-current rounded-full transition-all duration-200 ease-in-out ${
@@ -167,7 +159,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        {/* Category Pills Rail */}
         <div className="border-t border-[#1E293B] bg-[#080C14]/90">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 overflow-x-auto no-scrollbar flex items-center gap-2">
             <button
@@ -200,7 +191,6 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </header>
 
-      {/* Backdrop Overlay for Slide-Out Drawer */}
       {isMenuOpen && (
         <div
           onClick={() => setIsMenuOpen(false)}
@@ -208,14 +198,12 @@ export const Navbar: React.FC<NavbarProps> = ({
         />
       )}
 
-      {/* Sleek Slide-Out Drawer Menu */}
       <aside
         className={`fixed top-0 right-0 h-full w-[85vw] max-w-sm bg-[#0B111E] border-l border-[#1E293B] shadow-2xl z-[60] flex flex-col text-[#F8FAFC] transform transition-transform duration-300 ease-out ${
           isMenuOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
         aria-hidden={!isMenuOpen}
       >
-        {/* Drawer Header */}
         <div className="p-4 sm:p-5 border-b border-[#1E293B] flex items-center justify-between bg-[#080C14]/60">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-[#F59E0B] flex items-center justify-center shadow-md shadow-[#F59E0B]/20">
@@ -236,14 +224,11 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         </div>
 
-        {/* Drawer Scrollable Navigation Body */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3">
-          
           <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#94A3B8]/60 px-1">
             Menu Navigation
           </div>
 
-          {/* Item 1: Home / All Streams */}
           <button
             onClick={handleNavHome}
             className={`w-full flex items-center justify-between p-3.5 rounded-xl border text-left transition-all cursor-pointer group ${
@@ -268,7 +253,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             <ChevronRight className="w-4 h-4 text-[#94A3B8] group-hover:text-[#F59E0B] transition-colors" />
           </button>
 
-          {/* Item 2: Browse Categories (Expandable Accordion) */}
           <div className="rounded-xl border border-[#1E293B] bg-[#0F172A] overflow-hidden transition-all">
             <button
               onClick={() => setIsCategoriesExpanded((prev) => !prev)}
@@ -294,7 +278,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </button>
 
-            {/* Expanded Categories List */}
             {isCategoriesExpanded && (
               <div className="px-3 pb-3 pt-1 border-t border-[#1E293B]/60 bg-[#080C14]/40 flex flex-wrap gap-1.5 max-h-48 overflow-y-auto no-scrollbar">
                 <button
@@ -327,7 +310,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </div>
 
-          {/* Item 3: Most Viewed */}
           <button
             onClick={handleNavMostViewed}
             className="w-full flex items-center justify-between p-3.5 rounded-xl border border-[#1E293B] bg-[#0F172A] text-left text-[#94A3B8] hover:text-[#F8FAFC] hover:border-[#2A3950] hover:bg-[#141E30] transition-all cursor-pointer group"
@@ -348,7 +330,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             <ChevronRight className="w-4 h-4 text-[#94A3B8] group-hover:text-[#F59E0B] transition-colors" />
           </button>
 
-          {/* Item 4: DMCA & Disclaimer */}
           <button
             onClick={() => {
               setIsMenuOpen(false);
@@ -371,10 +352,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
             <FileText className="w-4 h-4 text-[#94A3B8] group-hover:text-[#F59E0B] transition-colors" />
           </button>
-
         </div>
 
-        {/* Drawer Footer */}
         <div className="p-4 sm:p-5 border-t border-[#1E293B] bg-[#080C14]/80 text-xs">
           <div className="flex items-center justify-between text-[#94A3B8] mb-1">
             <span className="font-mono text-[10px] uppercase tracking-wider text-[#94A3B8]/60">Platform</span>
@@ -389,12 +368,9 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </aside>
 
-      {/* DMCA & Disclaimer Modal */}
       {showDmcaModal && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-[#080C14]/85 backdrop-blur-md animate-in fade-in duration-200">
           <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl max-w-lg w-full p-6 shadow-2xl relative max-h-[90vh] flex flex-col text-[#F8FAFC]">
-            
-            {/* Modal Header */}
             <div className="flex items-start justify-between pb-4 border-b border-[#1E293B] mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-[#131C2E] border border-[#1E293B] flex items-center justify-center text-[#F59E0B]">
@@ -414,7 +390,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             </div>
 
-            {/* Modal Scrollable Body */}
             <div className="overflow-y-auto space-y-4 text-xs text-[#94A3B8] leading-relaxed pr-1">
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wider text-[#F8FAFC] mb-1 font-mono">
@@ -453,7 +428,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             </div>
 
-            {/* Modal Footer */}
             <div className="pt-4 mt-4 border-t border-[#1E293B] flex justify-end">
               <button
                 onClick={() => setShowDmcaModal(false)}
@@ -462,7 +436,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 Acknowledge & Close
               </button>
             </div>
-
           </div>
         </div>
       )}

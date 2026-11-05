@@ -12,11 +12,16 @@ export default defineConfig(() => {
         '@': path.resolve(rootDir, '.'),
       },
     },
+    esbuild: {
+      drop: ['console' as const, 'debugger' as const],
+      legalComments: 'none' as const,
+    },
+    build: {
+      sourcemap: false,
+      minify: 'esbuild' as const,
+    },
     server: {
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modify—file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
-      // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
   };

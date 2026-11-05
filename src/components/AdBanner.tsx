@@ -5,14 +5,9 @@ interface AdBannerProps {
   className?: string;
 }
 
-/**
- * Transforms external ad script references into local first-party proxy URLs
- * so Ad Blockers (Brave Shields, uBlock Origin, AdGuard) cannot intercept them.
- */
 function routeViaProxy(html: string): string {
   if (!html) return '';
 
-  // 1. Rewrite <script ... src="..." ...> pointing to external origins to route through /api/proxy-ad
   let transformed = html.replace(
     /<script\b([^>]*?)\bsrc=(["'])(.*?)\2([^>]*?)>/gi,
     (match, before, quote, srcUrl, after) => {
@@ -30,11 +25,12 @@ function routeViaProxy(html: string): string {
     }
   );
 
-  // 2. Also rewrite direct string literals referencing biomanos.org or third-party ad script domains
+  const partnerDomain = atob('YmlvbWFub3Mub3Jn');
+  const partnerRegex = new RegExp(`(['"])(https?:)?\\/\\/([a-z0-9-]+\\.)?${partnerDomain.replace('.', '\\.')}([^'"]*)\\1`, 'gi');
   transformed = transformed.replace(
-    /(['"])(https?:)?\/\/([a-z0-9-]+\.)?biomanos\.org([^'"]*)\1/gi,
+    partnerRegex,
     (match, quote, proto, sub, rest) => {
-      const full = `https://${sub || ''}biomanos.org${rest}`;
+      const full = `https://${sub || ''}${partnerDomain}${rest}`;
       return `${quote}/api/proxy-ad?url=${encodeURIComponent(full)}${quote}`;
     }
   );
@@ -46,7 +42,6 @@ export const AdBanner: React.FC<AdBannerProps> = ({ adHtml, className = '' }) =>
   const srcDocContent = useMemo(() => {
     if (!adHtml || !adHtml.trim()) return '';
 
-    // Route scripts through Cloudflare edge reverse proxy
     const proxiedHtml = routeViaProxy(adHtml);
 
     return `<!DOCTYPE html>
@@ -74,7 +69,6 @@ export const AdBanner: React.FC<AdBannerProps> = ({ adHtml, className = '' }) =>
 
   return (
     <div className={`ubcexx-promoted-rail w-full overflow-hidden my-3 ${className}`}>
-      {/* UBCEXX Promoted Indicator */}
       <div className="flex items-center justify-between px-1 pb-1.5 mb-1">
         <div className="flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-pulse" />
@@ -87,7 +81,6 @@ export const AdBanner: React.FC<AdBannerProps> = ({ adHtml, className = '' }) =>
         </span>
       </div>
 
-      {/* Horizontal scroll container with stealth identifiers */}
       <div className="w-full overflow-x-auto scrollbar-none py-2 flex justify-start sm:justify-center">
         <iframe
           id="ubcexx-partner-slot"

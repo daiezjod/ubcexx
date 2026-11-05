@@ -16,18 +16,16 @@ import { MonetizationSettings } from '../types.ts';
 
 export interface PreRollAdConfig {
   enabled: boolean;
-  videoUrl: string; // Ad Network Tag / VAST / Direct Stream URL
-  skipOffset: number; // default: 5 seconds
+  videoUrl: string;
+  skipOffset: number;
 }
 
-// OK.ru URL Parser & Embed ID Extractor
 export function parseOkRuVideoId(url: string | undefined | null): string | null {
   if (!url) return null;
   const trimmed = url.trim();
   if (!trimmed.includes('ok.ru') && !trimmed.includes('odnoklassniki.ru')) {
     return null;
   }
-  // Extracts numeric ID from e.g. ok.ru/video/17118054386193, ok.ru/videoembed/17118054386193, ok.ru/live/17118054386193
   const match = trimmed.match(/(?:video|videoembed|live)\/(\d+)/i);
   if (match && match[1]) {
     return match[1];
@@ -43,7 +41,6 @@ export interface ResolvedAdPayload {
   clickTrackingUrls: string[];
 }
 
-// Universal Ad Stream Resolver for VAST XML Tags and Direct Streams via Anti-Adblock Server Proxy
 export async function resolveAdStreamUrl(adUrl: string): Promise<ResolvedAdPayload> {
   const trimmed = (adUrl || '').trim();
   if (!trimmed) {
@@ -57,10 +54,8 @@ export async function resolveAdStreamUrl(adUrl: string): Promise<ResolvedAdPaylo
     return `/api/proxy-ad?url=${encodeURIComponent(url)}`;
   };
 
-  // If already a direct video file format (MP4, WebM, HLS m3u8)
   const isDirectVideo = /\.(mp4|webm|m3u8|mov|mkv)(\?.*)?$/i.test(trimmed);
   if (isDirectVideo) {
-    // Proxy the video stream so ad blockers cannot abort loading based on ad network domain rules
     return {
       streamUrl: toProxied(trimmed),
       impressionUrls: [],
@@ -68,7 +63,6 @@ export async function resolveAdStreamUrl(adUrl: string): Promise<ResolvedAdPaylo
     };
   }
 
-  // If VAST XML or Tag URL, fetch through the server-side reverse proxy
   try {
     const proxiedTagUrl = toProxied(trimmed);
     const res = await fetch(proxiedTagUrl, { mode: 'cors' });
@@ -83,13 +77,11 @@ export async function resolveAdStreamUrl(adUrl: string): Promise<ResolvedAdPaylo
         const parser = new DOMParser();
         const doc = parser.parseFromString(text, 'application/xml');
 
-        // Check for VAST Wrapper redirect
         const wrapperUri = doc.querySelector('VASTAdTagURI')?.textContent?.trim();
         if (wrapperUri && wrapperUri !== trimmed) {
           return resolveAdStreamUrl(wrapperUri);
         }
 
-        // Extract Impression tracking beacons
         const impressionUrls: string[] = [];
         doc.querySelectorAll('Impression').forEach((el) => {
           const u = el.textContent?.trim();
@@ -98,7 +90,6 @@ export async function resolveAdStreamUrl(adUrl: string): Promise<ResolvedAdPaylo
           }
         });
 
-        // Extract ClickThrough & ClickTracking
         const clickTrackingUrls: string[] = [];
         doc.querySelectorAll('ClickTracking').forEach((el) => {
           const u = el.textContent?.trim();
@@ -127,8 +118,7 @@ export async function resolveAdStreamUrl(adUrl: string): Promise<ResolvedAdPaylo
         }
       }
     }
-  } catch (err) {
-    console.warn('VAST Tag XML fetch note, playing proxied direct stream:', err);
+  } catch {
   }
 
   return {
@@ -163,30 +153,24 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const controlsTimeoutRef = useRef<number | null>(null);
 
-  // Active Source & Failover
   const [activeSource, setActiveSource] = useState<string>(videoUrl);
   const [hasFailedOver, setHasFailedOver] = useState<boolean>(false);
   const savedTimestampRef = useRef<number>(0);
   const wasPlayingRef = useRef<boolean>(false);
 
-  // Strict Embed Mode Locking: Detect OK.ru in primary, active, or backup
   const primaryOkRuId = parseOkRuVideoId(videoUrl);
   const activeOkRuId = parseOkRuVideoId(activeSource);
   const backupOkRuId = parseOkRuVideoId(backupVideoUrl);
-  // Lock to OK.ru iframe mode whenever active stream or primary is OK.ru
   const okRuId = activeOkRuId || primaryOkRuId;
   const isOkRuActive = Boolean(okRuId);
 
-  // Mobile lifecycle & visibility tracking refs to guard against false failovers
   const isPageHiddenRef = useRef<boolean>(false);
   const lastVisibilityChangeTimeRef = useRef<number>(Date.now());
   const hiddenTimestampRef = useRef<number>(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Dynamic iframe mount key to silently remount and re-awaken frozen streams on mobile resume
   const [iframeMountKey, setIframeMountKey] = useState<number>(0);
 
-  // Pre-roll Ad State
   const [isAdActive, setIsAdActive] = useState<boolean>(false);
   const [adFinished, setAdFinished] = useState<boolean>(false);
   const [adCountdown, setAdCountdown] = useState<number>(preRollAd?.skipOffset || 5);
@@ -194,7 +178,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const adClickThroughRef = useRef<string | undefined>(undefined);
   const adClickTrackingRef = useRef<string[]>([]);
 
-  // Native HTML5 Player State
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -208,10 +191,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [hasStarted, setHasStarted] = useState(false);
   const [hasReportedView, setHasReportedView] = useState(false);
 
-  // OK.ru Iframe Loading State for seamless animated transition
   const [isIframeLoading, setIsIframeLoading] = useState<boolean>(true);
 
-  // Handle Mobile Lifecycle & Visibility Events (auto-reconnect stream on app minimize / background resume)
   useEffect(() => {
     const handleVisibilityChange = () => {
       const now = Date.now();
@@ -225,15 +206,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         const elapsed = hiddenTimestampRef.current > 0 ? now - hiddenTimestampRef.current : 0;
         hiddenTimestampRef.current = 0;
 
-        // If returned from background after more than 1 second, cleanly remount the iframe stream
         if (elapsed > 1000) {
           if (isOkRuActive) {
-            // Remount OK.ru iframe to re-establish dropped WebSocket/TCP stream socket
             setIframeMountKey((prev) => prev + 1);
             setIsIframeLoading(true);
             setTimeout(() => setIsIframeLoading(false), 2200);
           } else if (videoRef.current) {
-            // If native HTML5 video, resume playback seamlessly
             if (videoRef.current.paused && (wasPlayingRef.current || hasStarted)) {
               videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
             }
@@ -248,7 +226,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       isPageHiddenRef.current = false;
       lastVisibilityChangeTimeRef.current = Date.now();
 
-      // On bfcache restoration or mobile tab restore, silently remount stream iframe
       if (e.persisted || isOkRuActive) {
         setIframeMountKey((prev) => prev + 1);
         setIsIframeLoading(false);
@@ -264,7 +241,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
   }, [isOkRuActive, hasStarted]);
 
-  // Sync state whenever primary, backup URL, or pre-roll config changes
   useEffect(() => {
     setActiveSource(videoUrl);
     setHasFailedOver(false);
@@ -283,7 +259,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     adClickTrackingRef.current = [];
   }, [videoUrl, backupVideoUrl, preRollAd?.videoUrl, preRollAd?.enabled]);
 
-  // Safety timer so loading state smoothly fades out even if cross-origin iframe load is deferred
   useEffect(() => {
     if (isOkRuActive && !isAdActive) {
       setIsIframeLoading(true);
@@ -294,7 +269,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [isOkRuActive, isAdActive, okRuId, activeSource]);
 
-  // When an OK.ru iframe is actively mounted and ad is not playing, record view once
   useEffect(() => {
     if (isOkRuActive && !isAdActive && !hasReportedView && onFirstPlay) {
       setHasReportedView(true);
@@ -302,7 +276,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [isOkRuActive, isAdActive, hasReportedView, onFirstPlay]);
 
-  // Skip Ad and switch smoothly to main stream (or OK.ru iframe)
   const handleSkipAd = useCallback(() => {
     setIsAdActive(false);
     setAdFinished(true);
@@ -311,7 +284,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setCurrentTime(0);
     setDuration(0);
 
-    // If main stream is OK.ru, iframe takes over automatically
     const isMainOkRu = Boolean(parseOkRuVideoId(mainStreamUrl));
     if (isMainOkRu) {
       if (!hasReportedView && onFirstPlay) {
@@ -321,7 +293,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       return;
     }
 
-    // Otherwise seamlessly begin native HTML5 video playback
     setTimeout(() => {
       if (videoRef.current) {
         videoRef.current.play().then(() => {
@@ -330,38 +301,29 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             setHasReportedView(true);
             onFirstPlay();
           }
-        }).catch(err => {
-          console.warn('Main video auto-play error after ad, checking failover:', err);
+        }).catch(() => {
           handleVideoError();
         });
       }
     }, 60);
   }, [videoUrl, backupVideoUrl, hasFailedOver, hasReportedView, onFirstPlay]);
 
-  // 100% Invisible, Automatic, Silent Failover Handler (switches to backupVideoUrl on genuine stream failure)
   const handleVideoError = useCallback(() => {
-    // GUARD 1: Ignore any errors fired while page is hidden or minimized (prevents mobile false failover)
     if (document.visibilityState === 'hidden' || isPageHiddenRef.current) {
-      console.warn('Video error ignored: page is currently hidden or minimized');
       return;
     }
 
-    // GUARD 2: Ignore transient resume errors within 2.5 seconds of returning to the tab
     if (Date.now() - lastVisibilityChangeTimeRef.current < 2500) {
-      console.warn('Video error ignored: transient mobile resume event');
       return;
     }
 
     if (isAdActive) {
-      console.warn('Pre-roll Ad stream failed or 404ed, silently auto-skipping to main stream');
       handleSkipAd();
       return;
     }
 
-    // Strict Embed Mode Locking: If current stream is OK.ru, NEVER downgrade to HTML5 video
     if (isOkRuActive) {
       if (backupOkRuId && backupVideoUrl && !hasFailedOver && activeSource !== backupVideoUrl) {
-        console.info('Switching to backup OK.ru stream:', backupVideoUrl);
         setHasFailedOver(true);
         setActiveSource(backupVideoUrl);
         setIsIframeLoading(true);
@@ -370,7 +332,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
 
     if (backupVideoUrl && !hasFailedOver && activeSource !== backupVideoUrl) {
-      console.info('Primary stream error caught. Silently auto-failing over to backup stream:', backupVideoUrl);
       const resumePos = videoRef.current ? videoRef.current.currentTime : currentTime;
       savedTimestampRef.current = resumePos;
       wasPlayingRef.current = isPlaying || hasStarted || true;
@@ -381,7 +342,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [isAdActive, handleSkipAd, isOkRuActive, backupOkRuId, backupVideoUrl, hasFailedOver, activeSource, currentTime, isPlaying, hasStarted]);
 
-  // Low-level media error listener for HTML5 video
   useEffect(() => {
     const videoEl = videoRef.current;
     if (!videoEl) return;
@@ -396,7 +356,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
   }, [handleVideoError]);
 
-  // Auto hide controls after inactivity (HTML5 player)
   const handleMouseMove = () => {
     setShowControls(true);
     if (controlsTimeoutRef.current) {
@@ -411,7 +370,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   };
 
   const togglePlay = useCallback(async () => {
-    // 1. Support Universal In-Stream Ads: Check D1 dynamically on play
     if (!adFinished && !isAdActive) {
       let adConfigToUse = preRollAd;
       try {
@@ -424,7 +382,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           };
         }
       } catch {
-        // Fall back to preRollAd prop
       }
 
       if (adConfigToUse?.enabled && adConfigToUse.videoUrl) {
@@ -438,7 +395,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           const streamToPlay = resolvedAd.streamUrl || adConfigToUse.videoUrl;
           setActiveSource(streamToPlay);
 
-          // Ping Impression beacons through server proxy so ad network registers impressions and credits publisher revenue
           if (resolvedAd.impressionUrls && resolvedAd.impressionUrls.length > 0) {
             resolvedAd.impressionUrls.forEach((impUrl) => {
               fetch(`/api/proxy-ad?url=${encodeURIComponent(impUrl)}`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
@@ -452,22 +408,19 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             if (videoRef.current) {
               videoRef.current.play().then(() => {
                 setIsPlaying(true);
-              }).catch((err) => {
-                console.warn('Ad playback error, smoothly transitioning to main video:', err);
+              }).catch(() => {
                 handleSkipAd();
               });
             }
           }, 60);
           return;
-        } catch (err) {
-          console.warn('Ad resolver error, skipping to main stream:', err);
+        } catch {
           handleSkipAd();
           return;
         }
       }
     }
 
-    // 2. If main stream is OK.ru, set started so iframe renders and plays
     if (isOkRuActive) {
       setHasStarted(true);
       if (!hasReportedView && onFirstPlay) {
@@ -477,7 +430,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       return;
     }
 
-    // 3. Native HTML5 Video Play/Pause
     if (!videoRef.current) return;
 
     if (videoRef.current.paused) {
@@ -488,8 +440,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           setHasReportedView(true);
           onFirstPlay();
         }
-      }).catch(err => {
-        console.warn('Playback error caught, triggering failover check:', err);
+      }).catch(() => {
         handleVideoError();
       });
     } else {
@@ -516,7 +467,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (isAdActive) return; // Prevent seeking during pre-roll advertisement
+    if (isAdActive) return;
     const val = parseFloat(e.target.value);
     setCurrentTime(val);
     if (videoRef.current) {
@@ -538,11 +489,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (!document.fullscreenElement) {
       containerRef.current.requestFullscreen().then(() => {
         setIsFullscreen(true);
-      }).catch(err => console.error('Error entering fullscreen:', err));
+      }).catch(() => {});
     } else {
       document.exitFullscreen().then(() => {
         setIsFullscreen(false);
-      }).catch(err => console.error('Error exiting fullscreen:', err));
+      }).catch(() => {});
     }
   };
 
@@ -554,15 +505,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       } else if (document.pictureInPictureEnabled) {
         await videoRef.current.requestPictureInPicture();
       }
-    } catch (err) {
-      console.warn('PiP error:', err);
+    } catch {
     }
   };
 
-  // Keyboard Shortcuts for HTML5 Player
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't intercept if user is typing in input or textarea
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) {
         return;
       }
@@ -606,7 +554,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [togglePlay, isAdActive, onToggleTheater]);
 
-  // Video Time Update & Pre-Roll Countdown Tick
   const handleTimeUpdate = () => {
     if (!videoRef.current) return;
     const current = videoRef.current.currentTime;
@@ -616,7 +563,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setBuffered(videoRef.current.buffered.end(videoRef.current.buffered.length - 1));
     }
 
-    // Pre-Roll Skip Timer Logic
     if (isAdActive) {
       const skipTarget = preRollAd?.skipOffset || 5;
       const remaining = Math.max(0, Math.ceil(skipTarget - current));
@@ -626,7 +572,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
     }
 
-    // Report view if played at least 3 seconds
     if (!hasReportedView && current > 3 && onFirstPlay) {
       setHasReportedView(true);
       onFirstPlay();
@@ -647,16 +592,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         isTheaterMode ? 'rounded-none max-h-[85vh]' : 'rounded-2xl'
       }`}
     >
-      {/* CASE 1: OK.ru Embed Mode (when activeSource contains ok.ru and pre-roll ad is not active) */}
       {isOkRuActive && !isAdActive ? (
         <div className="relative w-full h-full aspect-video bg-black overflow-hidden">
-          {/* Seamless Animated Loading State Backdrop (prevents blank black screen) */}
           <div
             className={`absolute inset-0 z-10 flex flex-col items-center justify-center transition-opacity duration-500 ease-out select-none ${
               isIframeLoading ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
             }`}
           >
-            {/* Blurry Animated Thumbnail Backdrop */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
               <img
                 src={thumbnailUrl}
@@ -669,7 +611,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               <div className="absolute inset-0 bg-gradient-to-t from-[#080C14] via-[#080C14]/70 to-[#080C14]/50 backdrop-blur-md" />
             </div>
 
-            {/* Centered Pulsing Amber Spinner & Glowing Badge */}
             <div className="relative z-10 flex flex-col items-center gap-3.5 text-center px-4">
               <div className="relative flex items-center justify-center">
                 <div className="w-14 h-14 rounded-full border-3 border-[#1E293B] border-t-[#F59E0B] animate-spin shadow-lg shadow-[#F59E0B]/20" />
@@ -690,7 +631,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             </div>
           </div>
 
-          {/* OK.ru Responsive Iframe Embed with Seamless Top-Crop Masking & Eager Loading */}
           <iframe
             ref={iframeRef}
             key={`okru-${okRuId}-${iframeMountKey}`}
@@ -705,7 +645,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           />
         </div>
       ) : (
-        /* CASE 2: Native HTML5 Video Player (Direct MP4, M3U8, or Pre-Roll In-Stream Ad) */
         <>
           <video
             ref={videoRef}
@@ -748,14 +687,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             playsInline
           />
 
-          {/* Pre-Roll In-Stream Ad Overlays */}
           {isAdActive && (
             <>
-              {/* Top-Left Sponsored Ad Badge with anti-adblock click tracking */}
               <div
                 onClick={(e) => {
                   e.stopPropagation();
-                  // Fire click tracking beacons via server proxy
                   if (adClickTrackingRef.current && adClickTrackingRef.current.length > 0) {
                     adClickTrackingRef.current.forEach((clickUrl) => {
                       fetch(`/api/proxy-ad?url=${encodeURIComponent(clickUrl)}`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
@@ -779,7 +715,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 </span>
               </div>
 
-              {/* Bottom-Right Skip Countdown / Skip Button */}
               <div className="absolute bottom-16 right-4 sm:right-6 z-30 flex items-center gap-2">
                 {canSkipAd ? (
                   <button
@@ -803,7 +738,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             </>
           )}
 
-          {/* Large Center Play Overlay (when paused or initial) */}
           {(!isPlaying || !hasStarted) && !isAdActive && (
             <div
               onClick={togglePlay}
@@ -815,13 +749,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             </div>
           )}
 
-          {/* Sleek Tube Controls Overlay */}
           <div
             className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#080C14]/95 via-[#080C14]/70 to-transparent px-4 sm:px-6 pt-10 pb-3 transition-opacity duration-200 z-20 ${
               showControls || !isPlaying ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
             }`}
           >
-            {/* Scrubbable Progress Bar */}
             <div className="relative w-full h-2 group/bar flex items-center cursor-pointer mb-3">
               <div className="absolute inset-x-0 h-1 bg-[#1E293B] rounded-full overflow-hidden">
                 <div
@@ -855,9 +787,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               />
             </div>
 
-            {/* Bottom Control Bar Row */}
             <div className="flex items-center justify-between text-[#F8FAFC] text-xs sm:text-sm">
-              {/* Left Actions: Play/Pause, Volume, Time */}
               <div className="flex items-center gap-3 sm:gap-4">
                 <button
                   type="button"
@@ -868,7 +798,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                   {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current" />}
                 </button>
 
-                {/* Volume control */}
                 <div className="flex items-center gap-2 group/vol">
                   <button
                     type="button"
@@ -890,7 +819,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                   />
                 </div>
 
-                {/* Timestamp Display */}
                 <div className="text-xs font-mono text-[#94A3B8]">
                   <span className="text-[#F8FAFC]">{formatDuration(currentTime)}</span>
                   <span className="mx-1 text-[#253349]">/</span>
@@ -898,16 +826,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 </div>
               </div>
 
-              {/* Right Actions: Failover, Speed, Theater, Fullscreen */}
               <div className="flex items-center gap-2 sm:gap-3">
-                {/* Ad Active Status Badge (only during sponsored pre-roll) */}
                 {isAdActive && (
                   <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/40">
                     <span>Ad Active</span>
                   </span>
                 )}
 
-                {/* Playback speed selector */}
                 <div className="relative">
                   <button
                     type="button"
@@ -941,7 +866,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                   )}
                 </div>
 
-                {/* Theater Mode */}
                 {onToggleTheater && (
                   <button
                     type="button"
@@ -953,7 +877,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                   </button>
                 )}
 
-                {/* Picture in Picture */}
                 <button
                   type="button"
                   onClick={togglePiP}
@@ -963,7 +886,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                   <PictureInPicture className="w-5 h-5" />
                 </button>
 
-                {/* Fullscreen */}
                 <button
                   type="button"
                   onClick={toggleFullscreen}

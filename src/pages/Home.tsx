@@ -46,7 +46,6 @@ export const Home: React.FC<HomeProps> = ({
 
   return (
     <div className="min-h-screen bg-[#080C14] text-[#F8FAFC] flex flex-col selection:bg-[#F59E0B] selection:text-black">
-      {/* Top Navbar with Category Pills */}
       <Navbar
         categories={categories}
         selectedCategoryId={selectedCategoryId}
@@ -56,21 +55,17 @@ export const Home: React.FC<HomeProps> = ({
         onNavigateHome={onNavigateHome}
       />
 
-      {/* UBCEXX Promoted Rail below categories */}
       {isNativeAdEnabled && (
         <div className="max-w-7xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 w-full">
           <AdBanner adHtml={activeAdHtml} />
         </div>
       )}
 
-      {/* Main Browse Container with optimized compact mobile padding */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-6">
-        {/* Hero Featured Video Banner (Shown on home when no active search/category filter) */}
         {!searchQuery && selectedCategoryId === null && featuredVideos.length > 0 && (
           <HeroFeatured videos={featuredVideos} onSelectVideo={onSelectVideo} />
         )}
 
-        {/* Section Header: Feed Title & Count */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6 pb-2.5 sm:pb-3 border-b border-[#1E293B]">
           <div className="flex items-center gap-2.5 sm:gap-3">
             <h2 className="text-lg sm:text-2xl font-black text-[#F8FAFC] font-display tracking-tight flex items-center gap-2">
@@ -88,7 +83,6 @@ export const Home: React.FC<HomeProps> = ({
             </span>
           </div>
 
-          {/* Quick Clear Filter if active */}
           {(searchQuery || selectedCategoryId !== null) && (
             <button
               onClick={() => {
@@ -102,13 +96,11 @@ export const Home: React.FC<HomeProps> = ({
           )}
         </div>
 
-        {/* Loading State */}
         {loading ? (
           <div className="py-24 flex flex-col items-center justify-center">
             <div className="w-10 h-10 border-2 border-[#1E293B] border-t-[#F59E0B] rounded-full animate-spin" />
           </div>
         ) : videos.length === 0 ? (
-          /* Empty State */
           <div className="py-20 text-center bg-[#0F172A] rounded-2xl border border-[#1E293B] p-8 max-w-md mx-auto">
             <Filter className="w-10 h-10 text-[#94A3B8] mx-auto mb-3" />
             <h3 className="text-base font-bold text-[#F8FAFC] mb-1">No Streams Found</h3>
@@ -128,14 +120,12 @@ export const Home: React.FC<HomeProps> = ({
             </button>
           </div>
         ) : (
-          /* Video Grid (Compact multi-column xHamster style tube grid) */
           <>
             <div className="grid grid-cols-2 min-[440px]:grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
               {videos.map((video, index) => (
                 <React.Fragment key={video.id}>
                   <VideoCard video={video} onSelect={onSelectVideo} />
 
-                  {/* Native Ad Placement: In-Feed Home Grid (rendered after 4th video) */}
                   {index === 3 && isNativeAdEnabled && (
                     <div className="col-span-2 min-[440px]:col-span-3 sm:col-span-3 md:col-span-4 lg:col-span-5 my-2 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-[#0F172A] border border-[#1E293B] shadow-xl relative overflow-hidden group">
                       <AdBanner adHtml={activeAdHtml} className="my-0" />
@@ -145,7 +135,6 @@ export const Home: React.FC<HomeProps> = ({
               ))}
             </div>
 
-            {/* Load More Button */}
             {videos.length >= pageLimit && (
               <div className="mt-12 text-center">
                 <button
@@ -161,7 +150,6 @@ export const Home: React.FC<HomeProps> = ({
         )}
       </main>
 
-      {/* Sleek Tube Footer */}
       <TubeFooter />
     </div>
   );
@@ -171,7 +159,6 @@ export function TubeFooter() {
   return (
     <footer className="border-t border-[#1E293B] bg-[#0F172A] py-8 mt-16 text-[#94A3B8] text-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
-        {/* Brand info */}
         <div className="flex items-center gap-3">
           <div className="flex items-baseline">
             <span className="text-lg font-black tracking-wider text-[#F8FAFC] font-display">UBC</span>
@@ -183,7 +170,6 @@ export function TubeFooter() {
           </span>
         </div>
 
-        {/* Clean generic status */}
         <div className="flex items-center gap-3 text-[11px] text-[#94A3B8]">
           <span>© UBCEXX • Ultra-Low Latency Streaming</span>
         </div>

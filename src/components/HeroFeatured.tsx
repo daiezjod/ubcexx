@@ -11,7 +11,6 @@ interface HeroFeaturedProps {
 export const HeroFeatured: React.FC<HeroFeaturedProps> = ({ videos, onSelectVideo }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  // Auto-advance every 8 seconds if user doesn't interact
   useEffect(() => {
     if (videos.length <= 1) return;
     const interval = setInterval(() => {
@@ -36,7 +35,6 @@ export const HeroFeatured: React.FC<HeroFeaturedProps> = ({ videos, onSelectVide
 
   return (
     <div className="relative w-full rounded-2xl overflow-hidden border border-[#1E293B] bg-[#0F172A] shadow-2xl mb-8 group">
-      {/* Background Cinematic Artwork with measured scrim */}
       <div className="relative aspect-[21/9] min-h-[360px] md:min-h-[460px] w-full overflow-hidden">
         <img
           src={current.thumbnail_url}
@@ -45,14 +43,10 @@ export const HeroFeatured: React.FC<HeroFeaturedProps> = ({ videos, onSelectVide
           className="w-full h-full object-cover object-center transform scale-105 group-hover:scale-100 transition-transform duration-1000 ease-out"
         />
 
-        {/* Ambient Dark Scrim */}
         <div className="absolute inset-0 bg-gradient-to-t from-[#080C14] via-[#080C14]/80 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-[#080C14] via-[#080C14]/65 to-transparent" />
 
-        {/* Hero Content */}
         <div className="absolute inset-0 p-6 sm:p-10 md:p-12 flex flex-col justify-end max-w-3xl z-10">
-          
-          {/* Subtle Category & Featured kicker */}
           <div className="flex items-center gap-2 mb-3 text-xs font-semibold tracking-wider uppercase text-[#94A3B8]">
             <span className="flex items-center gap-1 text-[#F59E0B] font-bold">
               <Flame className="w-3.5 h-3.5 fill-[#F59E0B]" />
@@ -64,17 +58,14 @@ export const HeroFeatured: React.FC<HeroFeaturedProps> = ({ videos, onSelectVide
             <span className="text-[#10B981] font-mono">Ultra HD 4K</span>
           </div>
 
-          {/* Headline */}
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-[#F8FAFC] tracking-tight mb-3 font-display line-clamp-2" style={{ textWrap: 'balance' }}>
             {current.title}
           </h1>
 
-          {/* Description */}
           <p className="text-[#94A3B8] text-sm md:text-base line-clamp-2 md:line-clamp-3 mb-6 max-w-2xl leading-relaxed">
             {current.description}
           </p>
 
-          {/* Metadata & Watch CTA */}
           <div className="flex flex-wrap items-center gap-4">
             <button
               onClick={() => onSelectVideo(current)}
@@ -97,7 +88,6 @@ export const HeroFeatured: React.FC<HeroFeaturedProps> = ({ videos, onSelectVide
           </div>
         </div>
 
-        {/* Carousel Prev/Next Buttons */}
         {videos.length > 1 && (
           <div className="absolute bottom-6 right-6 z-20 flex items-center gap-2">
             <button

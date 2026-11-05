@@ -1,13 +1,3 @@
-/**
- * Safe Fetch & API Utility for UBCEXX Tube & Admin Portal
- * 
- * Protects frontend against "Failed to execute 'json' on 'Response': 
- * Unexpected token '<', '<!doctype ...' is not valid JSON" errors by:
- * 1. Verifying response status (res.ok)
- * 2. Verifying Content-Type header includes application/json before parsing
- * 3. Extracting readable server error messages if non-JSON or HTML is returned
- */
-
 export interface ApiResponse<T = any> {
   success: boolean;
   error?: string;
@@ -15,10 +5,6 @@ export interface ApiResponse<T = any> {
   [key: string]: any;
 }
 
-/**
- * Safely fetches an API endpoint and parses JSON.
- * Throws a descriptive error if server returns HTML 404/500 or non-JSON content.
- */
 export async function safeFetchJson<T = any>(
   input: RequestInfo | URL,
   init?: RequestInit
@@ -37,10 +23,8 @@ export async function safeFetchJson<T = any>(
     let preview = '';
     try {
       const rawText = await res.text();
-      // Clean up whitespace and slice first 120 chars
       preview = rawText.slice(0, 120).replace(/\s+/g, ' ').trim();
     } catch {
-      // Ignore reading error
     }
 
     const endpointStr = typeof input === 'string' ? input : (input instanceof Request ? input.url : 'endpoint');
@@ -72,9 +56,6 @@ export async function safeFetchJson<T = any>(
   return data as T;
 }
 
-/**
- * Safe fetch wrapper that returns { ok, status, data, error } without throwing.
- */
 export async function safeFetchResult<T = any>(
   input: RequestInfo | URL,
   init?: RequestInit

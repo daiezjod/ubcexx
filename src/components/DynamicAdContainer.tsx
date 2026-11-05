@@ -6,12 +6,6 @@ interface DynamicAdContainerProps {
   containerId?: string;
 }
 
-/**
- * DynamicAdContainer
- * Universal Script Injector.
- * Executes dynamic partner script elements (iframes, banners, sponsored snippets)
- * by extracting <script> tags and appending active DOM script elements that bypass React's innerHTML execution block.
- */
 export const DynamicAdContainer: React.FC<DynamicAdContainerProps> = ({
   adHtml,
   className = '',
@@ -23,21 +17,17 @@ export const DynamicAdContainer: React.FC<DynamicAdContainerProps> = ({
     const container = containerRef.current;
     if (!container) return;
 
-    // Reset container for fresh injection
     container.innerHTML = '';
 
     if (!adHtml || !adHtml.trim()) return;
 
     try {
-      // Parse the HTML code into DOM nodes
       const range = document.createRange();
       range.selectNode(container);
       const fragment = range.createContextualFragment(adHtml.trim());
 
-      // Extract all script tags to dynamically execute them
       const originalScripts = Array.from(fragment.querySelectorAll('script'));
 
-      // Create placeholders for scripts to preserve their execution order and positioning
       const scriptExecutables: Array<{
         element: HTMLScriptElement;
         parent: Node;
@@ -53,7 +43,6 @@ export const DynamicAdContainer: React.FC<DynamicAdContainerProps> = ({
 
         const newScript = document.createElement('script');
 
-        // Copy all attributes (src, async, defer, type, crossOrigin, etc.)
         Array.from(oldScript.attributes).forEach((attr) => {
           newScript.setAttribute(attr.name, attr.value);
         });
@@ -69,28 +58,23 @@ export const DynamicAdContainer: React.FC<DynamicAdContainerProps> = ({
         });
       });
 
-      // Append all non-script elements (HTML, iframes, styles, divs)
       container.appendChild(fragment);
 
-      // Intercept document.write/writeln during script execution so legacy ad network scripts don't wipe the page
       const originalWrite = document.write.bind(document);
       const originalWriteln = document.writeln.bind(document);
       document.write = (html: string) => {
         try {
           container.insertAdjacentHTML('beforeend', html);
         } catch {
-          // ignore
         }
       };
       document.writeln = (html: string) => {
         try {
           container.insertAdjacentHTML('beforeend', html + '\n');
         } catch {
-          // ignore
         }
       };
 
-      // Sequentially execute and mount the scripts so browser runs them
       scriptExecutables.forEach(({ element, placeholder }) => {
         try {
           if (placeholder.parentNode) {
@@ -98,18 +82,15 @@ export const DynamicAdContainer: React.FC<DynamicAdContainerProps> = ({
           } else {
             container.appendChild(element);
           }
-        } catch (scriptErr) {
-          console.warn('Ad script insertion error:', scriptErr);
+        } catch {
         }
       });
 
-      // Restore document.write after script attachment queue
       setTimeout(() => {
         document.write = originalWrite;
         document.writeln = originalWriteln;
       }, 500);
-    } catch (err) {
-      console.warn('Dynamic ad container render error:', err);
+    } catch {
     }
 
     return () => {

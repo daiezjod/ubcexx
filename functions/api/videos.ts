@@ -1,6 +1,3 @@
-// Cloudflare Pages Function: /api/videos
-// GET (list public/filtered videos) & POST (insert new video into D1)
-
 interface Env {
   DB: D1Database;
 }
@@ -164,7 +161,6 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
       });
     }
 
-    // Permanently delete video from Cloudflare D1
     await context.env.DB.prepare('DELETE FROM videos WHERE id = ?').bind(Number(id)).run();
 
     return new Response(JSON.stringify({ success: true, message: 'Video deleted successfully' }), {

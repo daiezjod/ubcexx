@@ -1,6 +1,3 @@
-// Cloudflare Pages Function: /api/admin/videos/[id]
-// PATCH, DELETE, GET, POST, OPTIONS - Video manipulation by ID in Cloudflare D1
-
 interface Env {
   DB: D1Database;
 }
@@ -113,6 +110,5 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 };
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
-  // Support POST as alternate to PATCH/DELETE
   return onRequestPatch(context);
 };

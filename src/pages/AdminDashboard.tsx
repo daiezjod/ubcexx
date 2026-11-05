@@ -30,8 +30,9 @@ import {
   Link as LinkIcon,
   RotateCcw,
   Plus,
+  Flag,
 } from 'lucide-react';
-import { Video, Category, AdminStats, MonetizationSettings, TopRailCard } from '../types.ts';
+import { Video, Category, AdminStats, MonetizationSettings, TopRailCard, VideoReport } from '../types.ts';
 import { DynamicAdContainer } from '../components/DynamicAdContainer.tsx';
 import { defaultTopRailCards } from '../constants/ads.ts';
 import { formatDuration, formatViews, formatNumber, formatTimeAgo } from '../utils/formatters.ts';
@@ -50,14 +51,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onNavigateHome,
   onSelectVideoForWatch,
 }) => {
-  const [activeTab, setActiveTab] = useState<'videos' | 'add_video' | 'categories' | 'monetization' | 'd1_sql' | 'deploy_guide'>('videos');
+  const [activeTab, setActiveTab] = useState<'videos' | 'add_video' | 'categories' | 'monetization' | 'reports' | 'd1_sql' | 'deploy_guide'>('videos');
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [videos, setVideos] = useState<Video[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [reports, setReports] = useState<VideoReport[]>([]);
+  const [reportLoadingId, setReportLoadingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  // Monetization Engine State
   const [prerollEnabled, setPrerollEnabled] = useState(true);
   const [prerollVideoUrl, setPrerollVideoUrl] = useState('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4');
   const [prerollClickUrl, setPrerollClickUrl] = useState('https://ubcexx.com/vip-pass');
@@ -71,11 +73,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isSavingMonetization, setIsSavingMonetization] = useState(false);
   const [monetizationSubTab, setMonetizationSubTab] = useState<'preroll' | 'native'>('preroll');
 
-  // Video Search Filter in Table
   const [tableSearch, setTableSearch] = useState('');
   const [tableCategory, setTableCategory] = useState<number | 'all'>('all');
 
-  // Add Video Form State
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
@@ -89,18 +89,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [status, setStatus] = useState('published');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Add Category Form State
   const [catName, setCatName] = useState('');
   const [catSlug, setCatSlug] = useState('');
   const [isCatSubmitting, setIsCatSubmitting] = useState(false);
 
-  // Cloudflare D1 SQL Console
   const [sqlQuery, setSqlQuery] = useState('SELECT id, title, views, likes, category_id, is_featured FROM videos ORDER BY views DESC LIMIT 10;');
   const [sqlResults, setSqlResults] = useState<any[] | null>(null);
   const [sqlLoading, setSqlLoading] = useState(false);
   const [sqlError, setSqlError] = useState<string | null>(null);
 
-  // Auto generate slug from title
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setTitle(val);
@@ -126,18 +123,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setTimeout(() => setNotification(null), 4000);
   };
 
-  // Fetch initial admin data safely
   const fetchData = async () => {
     setLoading(true);
     try {
       const headers = { Authorization: `Bearer ${token}` };
 
-      // 1. Fetch Stats from /api/stats
       try {
         const statsRes = await fetch('/api/stats', { headers });
         const statsContentType = statsRes.headers.get("content-type");
         if (!statsRes.ok || !statsContentType || !statsContentType.includes("application/json")) {
-          console.error("Non-JSON API response received", statsRes.status);
         } else {
           const statsData = await statsRes.json();
           if (statsData?.success && statsData.stats) {
@@ -145,15 +139,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           }
         }
       } catch (err) {
-        console.error("Error fetching stats:", err);
       }
 
-      // 2. Fetch Videos from /api/videos
       try {
         const vidsRes = await fetch('/api/videos?limit=100', { headers });
         const vidsContentType = vidsRes.headers.get("content-type");
         if (!vidsRes.ok || !vidsContentType || !vidsContentType.includes("application/json")) {
-          console.error("Non-JSON API response received", vidsRes.status);
         } else {
           const vidsData = await vidsRes.json();
           if (vidsData?.success && vidsData.videos) {
@@ -161,15 +152,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           }
         }
       } catch (err) {
-        console.error("Error fetching videos:", err);
       }
 
-      // 3. Fetch Categories from /api/categories
       try {
         const catsRes = await fetch('/api/categories');
         const catsContentType = catsRes.headers.get("content-type");
         if (!catsRes.ok || !catsContentType || !catsContentType.includes("application/json")) {
-          console.error("Non-JSON API response received", catsRes.status);
         } else {
           const catsData = await catsRes.json();
           if (catsData?.success && catsData.categories) {
@@ -180,15 +168,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           }
         }
       } catch (err) {
-        console.error("Error fetching categories:", err);
       }
 
-      // 4. Fetch Monetization from /api/monetization
       try {
         const monetRes = await fetch('/api/monetization');
         const monetContentType = monetRes.headers.get("content-type");
         if (!monetRes.ok || !monetContentType || !monetContentType.includes("application/json")) {
-          console.error("Non-JSON API response received", monetRes.status);
         } else {
           const monetData = await monetRes.json();
           if (monetData?.success && monetData.monetization) {
@@ -202,7 +187,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             setNativeEnabled(natEnabled === 1 || natEnabled === true);
             setNativeCode(m.native_ads_code ?? m.native_code ?? '');
 
-            // Placement zones handling (object, string, or comma-separated native_placements)
             if (m.placement_zones) {
               try {
                 const pz = typeof m.placement_zones === 'string' ? JSON.parse(m.placement_zones) : m.placement_zones;
@@ -221,7 +205,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               setPlacementInFeed(placements.includes('in_feed'));
             }
 
-            // Top rail cards handling (could be string or already parsed array)
             if (m.top_rail_cards) {
               if (Array.isArray(m.top_rail_cards)) {
                 if (m.top_rail_cards.length > 0) {
@@ -241,7 +224,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           }
         }
       } catch (err) {
-        console.error("Error fetching monetization:", err);
+      }
+
+      try {
+        const repsRes = await fetch('/api/reports', { headers });
+        if (repsRes.ok) {
+          const repsData = await repsRes.json();
+          if (repsData?.success && repsData.reports) {
+            setReports(repsData.reports);
+          }
+        }
+      } catch (err) {
       }
     } catch (err: any) {
       if (err.status === 401) {
@@ -258,7 +251,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     fetchData();
   }, [token]);
 
-  // Handle Video Form Submit (Insert into D1 via /api/videos)
   const handleCreateVideo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !videoUrl || !thumbnailUrl) {
@@ -291,7 +283,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       const contentType = res.headers.get("content-type");
       if (!res.ok || !contentType || !contentType.includes("application/json")) {
-        console.error("Non-JSON API response received", res.status);
         showNotification('error', `Server returned invalid response (HTTP ${res.status})`);
         return;
       }
@@ -302,7 +293,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
 
       showNotification('success', `Video "${title}" successfully inserted into Cloudflare D1 with failover mirror!`);
-      // Reset form
+
       setTitle('');
       setSlug('');
       setDescription('');
@@ -316,7 +307,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // Handle Delete Video (DELETE query on D1 via /api/videos?id=${video.id})
   const handleDeleteVideo = async (id: number) => {
     if (!confirm('Are you sure you want to permanently delete this video?')) {
       return;
@@ -334,7 +324,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       const contentType = res.headers.get("content-type");
       if (!res.ok || !contentType || !contentType.includes("application/json")) {
-        console.error("Non-JSON API response received", res.status);
         showNotification('error', `Failed to delete video (HTTP ${res.status})`);
         return;
       }
@@ -344,10 +333,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         throw new Error(data.error || 'Delete failed');
       }
 
-      // Immediately remove the deleted video from local state
       setVideos((prev) => prev.filter((v) => v.id !== id));
 
-      // Decrement the "Total Videos" stat card by 1
       setStats((prev) => {
         if (!prev) return null;
         const currentCount = prev.total_videos ?? prev.totalVideos ?? 1;
@@ -359,14 +346,89 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         };
       });
 
-      // Show toast: "Video permanently purged from D1 and site"
       showNotification('success', 'Video permanently purged from D1 and site');
     } catch (err: any) {
       showNotification('error', err.message || 'Failed to delete video');
     }
   };
 
-  // Toggle Featured status via PATCH /api/videos/:id
+  const handlePurgeReportedVideo = async (report: VideoReport) => {
+    if (
+      !confirm(
+        `Are you sure you want to PERMANENTLY PURGE and delete "${report.video_title}"?\n\nThis will immediately remove the stream from Cloudflare D1, hide it from the Home Page, and clear all reports.`
+      )
+    ) {
+      return;
+    }
+
+    setReportLoadingId(report.id);
+    try {
+      const res = await fetch('/api/reports', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          action: 'purge',
+          purge: true,
+          video_id: report.video_id,
+          id: report.id,
+        }),
+      });
+
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Purge failed');
+      }
+
+      setVideos((prev) => prev.filter((v) => v.id !== report.video_id));
+
+      setReports((prev) => prev.filter((r) => r.video_id !== report.video_id));
+
+      setStats((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          total_videos: Math.max(0, (prev.total_videos ?? prev.totalVideos ?? 1) - 1),
+          totalVideos: Math.max(0, (prev.totalVideos ?? prev.total_videos ?? 1) - 1),
+        };
+      });
+
+      showNotification('success', `Video "${report.video_title}" and all related reports permanently purged from D1!`);
+    } catch (err: any) {
+      showNotification('error', err.message || 'Failed to purge reported video');
+    } finally {
+      setReportLoadingId(null);
+    }
+  };
+
+  const handleDismissReport = async (reportId: number) => {
+    setReportLoadingId(reportId);
+    try {
+      const res = await fetch(`/api/reports?id=${reportId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ id: reportId }),
+      });
+
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Dismiss failed');
+      }
+
+      setReports((prev) => prev.filter((r) => r.id !== reportId));
+      showNotification('success', 'Report dismissed');
+    } catch (err: any) {
+      showNotification('error', err.message || 'Failed to dismiss report');
+    } finally {
+      setReportLoadingId(null);
+    }
+  };
+
   const handleToggleFeatured = async (v: Video) => {
     try {
       const newStatus = v.is_featured === 1 ? 0 : 1;
@@ -381,7 +443,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       const contentType = res.headers.get("content-type");
       if (!res.ok || !contentType || !contentType.includes("application/json")) {
-        console.error("Non-JSON API response received", res.status);
         return;
       }
 
@@ -395,7 +456,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // Handle Add Category via POST /api/categories
   const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!catName) {
@@ -416,7 +476,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       const contentType = res.headers.get("content-type");
       if (!res.ok || !contentType || !contentType.includes("application/json")) {
-        console.error("Non-JSON API response received", res.status);
         showNotification('error', `Failed to create category (HTTP ${res.status})`);
         return;
       }
@@ -437,7 +496,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // Handle Delete Category via DELETE /api/categories/:id
   const handleDeleteCategory = async (id: number, name: string) => {
     if (!window.confirm(`Delete category "${name}"?`)) return;
 
@@ -449,7 +507,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       const contentType = res.headers.get("content-type");
       if (!res.ok || !contentType || !contentType.includes("application/json")) {
-        console.error("Non-JSON API response received", res.status);
         showNotification('error', `Failed to delete category (HTTP ${res.status})`);
         return;
       }
@@ -464,7 +521,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // Handle Save Monetization (Persist to Cloudflare D1 via POST /api/monetization)
   const handleSaveMonetization = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingMonetization(true);
@@ -514,7 +570,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           const errData = await res.json();
           if (errData?.error) errorMsg = errData.error;
         } catch (_) {}
-        console.error("Monetization save error:", res.status, errorMsg);
         showNotification('error', `Failed to save monetization: ${errorMsg}`);
         return;
       }
@@ -564,7 +619,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     showNotification('success', 'Reset sponsored cards to 6 default presets');
   };
 
-  // Execute D1 SQL query
   const handleExecuteSql = async (e: React.FormEvent) => {
     e.preventDefault();
     setSqlLoading(true);
@@ -583,7 +637,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       const contentType = res.headers.get("content-type");
       if (!res.ok || !contentType || !contentType.includes("application/json")) {
-        console.error("Non-JSON API response received", res.status);
         setSqlError(`Non-JSON response received (HTTP ${res.status})`);
         return;
       }
@@ -600,7 +653,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // Filtered video list for table
   const filteredVideos = videos.filter((v) => {
     const matchesSearch =
       tableSearch === '' ||
@@ -612,7 +664,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   return (
     <div className="min-h-screen bg-[#080C14] text-[#F8FAFC] flex flex-col">
-      {/* Header: UBCEXX Admin Panel */}
+      {}
       <header className="sticky top-0 z-40 bg-[#0F172A] border-b border-[#1E293B] px-4 sm:px-6 lg:px-8 py-3.5 shadow-xl">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           
@@ -648,7 +700,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       </header>
 
-      {/* Floating Notification */}
+      {}
       {notification && (
         <div className="fixed top-20 right-6 z-50 animate-in fade-in slide-in-from-top-2">
           <div
@@ -668,10 +720,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      {/* Main Content Area */}
+      {}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         
-        {/* Stats Cards Row */}
+        {}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-[#0F172A] border border-[#1E293B] rounded-xl p-4 shadow-sm">
             <div className="flex items-center justify-between text-[#94A3B8] text-xs font-medium mb-1">
@@ -726,7 +778,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         </div>
 
-        {/* Navigation Tabs Bar */}
+        {}
         <div className="flex items-center gap-1.5 p-1 bg-[#0F172A] border border-[#1E293B] rounded-xl mb-6 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab('videos')}
@@ -777,6 +829,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTab('reports')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors cursor-pointer flex items-center gap-2 ${
+              activeTab === 'reports'
+                ? 'bg-[#EF4444] text-white shadow-sm shadow-[#EF4444]/20'
+                : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#131C2E]'
+            }`}
+          >
+            <Flag className={`w-3.5 h-3.5 ${activeTab === 'reports' ? 'text-white' : 'text-[#EF4444]'}`} />
+            <span>Reports</span>
+            {reports.length > 0 && (
+              <span
+                className={`px-1.5 py-0.5 rounded-full text-[10px] font-black tabular-nums ${
+                  activeTab === 'reports' ? 'bg-white text-[#EF4444]' : 'bg-[#EF4444] text-white'
+                }`}
+              >
+                {reports.length}
+              </span>
+            )}
+          </button>
+
+          <button
             onClick={() => setActiveTab('d1_sql')}
             className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors cursor-pointer flex items-center gap-2 ${
               activeTab === 'd1_sql'
@@ -801,10 +874,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </button>
         </div>
 
-        {/* Tab 1: Manage Videos Table */}
+        {}
         {activeTab === 'videos' && (
           <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl overflow-hidden shadow-xl">
-            {/* Filter controls bar */}
+            {}
             <div className="p-4 border-b border-[#1E293B] flex flex-col sm:flex-row gap-3 justify-between items-center">
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <div className="relative w-full sm:w-72">
@@ -839,7 +912,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </button>
             </div>
 
-            {/* Video Table */}
+            {}
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-[#131C2E] text-[#94A3B8] uppercase tracking-wider font-semibold border-b border-[#1E293B]">
@@ -863,7 +936,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   ) : (
                     filteredVideos.map((v) => (
                       <tr key={v.id} className="hover:bg-[#131C2E]/60 transition-colors">
-                        {/* Thumbnail & Title */}
+                        {}
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-3 max-w-md">
                             <div className="relative w-24 aspect-video rounded-md overflow-hidden bg-[#131C2E] shrink-0 border border-[#1E293B]">
@@ -908,17 +981,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </div>
                         </td>
 
-                        {/* Category */}
+                        {}
                         <td className="py-3 px-4 whitespace-nowrap text-[#94A3B8]">
                           {v.category_name || categories.find(c => c.id === v.category_id)?.name || 'General'}
                         </td>
 
-                        {/* Duration */}
+                        {}
                         <td className="py-3 px-4 whitespace-nowrap font-mono text-[#F8FAFC]">
                           {formatDuration(v.duration)}
                         </td>
 
-                        {/* Views & Likes */}
+                        {}
                         <td className="py-3 px-4 whitespace-nowrap">
                           <div className="font-mono text-[#F8FAFC] tabular-nums font-medium">
                             {formatNumber(v.views)} views
@@ -928,7 +1001,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </div>
                         </td>
 
-                        {/* Featured Toggle */}
+                        {}
                         <td className="py-3 px-4 text-center whitespace-nowrap">
                           <button
                             onClick={() => handleToggleFeatured(v)}
@@ -943,12 +1016,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </button>
                         </td>
 
-                        {/* Added */}
+                        {}
                         <td className="py-3 px-4 whitespace-nowrap text-[#94A3B8]">
                           {formatTimeAgo(v.created_at)}
                         </td>
 
-                        {/* Actions */}
+                        {}
                         <td className="py-3 px-4 whitespace-nowrap text-right">
                           <div className="flex items-center justify-end gap-2">
                             <button
@@ -976,7 +1049,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* Tab 2: Section 1 - "Add New Video" Form */}
+        {}
         {activeTab === 'add_video' && (
           <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl p-6 sm:p-8 shadow-xl max-w-4xl mx-auto">
             <div className="border-b border-[#1E293B] pb-4 mb-6">
@@ -990,7 +1063,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             <form onSubmit={handleCreateVideo} className="space-y-5">
-              {/* Title & Slug */}
+              {}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-1.5">
@@ -1020,7 +1093,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
-              {/* Dual-Stream Auto-Failover Inputs */}
+              {}
               <div className="bg-[#131C2E]/50 p-4 sm:p-5 rounded-2xl border border-[#1E293B] space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#1E293B]">
                   <div className="flex items-center gap-2">
@@ -1036,7 +1109,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* 1) PRIMARY STREAM URL * */}
+                  {}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="text-xs font-semibold text-[#F8FAFC] uppercase tracking-wider flex items-center gap-1.5">
@@ -1053,7 +1126,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       placeholder="https://ok.ru/videoembed/... or https://pub-r2.ubcexx.com/primary.mp4"
                       className="w-full bg-[#131C2E] text-xs text-[#F8FAFC] px-3.5 py-2.5 rounded-xl border border-[#253349] font-mono focus:outline-none focus:border-[#F59E0B]"
                     />
-                    {/* Quick test primary stream presets */}
+                    {}
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       <span className="text-[10px] text-[#94A3B8] self-center">Presets:</span>
                       <button
@@ -1081,7 +1154,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
 
-                  {/* 2) BACKUP / MIRROR STREAM URL */}
+                  {}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="text-xs font-semibold text-[#F8FAFC] uppercase tracking-wider flex items-center gap-1.5">
@@ -1097,7 +1170,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       placeholder="https://pub-r2.ubcexx.com/backup-mirror.mp4 (optional fallback)"
                       className="w-full bg-[#131C2E] text-xs text-[#F8FAFC] px-3.5 py-2.5 rounded-xl border border-[#253349] font-mono focus:outline-none focus:border-[#F59E0B]"
                     />
-                    {/* Quick test backup mirror presets */}
+                    {}
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       <span className="text-[10px] text-[#94A3B8] self-center">Backup Presets:</span>
                       <button
@@ -1133,7 +1206,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
-              {/* Thumbnail URL */}
+              {}
               <div>
                 <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-1.5">
                   Thumbnail Image URL *
@@ -1146,7 +1219,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   placeholder="/src/assets/images/... or https://..."
                   className="w-full bg-[#131C2E] text-xs text-[#F8FAFC] px-3.5 py-2.5 rounded-xl border border-[#253349] font-mono focus:outline-none focus:border-[#F59E0B]"
                 />
-                {/* Quick asset presets */}
+                {}
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   <span className="text-[10px] text-[#94A3B8] self-center">Generated HD:</span>
                   <button
@@ -1180,7 +1253,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
-              {/* Thumbnail Live Preview */}
+              {}
               {thumbnailUrl && (
                 <div className="p-3 bg-[#131C2E] rounded-xl border border-[#1E293B] flex items-center gap-4">
                   <div className="w-32 aspect-video rounded-lg overflow-hidden bg-black shrink-0 border border-[#253349]">
@@ -1198,7 +1271,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               )}
 
-              {/* Category, Duration, Status */}
+              {}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-1.5">
@@ -1249,7 +1322,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
-              {/* Tags & Featured Checkbox */}
+              {}
               <div>
                 <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-1.5">
                   Tags (comma-separated)
@@ -1263,7 +1336,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 />
               </div>
 
-              {/* Description */}
+              {}
               <div>
                 <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-1.5">
                   Video Description
@@ -1277,7 +1350,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 />
               </div>
 
-              {/* Is Featured checkbox */}
+              {}
               <div className="flex items-center gap-3 p-3.5 rounded-xl bg-[#131C2E] border border-[#1E293B]">
                 <input
                   type="checkbox"
@@ -1292,7 +1365,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </label>
               </div>
 
-              {/* Submit Button */}
+              {}
               <div className="pt-2 flex justify-end gap-3">
                 <button
                   type="button"
@@ -1320,10 +1393,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* Tab 3: Section 3 - "Manage Categories" */}
+        {}
         {activeTab === 'categories' && (
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-            {/* Quick add category form */}
+            {}
             <div className="md:col-span-5 bg-[#0F172A] border border-[#1E293B] rounded-2xl p-6 shadow-xl h-fit">
               <h2 className="text-base font-bold text-[#F8FAFC] flex items-center gap-2 mb-2">
                 <FolderPlus className="w-4 h-4 text-[#F59E0B]" />
@@ -1378,7 +1451,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </form>
             </div>
 
-            {/* Existing Categories Table */}
+            {}
             <div className="md:col-span-7 bg-[#0F172A] border border-[#1E293B] rounded-2xl overflow-hidden shadow-xl">
               <div className="p-4 border-b border-[#1E293B]">
                 <h3 className="text-sm font-bold text-[#F8FAFC]">Existing Categories in D1</h3>
@@ -1421,10 +1494,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* Tab 4: Monetization & Ad Engine */}
+        {}
         {activeTab === 'monetization' && (
           <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl p-6 sm:p-8 shadow-xl max-w-4xl mx-auto">
-            {/* Header */}
+            {}
             <div className="border-b border-[#1E293B] pb-4 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2">
@@ -1456,7 +1529,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
 
-            {/* 2-Option Sub-Navigation Tab Switcher */}
+            {}
             <div className="flex items-center gap-2 p-1.5 bg-[#131C2E] border border-[#1E293B] rounded-xl mb-6">
               <button
                 type="button"
@@ -1506,7 +1579,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             <form onSubmit={handleSaveMonetization} className="space-y-6">
-              {/* SECTION A: PRE-ROLL VIDEO ADS (IN-STREAM SKIP ADS) */}
+              {}
               {monetizationSubTab === 'preroll' && (
                 <div className="bg-[#131C2E]/60 p-5 rounded-2xl border border-[#1E293B] space-y-5">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#1E293B]">
@@ -1527,7 +1600,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
 
-                  {/* Pre-Roll Master Toggle */}
+                  {}
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-semibold text-[#94A3B8]">
                       {prerollEnabled ? 'Pre-Roll Active' : 'Pre-Roll Paused'}
@@ -1549,7 +1622,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
 
                 <div className="space-y-4">
-                  {/* AD NETWORK TAG / VAST / STREAM URL */}
+                  {}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="text-xs font-semibold text-[#F8FAFC] uppercase tracking-wider flex items-center gap-1.5">
@@ -1566,7 +1639,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       className="w-full bg-[#131C2E] text-xs text-[#F8FAFC] px-3.5 py-2.5 rounded-xl border border-[#253349] font-mono focus:outline-none focus:border-[#F59E0B]"
                     />
                     
-                    {/* Presets */}
+                    {}
                     <div className="flex flex-wrap items-center gap-1.5 mt-2">
                       <span className="text-[10px] text-[#94A3B8]">Tag &amp; Stream Presets:</span>
                       <button
@@ -1593,7 +1666,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
 
-                  {/* Skip Countdown Timer (Ad Click Redirects handled internally by Ad Network) */}
+                  {}
                   <div className="max-w-xs">
                     <label className="block text-xs font-semibold text-[#F8FAFC] uppercase tracking-wider mb-1.5">
                       Skip Timer (Seconds)
@@ -1607,7 +1680,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       placeholder="5"
                       className="w-full bg-[#131C2E] text-xs text-[#F8FAFC] px-3.5 py-2.5 rounded-xl border border-[#253349] font-mono focus:outline-none focus:border-[#F59E0B]"
                     />
-                    {/* Timer presets */}
+                    {}
                     <div className="flex gap-1.5 mt-2">
                       {['3', '5', '10'].map((sec) => (
                         <button
@@ -1626,7 +1699,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
 
-                  {/* Flow description */}
+                  {}
                   <div className="p-3 bg-[#080C14] rounded-xl border border-[#1E293B] text-[11px] text-[#94A3B8] space-y-1">
                     <span className="font-semibold text-[#F8FAFC] block">Universal In-Stream Ad Protocol:</span>
                     <p>
@@ -1646,7 +1719,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             )}
 
-            {/* SECTION B: NATIVE / BANNER ADS */}
+            {}
             {monetizationSubTab === 'native' && (
               <div className="bg-[#131C2E]/60 p-5 rounded-2xl border border-[#1E293B] space-y-5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#1E293B]">
@@ -1667,7 +1740,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
 
-                  {/* Native Master Toggle */}
+                  {}
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-semibold text-[#94A3B8]">
                       {nativeEnabled ? 'Native Ads Active' : 'Native Ads Paused'}
@@ -1689,13 +1762,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
 
                 <div className="space-y-4">
-                  {/* Placements Selection */}
+                  {}
                   <div>
                     <label className="block text-xs font-semibold text-[#F8FAFC] uppercase tracking-wider mb-2">
                       Placement Zones
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {/* Top Native Sponsored Rail (1:1 Square) */}
+                      {}
                       <label className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
                         placementTopRail
                           ? 'bg-[#0F172A] border-[#F59E0B]/60 shadow-sm'
@@ -1720,7 +1793,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </div>
                       </label>
 
-                      {/* Under Player */}
+                      {}
                       <label className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
                         placementUnderPlayer
                           ? 'bg-[#0F172A] border-[#F59E0B]/60 shadow-sm'
@@ -1742,7 +1815,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </div>
                       </label>
 
-                      {/* In-Feed Grid */}
+                      {}
                       <label className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
                         placementInFeed
                           ? 'bg-[#0F172A] border-[#F59E0B]/60 shadow-sm'
@@ -1766,7 +1839,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
 
-                  {/* Top Native Sponsored Rail (1:1 Ratio) Live Preview */}
+                  {}
                   <div className="p-4 bg-[#080C14] border border-[#1E293B] rounded-xl space-y-3">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#1E293B] pb-3">
                       <div>
@@ -1805,14 +1878,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
                     </div>
 
-                    {/* Rail Preview Cards */}
+                    {}
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 pt-1">
                       {topRailCards.map((card, idx) => (
                         <div
                           key={card.id || idx}
                           className="group relative rounded-xl overflow-hidden bg-[#0F172A] border border-[#1E293B] hover:border-[#F59E0B] transition-all shadow-sm"
                         >
-                          {/* Strict 1:1 Square */}
+                          {}
                           <div className="relative w-full aspect-square overflow-hidden bg-[#131C2E]">
                             <img
                               src={card.image_url}
@@ -1823,15 +1896,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   '/src/assets/images/ubcexx_hero_cyberpunk_1793264277456.jpg';
                               }}
                             />
-                            {/* Glowing Badge */}
+                            {}
                             <div className="absolute top-1.5 left-1.5 z-10">
                               <span className="text-[8px] font-mono uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-full bg-[#F59E0B]/25 text-[#F59E0B] border border-[#F59E0B]/40 backdrop-blur-sm">
                                 {card.badge_text || 'Sponsored'}
                               </span>
                             </div>
-                            {/* Bottom Dark Gradient */}
+                            {}
                             <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent pointer-events-none" />
-                            {/* Title (2 lines clamp) */}
+                            {}
                             <div className="absolute bottom-0 inset-x-0 p-2 z-10 pointer-events-none">
                               <p className="text-[11px] font-bold text-[#F8FAFC] leading-snug line-clamp-2">
                                 {card.title}
@@ -1843,7 +1916,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
 
-                  {/* Top Native Rail Cards Editor List */}
+                  {}
                   <div className="bg-[#080C14] border border-[#1E293B] rounded-xl p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-[#F8FAFC] uppercase tracking-wider flex items-center gap-1.5">
@@ -1861,7 +1934,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           key={card.id || idx}
                           className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 bg-[#0F172A] border border-[#1E293B] rounded-xl"
                         >
-                          {/* 1:1 Thumbnail preview */}
+                          {}
                           <div className="relative w-14 h-14 aspect-square rounded-lg overflow-hidden bg-[#131C2E] shrink-0 border border-[#253349]">
                             <img
                               src={card.image_url}
@@ -1877,7 +1950,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </span>
                           </div>
 
-                          {/* Inputs */}
+                          {}
                           <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 w-full">
                             <div>
                               <label className="text-[9px] uppercase tracking-wider text-[#94A3B8] block mb-0.5">
@@ -1946,7 +2019,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
 
-                  {/* Ad Script / HTML Code box */}
+                  {}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="text-xs font-semibold text-[#F8FAFC] uppercase tracking-wider flex items-center gap-1.5">
@@ -1963,7 +2036,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       className="w-full bg-[#080C14] text-xs font-mono text-[#10B981] p-3.5 rounded-xl border border-[#253349] focus:outline-none focus:border-[#F59E0B]"
                     />
 
-                    {/* Code Presets */}
+                    {}
                     <div className="flex flex-wrap items-center gap-1.5 mt-2">
                       <span className="text-[10px] text-[#94A3B8]">Ad Presets:</span>
                       <button
@@ -2003,7 +2076,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         type="button"
                         onClick={() =>
                           setNativeCode(
-                            `<div id="container-partner-banner" style="min-height:90px;display:flex;align-items:center;justify-content:center;width:100%;"><script type="text/javascript">console.log("Dynamic JS execution verified");</script><div style="padding:10px;border:1px solid #10B981;border-radius:8px;background:#0d1526;color:#10B981;font-size:11px;font-family:monospace;">✓ Dynamic Script Execution Active (Partner snippet ready)</div></div>`
+                            `<div id="container-partner-banner" style="min-height:90px;display:flex;align-items:center;justify-content:center;width:100%;"><script type="text/javascript"></script><div style="padding:10px;border:1px solid #10B981;border-radius:8px;background:#0d1526;color:#10B981;font-size:11px;font-family:monospace;">✓ Dynamic Script Execution Active (Partner snippet ready)</div></div>`
                           )
                         }
                         className="text-[10px] bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] px-2 py-0.5 rounded text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer"
@@ -2031,7 +2104,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
 
-                  {/* Live HTML Preview */}
+                  {}
                   {nativeCode && (
                     <div className="pt-2">
                       <div className="flex items-center justify-between mb-2">
@@ -2055,7 +2128,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             )}
 
-            {/* Submit & Save Button */}
+            {}
               <div className="pt-2 flex justify-end gap-3 border-t border-[#1E293B]">
                 <button
                   type="button"
@@ -2083,7 +2156,158 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* Tab 5: Cloudflare D1 SQL Console */}
+        {}
+        {activeTab === 'reports' && (
+          <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl overflow-hidden shadow-xl">
+            {}
+            <div className="p-4 sm:p-5 border-b border-[#1E293B] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-[#131C2E]/40">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#2A1218] border border-[#EF4444]/40 flex items-center justify-center text-[#EF4444] shrink-0">
+                  <Flag className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-[#F8FAFC] flex items-center gap-2">
+                    <span>Stream Issue Reports &amp; 1-Click Purge</span>
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-[#EF4444] text-white tabular-nums">
+                      {reports.length}
+                    </span>
+                  </h2>
+                  <p className="text-xs text-[#94A3B8] mt-0.5">
+                    User-submitted issues. Permanently purge broken streams from Cloudflare D1 with a single click.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={fetchData}
+                className="px-3.5 py-1.5 rounded-lg bg-[#131C2E] hover:bg-[#1E293B] border border-[#1E293B] text-xs font-medium text-[#94A3B8] hover:text-[#F8FAFC] transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Refresh</span>
+              </button>
+            </div>
+
+            {}
+            {reports.length === 0 ? (
+              <div className="p-12 text-center flex flex-col items-center justify-center">
+                <div className="w-12 h-12 rounded-2xl bg-[#10B981]/10 border border-[#10B981]/30 flex items-center justify-center text-[#10B981] mb-3">
+                  <CheckCircle className="w-6 h-6" />
+                </div>
+                <h3 className="text-sm font-bold text-[#F8FAFC] mb-1">All Streams Operational</h3>
+                <p className="text-xs text-[#94A3B8] max-w-sm">
+                  There are currently no active user reports. When viewers flag broken videos or stream playback errors, they will appear here for instant 1-click purge.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#131C2E] text-[#94A3B8] uppercase tracking-wider font-semibold border-b border-[#1E293B]">
+                    <tr>
+                      <th className="py-3 px-4">Reported Video</th>
+                      <th className="py-3 px-4">Issue / Reason</th>
+                      <th className="py-3 px-4">Date Reported</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#1E293B]">
+                    {reports.map((rep) => {
+                      const matchedVideo = videos.find((v) => v.id === rep.video_id);
+                      const isLoading = reportLoadingId === rep.id;
+
+                      return (
+                        <tr key={rep.id} className="hover:bg-[#131C2E]/40 transition-colors">
+                          {}
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-16 h-10 rounded-lg overflow-hidden bg-black shrink-0 border border-[#1E293B] relative">
+                                <img
+                                  src={
+                                    (rep as any).thumbnail_url ||
+                                    matchedVideo?.thumbnail_url ||
+                                    '/src/assets/images/ubcexx_hero_cyberpunk_1793264277456.jpg'
+                                  }
+                                  alt={rep.video_title}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src =
+                                      '/src/assets/images/ubcexx_hero_cyberpunk_1793264277456.jpg';
+                                  }}
+                                />
+                              </div>
+                              <div className="min-w-0 max-w-xs">
+                                <div className="font-bold text-[#F8FAFC] truncate" title={rep.video_title}>
+                                  {rep.video_title}
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5 text-[11px] text-[#94A3B8]">
+                                  <span className="font-mono text-[#F59E0B]">ID: #{rep.video_id}</span>
+                                  {matchedVideo ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => onSelectVideoForWatch(matchedVideo)}
+                                      className="text-xs text-[#94A3B8] hover:text-[#F8FAFC] underline cursor-pointer inline-flex items-center gap-0.5"
+                                    >
+                                      <span>Test Playback</span>
+                                      <ExternalLink className="w-3 h-3" />
+                                    </button>
+                                  ) : (
+                                    <span className="text-[#94A3B8]/60 italic">(Video already deleted)</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          {}
+                          <td className="py-3.5 px-4">
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#2A1218] text-[#EF4444] border border-[#EF4444]/40">
+                              <AlertCircle className="w-3 h-3 shrink-0" />
+                              <span className="truncate max-w-xs">{rep.reason}</span>
+                            </div>
+                          </td>
+
+                          {}
+                          <td className="py-3.5 px-4 text-[#94A3B8] font-mono whitespace-nowrap">
+                            {formatTimeAgo(rep.created_at)}
+                          </td>
+
+                          {}
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {}
+                              <button
+                                type="button"
+                                onClick={() => handlePurgeReportedVideo(rep)}
+                                disabled={isLoading}
+                                className="px-3 py-1.5 rounded-lg bg-[#7F1D1D] hover:bg-[#991B1B] text-[#FCA5A5] hover:text-white border border-[#991B1B] text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                                title="Permanently delete video from D1 and clear report"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-[#FCA5A5]" />
+                                <span>{isLoading ? 'Purging...' : '🗑️ Purge & Delete Video'}</span>
+                              </button>
+
+                              {}
+                              <button
+                                type="button"
+                                onClick={() => handleDismissReport(rep.id)}
+                                disabled={isLoading}
+                                className="px-3 py-1.5 rounded-lg bg-[#131C2E] hover:bg-[#1E293B] border border-[#1E293B] text-xs font-medium text-[#94A3B8] hover:text-[#F8FAFC] transition-colors cursor-pointer disabled:opacity-50"
+                                title="Dismiss this report"
+                              >
+                                <span>Dismiss</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {}
         {activeTab === 'd1_sql' && (
           <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl p-6 shadow-xl">
             <div className="border-b border-[#1E293B] pb-4 mb-4">
@@ -2148,7 +2372,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </form>
 
-            {/* Error */}
+            {}
             {sqlError && (
               <div className="mt-4 p-3 bg-[#3B0713] border border-[#4C0D1A] text-[#FB7185] text-xs rounded-xl flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-[#FB7185] shrink-0" />
@@ -2156,7 +2380,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             )}
 
-            {/* Results Table */}
+            {}
             {sqlResults && (
               <div className="mt-6 border border-[#1E293B] rounded-xl overflow-hidden">
                 <div className="bg-[#131C2E] px-4 py-2 border-b border-[#1E293B] text-xs font-mono text-[#94A3B8] flex justify-between">
@@ -2194,7 +2418,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* Tab 5: Cloudflare Pages Deployment Guide */}
+        {}
         {activeTab === 'deploy_guide' && (
           <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl p-6 sm:p-8 shadow-xl max-w-4xl mx-auto">
             <h2 className="text-lg font-bold text-[#F8FAFC] flex items-center gap-2 mb-2">
@@ -2207,7 +2431,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             <div className="space-y-6 text-xs text-[#94A3B8]">
               
-              {/* Step 1 */}
+              {}
               <div className="bg-[#131C2E] p-4 rounded-xl border border-[#1E293B]">
                 <span className="font-bold text-[#F8FAFC] block mb-1">Step 1: Create the Cloudflare D1 Database</span>
                 <p className="text-[#94A3B8] mb-2">Run the official Wrangler CLI command in your terminal:</p>
@@ -2216,7 +2440,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </pre>
               </div>
 
-              {/* Step 2 */}
+              {}
               <div className="bg-[#131C2E] p-4 rounded-xl border border-[#1E293B]">
                 <span className="font-bold text-[#F8FAFC] block mb-1">Step 2: Run Initial Schema Migrations</span>
                 <p className="text-[#94A3B8] mb-2">Execute the generated schema.sql file against your newly created D1 database:</p>
@@ -2225,7 +2449,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </pre>
               </div>
 
-              {/* Step 3 */}
+              {}
               <div className="bg-[#131C2E] p-4 rounded-xl border border-[#1E293B]">
                 <span className="font-bold text-[#F8FAFC] block mb-1">Step 3: Deploy to Cloudflare Pages</span>
                 <p className="text-[#94A3B8] mb-2">Build and deploy the application with Pages Functions (`/functions/api`):</p>
@@ -2235,7 +2459,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </pre>
               </div>
 
-              {/* Step 4 */}
+              {}
               <div className="bg-[#131C2E] p-4 rounded-xl border border-[#1E293B]">
                 <span className="font-bold text-[#F8FAFC] block mb-1">Step 4: Bind D1 in Cloudflare Dashboard</span>
                 <p className="text-[#94A3B8] leading-relaxed">
@@ -2254,4 +2478,3 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 };
 
 export default AdminDashboard;
-

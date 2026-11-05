@@ -1,6 +1,3 @@
-// Cloudflare Pages Function: /api/stats
-// GET & POST - UBCEXX Overview metrics from Cloudflare D1
-
 interface Env {
   DB: D1Database;
 }
@@ -21,22 +18,18 @@ export const onRequestOptions: PagesFunction<Env> = async () => {
 
 async function getStats(context: EventContext<Env, any, any>): Promise<Response> {
   try {
-    // 1. total_videos: SELECT COUNT(*) as count FROM videos
     const videosCountStmt = context.env.DB.prepare('SELECT COUNT(*) as count FROM videos');
     const videosCountResult = await videosCountStmt.first<{ count: number }>();
     const total_videos = Number(videosCountResult?.count) || 0;
 
-    // 2. total_views: SELECT SUM(views) as count FROM videos
     const viewsStmt = context.env.DB.prepare('SELECT SUM(views) as count FROM videos');
     const viewsResult = await viewsStmt.first<{ count: number }>();
     const total_views = Number(viewsResult?.count) || 0;
 
-    // 3. total_categories: SELECT COUNT(*) as count FROM categories
     const catsStmt = context.env.DB.prepare('SELECT COUNT(*) as count FROM categories');
     const catsResult = await catsStmt.first<{ count: number }>();
     const total_categories = Number(catsResult?.count) || 0;
 
-    // 4. total_likes: SELECT SUM(likes) as count FROM videos
     const likesStmt = context.env.DB.prepare('SELECT SUM(likes) as count FROM videos');
     const likesResult = await likesStmt.first<{ count: number }>();
     const total_likes = Number(likesResult?.count) || 0;

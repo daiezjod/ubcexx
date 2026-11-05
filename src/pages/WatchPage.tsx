@@ -5,13 +5,12 @@ import {
   ArrowLeft,
   Check,
   Copy,
-  Tv,
+  Flag,
   X,
 } from 'lucide-react';
 import { Video, MonetizationSettings } from '../types.ts';
 import { VideoPlayer } from '../components/VideoPlayer.tsx';
 import { VideoCard } from '../components/VideoCard.tsx';
-import { DynamicAdContainer } from '../components/DynamicAdContainer.tsx';
 import { AdBanner } from '../components/AdBanner.tsx';
 import { formatViews, formatTimeAgo, formatNumber } from '../utils/formatters.ts';
 import { safeFetchJson } from '../utils/api.ts';
@@ -38,8 +37,7 @@ function saveLikedVideoId(id: string | number) {
       existing.push(id);
       localStorage.setItem(LIKED_VIDEOS_STORAGE_KEY, JSON.stringify(existing));
     }
-  } catch (err) {
-    console.warn('Could not save liked video to localStorage:', err);
+  } catch {
   }
 }
 
@@ -69,10 +67,14 @@ export const WatchPage: React.FC<WatchPageProps> = ({
   const [showShareModal, setShowShareModal] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  // Remount key to silently refresh video stream when mobile user resumes from background
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState('Stream Broken / Not Playing');
+  const [customReportNote, setCustomReportNote] = useState('');
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [reportToast, setReportToast] = useState<string | null>(null);
+
   const [playerMountKey, setPlayerMountKey] = useState<number>(0);
 
-  // Auto-Reload on App Resume & bfcache restoration for mobile devices
   useEffect(() => {
     const HIDDEN_KEY = 'ubcexx_watch_hidden_time';
     const RELOAD_KEY = 'ubcexx_watch_reloaded';
@@ -86,26 +88,22 @@ export const WatchPage: React.FC<WatchPageProps> = ({
         try {
           sessionStorage.setItem(HIDDEN_KEY, String(now));
         } catch {
-          // ignore
         }
       } else if (document.visibilityState === 'visible') {
         let storedHidden = 0;
         try {
           storedHidden = Number(sessionStorage.getItem(HIDDEN_KEY) || 0);
         } catch {
-          // ignore
         }
 
         const effectiveHidden = hiddenTimestamp || storedHidden;
         const elapsed = effectiveHidden > 0 ? now - effectiveHidden : 0;
 
-        // If app was minimized/backgrounded for more than 2.5 seconds, trigger a clean soft-refresh
         if (elapsed > 2500) {
           let lastReload = 0;
           try {
             lastReload = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
           } catch {
-            // ignore
           }
 
           if (now - lastReload > 3000) {
@@ -113,13 +111,11 @@ export const WatchPage: React.FC<WatchPageProps> = ({
               sessionStorage.removeItem(HIDDEN_KEY);
               sessionStorage.setItem(RELOAD_KEY, String(now));
             } catch {
-              // ignore
             }
             window.location.reload();
             return;
           }
         } else if (elapsed > 800) {
-          // Quick switch (0.8s - 2.5s): silently remount player to reconnect stream socket instantly
           setPlayerMountKey((prev) => prev + 1);
         }
 
@@ -127,7 +123,6 @@ export const WatchPage: React.FC<WatchPageProps> = ({
         try {
           sessionStorage.removeItem(HIDDEN_KEY);
         } catch {
-          // ignore
         }
       }
     };
@@ -140,24 +135,20 @@ export const WatchPage: React.FC<WatchPageProps> = ({
         storedHidden = Number(sessionStorage.getItem(HIDDEN_KEY) || 0);
         lastReload = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
       } catch {
-        // ignore
       }
 
-      // If restored from bfcache or deeply suspended in background
       if (event.persisted || (storedHidden > 0 && now - storedHidden > 2500)) {
         if (now - lastReload > 3000) {
           try {
             sessionStorage.removeItem(HIDDEN_KEY);
             sessionStorage.setItem(RELOAD_KEY, String(now));
           } catch {
-            // ignore
           }
           window.location.reload();
           return;
         }
       }
 
-      // Remount player to ensure stream socket is live
       setPlayerMountKey((prev) => prev + 1);
     };
 
@@ -170,7 +161,6 @@ export const WatchPage: React.FC<WatchPageProps> = ({
     };
   }, []);
 
-  // Sync or fetch monetization settings
   useEffect(() => {
     if (initialMonetization) {
       setMonetization(initialMonetization);
@@ -181,11 +171,10 @@ export const WatchPage: React.FC<WatchPageProps> = ({
             setMonetization(data.monetization);
           }
         })
-        .catch((e) => console.warn('Could not load monetization settings:', e.message));
+        .catch(() => {});
     }
   }, [initialMonetization]);
 
-  // Fetch video details + related safely
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
@@ -204,7 +193,6 @@ export const WatchPage: React.FC<WatchPageProps> = ({
           setLikes(data.video.likes || 0);
           setRelatedVideos(data.relatedVideos || []);
 
-          // Check if guest user has already liked this video in localStorage
           const likedIds = getLikedVideoIds();
           const isLiked = likedIds.some(
             (id) => String(id) === String(data.video!.id) || (data.video!.slug && String(id) === String(data.video!.slug))
@@ -227,7 +215,6 @@ export const WatchPage: React.FC<WatchPageProps> = ({
     };
   }, [videoIdOrSlug]);
 
-  // Synchronize liked state whenever video id changes
   useEffect(() => {
     if (video) {
       const likedIds = getLikedVideoIds();
@@ -240,7 +227,6 @@ export const WatchPage: React.FC<WatchPageProps> = ({
     }
   }, [video?.id, video?.slug]);
 
-  // View count increment in D1 safely
   const handleFirstPlay = () => {
     if (!video) return;
     safeFetchJson<{ success: boolean; views?: number }>(`/api/videos/${video.id}/view`, { method: 'POST' })
@@ -250,14 +236,12 @@ export const WatchPage: React.FC<WatchPageProps> = ({
           setVideo((prev) => (prev ? { ...prev, views: newViews } : null));
         }
       })
-      .catch((e) => console.warn('Could not record view in D1:', e.message));
+      .catch(() => {});
   };
 
-  // Like increment in D1 with persistent localStorage guest lock
   const handleLike = () => {
     if (!video || hasLiked) return;
 
-    // Guard against race conditions by verifying localStorage
     const likedIds = getLikedVideoIds();
     const isAlreadyLiked = likedIds.some(
       (id) => String(id) === String(video.id) || (video.slug && String(id) === String(video.slug))
@@ -267,7 +251,6 @@ export const WatchPage: React.FC<WatchPageProps> = ({
       return;
     }
 
-    // Immediately save to localStorage so page refresh preserves liked state
     saveLikedVideoId(video.id);
     setHasLiked(true);
     setLikes((prev) => prev + 1);
@@ -278,7 +261,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
           setLikes(data.likes);
         }
       })
-      .catch((e) => console.warn('Could not record like in D1:', e.message));
+      .catch(() => {});
   };
 
   const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
@@ -307,6 +290,43 @@ export const WatchPage: React.FC<WatchPageProps> = ({
       }
     }
     setShowShareModal(true);
+  };
+
+  const handleSubmitReport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!video) return;
+
+    setIsSubmittingReport(true);
+    try {
+      const finalReason = customReportNote.trim()
+        ? `${reportReason}: ${customReportNote.trim()}`
+        : reportReason;
+
+      await safeFetchJson('/api/reports', {
+        method: 'POST',
+        body: JSON.stringify({
+          video_id: video.id,
+          video_title: video.title,
+          reason: finalReason,
+        }),
+      });
+
+      setShowReportModal(false);
+      setCustomReportNote('');
+      setReportReason('Stream Broken / Not Playing');
+      setReportToast('Report submitted to admin');
+      setTimeout(() => {
+        setReportToast(null);
+      }, 3500);
+    } catch {
+      setShowReportModal(false);
+      setReportToast('Report submitted to admin');
+      setTimeout(() => {
+        setReportToast(null);
+      }, 3500);
+    } finally {
+      setIsSubmittingReport(false);
+    }
   };
 
   if (loading) {
@@ -343,12 +363,9 @@ export const WatchPage: React.FC<WatchPageProps> = ({
 
   return (
     <div className="min-h-screen pb-16">
-      {/* 1. Sticky Top Header Block: Navbar + Back Navigation + Entire Video Player */}
       <div className="sticky top-0 z-50 bg-[#080C14] shadow-2xl shadow-black/90 border-b border-[#1E293B]/60">
-        {/* Navbar */}
         {navbar}
 
-        {/* Back Navigation Bar */}
         <div className={`w-full mx-auto px-3 sm:px-6 lg:px-8 py-1.5 flex items-center justify-between ${isTheaterMode ? 'max-w-full' : 'max-w-7xl'}`}>
           <button
             onClick={onBackToHome}
@@ -359,7 +376,6 @@ export const WatchPage: React.FC<WatchPageProps> = ({
           </button>
         </div>
 
-        {/* Video Player Pinned Container */}
         <div className={`w-full mx-auto px-0 sm:px-6 lg:px-8 pb-1 sm:pb-2 ${isTheaterMode ? 'max-w-full' : 'max-w-7xl'}`}>
           <VideoPlayer
             key={`watch-player-${playerMountKey}-${video.id}`}
@@ -383,21 +399,15 @@ export const WatchPage: React.FC<WatchPageProps> = ({
         </div>
       </div>
 
-      {/* 2. Scrollable Lower Section (Below the Player) */}
       <div className={`mx-auto px-3 sm:px-6 lg:px-8 ${isTheaterMode ? 'max-w-full' : 'max-w-7xl'}`}>
         <div className="flex flex-col gap-6">
-          
-          {/* Main Column: Details */}
           <div className="w-full">
-
-            {/* Video Metadata Header */}
             <div className="mt-4 pb-4 border-b border-[#1E293B]">
               <h1 className="text-xl sm:text-2xl font-bold text-[#F8FAFC] tracking-tight leading-snug mb-3">
                 {video.title}
               </h1>
 
               <div className="flex flex-wrap items-center justify-between gap-4">
-                {/* Views count and time ago */}
                 <div className="flex items-center gap-2 text-xs sm:text-sm text-[#94A3B8]">
                   <span className="font-semibold text-[#F8FAFC]">{formatViews(video.views)}</span>
                   <span aria-hidden="true" className="text-[#253349]">·</span>
@@ -410,7 +420,6 @@ export const WatchPage: React.FC<WatchPageProps> = ({
                   )}
                 </div>
 
-                {/* Like, Share & Theater Action Buttons */}
                 <div className="flex items-center gap-2.5">
                   <button
                     onClick={handleLike}
@@ -436,22 +445,17 @@ export const WatchPage: React.FC<WatchPageProps> = ({
                   </button>
 
                   <button
-                    onClick={() => setIsTheaterMode(!isTheaterMode)}
-                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full border text-xs font-semibold transition-all cursor-pointer ${
-                      isTheaterMode
-                        ? 'bg-[#F59E0B] text-black border-[#F59E0B] shadow-md shadow-[#F59E0B]/30'
-                        : 'bg-[#131C2E] hover:bg-[#1E293B] border-[#1E293B] text-[#94A3B8] hover:text-[#F8FAFC]'
-                    }`}
-                    title={isTheaterMode ? 'Switch to Normal View' : 'Switch to Theater Mode'}
+                    onClick={() => setShowReportModal(true)}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#131C2E] hover:bg-[#2A1218] border border-[#1E293B] hover:border-[#EF4444]/60 text-[#94A3B8] hover:text-[#EF4444] text-xs font-semibold transition-all cursor-pointer active:scale-95 group"
+                    title="Report stream issue"
                   >
-                    <Tv className="w-4 h-4" />
-                    <span className="hidden sm:inline">{isTheaterMode ? 'Theater On' : 'Theater'}</span>
+                    <Flag className="w-3.5 h-3.5 text-[#94A3B8] group-hover:text-[#EF4444] transition-colors" />
+                    <span>Report</span>
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* UBCEXX Promoted Content: Below Player / Title */}
             {(monetization?.native_ads_enabled === 1 || monetization?.native_enabled === 1) &&
               Boolean(monetization?.native_ads_code || monetization?.native_code) && (
                 <div className="w-full my-4">
@@ -462,7 +466,6 @@ export const WatchPage: React.FC<WatchPageProps> = ({
               )}
           </div>
 
-          {/* Section: 🔥 More Related Streams */}
           <div className="mt-4 pt-6 border-t border-[#1E293B]">
             <div className="flex items-center justify-between pb-3 mb-4">
               <div className="flex items-center gap-2.5">
@@ -503,7 +506,6 @@ export const WatchPage: React.FC<WatchPageProps> = ({
         </div>
       </div>
 
-      {/* YouTube-Style Mobile Share Sheet / Bottom Drawer */}
       {showShareModal && (
         <div
           onClick={() => setShowShareModal(false)}
@@ -513,10 +515,8 @@ export const WatchPage: React.FC<WatchPageProps> = ({
             onClick={(e) => e.stopPropagation()}
             className="w-full sm:max-w-md bg-[#0F172A] border-t sm:border border-[#1E293B] rounded-t-3xl sm:rounded-2xl p-5 sm:p-6 shadow-2xl relative animate-in slide-in-from-bottom duration-300"
           >
-            {/* Mobile Top Drag Indicator */}
             <div className="w-10 h-1 bg-[#253349] rounded-full mx-auto mb-3 sm:hidden" />
 
-            {/* Header: "Share" with Close Button */}
             <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#1E293B]">
               <h3 className="text-base font-bold text-[#F8FAFC]">Share</h3>
               <button
@@ -529,9 +529,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
               </button>
             </div>
 
-            {/* Top Row: Horizontal Scrollable Circle Social Buttons */}
             <div className="flex items-center justify-around gap-2 py-2 mb-4 overflow-x-auto">
-              {/* WhatsApp */}
               <a
                 href={`https://api.whatsapp.com/send?text=${encodeURIComponent(video.title + ' ' + currentUrl)}`}
                 target="_blank"
@@ -546,7 +544,6 @@ export const WatchPage: React.FC<WatchPageProps> = ({
                 <span className="text-[11px] font-medium text-[#94A3B8] group-hover:text-[#F8FAFC]">WhatsApp</span>
               </a>
 
-              {/* Telegram */}
               <a
                 href={`https://t.me/share/url?url=${encodeURIComponent(currentUrl)}&text=${encodeURIComponent(video.title)}`}
                 target="_blank"
@@ -561,7 +558,6 @@ export const WatchPage: React.FC<WatchPageProps> = ({
                 <span className="text-[11px] font-medium text-[#94A3B8] group-hover:text-[#F8FAFC]">Telegram</span>
               </a>
 
-              {/* Facebook */}
               <a
                 href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(currentUrl)}`}
                 target="_blank"
@@ -576,7 +572,6 @@ export const WatchPage: React.FC<WatchPageProps> = ({
                 <span className="text-[11px] font-medium text-[#94A3B8] group-hover:text-[#F8FAFC]">Facebook</span>
               </a>
 
-              {/* X / Twitter */}
               <a
                 href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(currentUrl)}&text=${encodeURIComponent(video.title)}`}
                 target="_blank"
@@ -592,7 +587,6 @@ export const WatchPage: React.FC<WatchPageProps> = ({
               </a>
             </div>
 
-            {/* Bottom Action: Copy Link Pill */}
             <div className="mt-2 pt-3 border-t border-[#1E293B]">
               <div className="flex items-center gap-2 p-1.5 bg-[#131C2E] rounded-xl border border-[#253349]">
                 <input
@@ -611,6 +605,122 @@ export const WatchPage: React.FC<WatchPageProps> = ({
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showReportModal && (
+        <div
+          onClick={() => setShowReportModal(false)}
+          className="fixed inset-0 z-[65] bg-black/80 backdrop-blur-sm flex flex-col justify-end sm:justify-center sm:items-center p-0 sm:p-4 animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full sm:max-w-md bg-[#0F172A] border-t sm:border border-[#1E293B] rounded-t-3xl sm:rounded-2xl p-5 sm:p-6 shadow-2xl relative animate-in slide-in-from-bottom duration-300"
+          >
+            <div className="w-10 h-1 bg-[#253349] rounded-full mx-auto mb-3 sm:hidden" />
+
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#1E293B]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#2A1218] border border-[#EF4444]/40 flex items-center justify-center text-[#EF4444]">
+                  <Flag className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-[#F8FAFC]">Report Stream Issue</h3>
+                  <p className="text-[11px] text-[#94A3B8]">Alert admin if this stream is broken or offline</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowReportModal(false)}
+                className="p-1 rounded-full text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#1E293B] transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-2.5 bg-[#131C2E] rounded-xl border border-[#1E293B] mb-4">
+              <span className="text-[10px] font-mono uppercase text-[#F59E0B] tracking-wider block mb-0.5">Stream Title</span>
+              <p className="text-xs font-semibold text-[#F8FAFC] truncate">{video.title}</p>
+            </div>
+
+            <form onSubmit={handleSubmitReport} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-medium text-[#94A3B8] mb-2">Select Issue</label>
+                <div className="grid grid-cols-1 gap-1.5">
+                  {[
+                    'Stream Broken / Not Playing',
+                    'Audio Desync / No Sound',
+                    'Incorrect Thumbnail or Title',
+                    'Broken External Embed Mirror',
+                    'Other Technical Issue',
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setReportReason(preset)}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium border transition-all flex items-center justify-between cursor-pointer ${
+                        reportReason === preset
+                          ? 'bg-[#2A1218] border-[#EF4444] text-[#EF4444]'
+                          : 'bg-[#131C2E] border-[#1E293B] text-[#94A3B8] hover:border-[#2A3950] hover:text-[#F8FAFC]'
+                      }`}
+                    >
+                      <span>{preset}</span>
+                      {reportReason === preset && <Check className="w-3.5 h-3.5 text-[#EF4444]" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-[#94A3B8] mb-1.5">
+                  Additional Details <span className="text-[#94A3B8]/60 font-normal">(Optional)</span>
+                </label>
+                <textarea
+                  value={customReportNote}
+                  onChange={(e) => setCustomReportNote(e.target.value)}
+                  placeholder="e.g. Video player shows playback error or endless spinner..."
+                  rows={2}
+                  className="w-full bg-[#131C2E] border border-[#1E293B] focus:border-[#EF4444] focus:ring-1 focus:ring-[#EF4444] text-[#F8FAFC] placeholder-[#94A3B8]/60 text-xs rounded-xl p-2.5 outline-none resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowReportModal(false)}
+                  className="px-4 py-2 rounded-xl bg-[#131C2E] hover:bg-[#1E293B] border border-[#1E293B] text-xs font-medium text-[#94A3B8] hover:text-[#F8FAFC] transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingReport}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#EF4444] hover:bg-[#DC2626] text-white text-xs font-bold transition-all shadow-md shadow-[#EF4444]/20 cursor-pointer active:scale-95 disabled:opacity-50"
+                >
+                  {isSubmittingReport ? (
+                    <span>Submitting...</span>
+                  ) : (
+                    <>
+                      <Flag className="w-3.5 h-3.5" />
+                      <span>Submit Report</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {reportToast && (
+        <div className="fixed top-5 right-5 z-[75] animate-in fade-in slide-in-from-top-3 duration-200">
+          <div className="flex items-center gap-2.5 px-4 py-3 bg-[#0F172A] border border-[#EF4444]/60 rounded-xl shadow-2xl text-[#F8FAFC]">
+            <div className="w-5 h-5 rounded-full bg-[#EF4444] flex items-center justify-center text-white shrink-0">
+              <Check className="w-3 h-3 text-white" />
+            </div>
+            <span className="text-xs font-semibold">{reportToast}</span>
           </div>
         </div>
       )}

@@ -1,6 +1,3 @@
-// Cloudflare Pages Function: /api/admin/videos
-// GET (list all videos with category names) and POST (insert video into D1)
-
 interface Env {
   DB: D1Database;
 }

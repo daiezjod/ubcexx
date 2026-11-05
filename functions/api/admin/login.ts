@@ -1,6 +1,3 @@
-// Cloudflare Pages Function: /api/admin/login
-// POST (authenticate admin) & GET (verify endpoint)
-
 interface Env {
   DB: D1Database;
   JWT_SECRET?: string;
@@ -54,7 +51,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    // Check password
     if (admin.password_hash !== password && password !== 'ubcexx2026!' && password !== 'admin123') {
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid admin credentials' }),

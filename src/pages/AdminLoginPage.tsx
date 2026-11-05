@@ -49,10 +49,8 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
 
   return (
     <div className="min-h-screen bg-[#080C14] flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden">
-      {/* Background ambient amber glow */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#F59E0B]/10 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Return to tube link */}
       <div className="w-full max-w-md mb-6 flex justify-between items-center">
         <button
           onClick={onBackToTube}
@@ -67,10 +65,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
         </span>
       </div>
 
-      {/* Login Box */}
       <div className="w-full max-w-md bg-[#0F172A] border border-[#1E293B] rounded-2xl p-8 shadow-2xl relative z-10">
-        
-        {/* Brand Lockup */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#F59E0B] text-black shadow-xl shadow-[#F59E0B]/30 mb-4">
             <Lock className="w-7 h-7 text-black stroke-[2.5]" />
@@ -83,7 +78,6 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
           </p>
         </div>
 
-        {/* Error notification */}
         {error && (
           <div className="mb-6 p-3.5 rounded-xl bg-[#3B0713] border border-[#4C0D1A] text-[#FB7185] text-xs flex items-center gap-2.5">
             <AlertCircle className="w-4 h-4 text-[#FB7185] shrink-0" />
@@ -136,7 +130,6 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
           </button>
         </form>
 
-        {/* Demo credentials helper card */}
         <div className="mt-8 pt-6 border-t border-[#1E293B]">
           <div className="bg-[#131C2E] rounded-xl p-3.5 border border-[#1E293B] text-xs">
             <div className="flex items-center gap-2 text-[#F8FAFC] font-semibold mb-1">
@@ -149,11 +142,9 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
             </div>
           </div>
         </div>
-
       </div>
     </div>
   );
 };
 
 export default AdminLoginPage;
-

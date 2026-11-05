@@ -1,6 +1,3 @@
-// Cloudflare Pages Function: /api/admin/monetization
-// GET & POST - UBCEXX Monetization settings (Pre-Roll & Native Banners)
-
 interface Env {
   DB: D1Database;
 }

@@ -1,6 +1,3 @@
-// Global Middleware for Cloudflare Pages Functions
-// Provides universal CORS support and guarantees JSON error responses for /api/* routes
-
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
@@ -9,7 +6,6 @@ const corsHeaders: Record<string, string> = {
 };
 
 export const onRequest: PagesFunction<any> = async (context) => {
-  // Preflight CORS request
   if (context.request.method === 'OPTIONS') {
     return new Response(null, {
       status: 204,
@@ -22,7 +18,6 @@ export const onRequest: PagesFunction<any> = async (context) => {
   try {
     const response = await context.next();
 
-    // If an /api/ request resulted in an HTML fallback (SPA routing) or 404, prevent HTML from being sent
     if (url.pathname.startsWith('/api/')) {
       const contentType = response.headers.get('content-type') || '';
       if (!contentType.includes('application/json') && (response.status === 404 || contentType.includes('text/html'))) {
@@ -41,7 +36,6 @@ export const onRequest: PagesFunction<any> = async (context) => {
         );
       }
 
-      // Add CORS headers to the response
       const newHeaders = new Headers(response.headers);
       Object.entries(corsHeaders).forEach(([k, v]) => {
         newHeaders.set(k, v);

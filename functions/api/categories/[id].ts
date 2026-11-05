@@ -1,6 +1,3 @@
-// Cloudflare Pages Function: /api/categories/[id]
-// DELETE, GET, POST, OPTIONS - Category manipulation by ID in Cloudflare D1
-
 interface Env {
   DB: D1Database;
 }

@@ -1,6 +1,3 @@
-// Cloudflare Pages Function: /api/admin/sql
-// POST & GET - Direct Cloudflare D1 SQL query execution console
-
 interface Env {
   DB: D1Database;
 }

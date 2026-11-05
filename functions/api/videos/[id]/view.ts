@@ -1,6 +1,3 @@
-// Cloudflare Pages Function: POST /api/videos/[id]/view
-// Increments views counter directly in Cloudflare D1
-
 interface Env {
   DB: D1Database;
 }

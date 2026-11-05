@@ -1,6 +1,3 @@
-// Cloudflare Pages Function: POST /api/videos/[id]/like
-// Increments likes count directly in Cloudflare D1
-
 interface Env {
   DB: D1Database;
 }

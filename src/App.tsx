@@ -5,15 +5,12 @@ import { Home, TubeFooter } from './pages/Home.tsx';
 import { Video, Category, MonetizationSettings } from './types.ts';
 import { safeFetchJson } from './utils/api.ts';
 
-// Strict Code Splitting & Source Code Isolation: Admin bundle chunk is NEVER loaded by regular guests
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard.tsx'));
 const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage.tsx'));
 
-// Secret Obfuscated Admin Path (Runtime decoded to prevent plaintext leaks in static bundle)
 const getSecretAdminPath = () => atob('L2FkbWluZGFpZXpnYW5nc3RlcnJ1c3NpYW5lcGFsd29ybGQ=');
 const getSecretLoginPath = () => atob('L2FkbWluZGFpZXpnYW5nc3RlcnJ1c3NpYW5lcGFsd29ybGQvbG9naW4=');
 
-// Decoy / Honeypot Paths that unauthorized probes try
 const DECOY_PATHS = [
   '/admin',
   '/admin/',
@@ -31,7 +28,6 @@ const DECOY_PATHS = [
   '/backend',
 ];
 
-// Sleek Cyber-Navy Suspense Fallback Loader
 const AdminSuspenseLoader = (
   <div className="min-h-screen bg-[#080C14] flex flex-col items-center justify-center text-[#F8FAFC]">
     <div className="w-9 h-9 border-2 border-[#1E293B] border-t-[#F59E0B] rounded-full animate-spin mb-3" />
@@ -54,7 +50,6 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [pageLimit, setPageLimit] = useState(12);
 
-  // Initialize Admin Token from localStorage if present
   useEffect(() => {
     const savedToken = localStorage.getItem('ubcexx_admin_token');
     if (savedToken) {
@@ -62,20 +57,16 @@ export default function App() {
     }
   }, []);
 
-  // Sync initial URL path with Decoy Honeypot and Secret Path verification
   useEffect(() => {
     const handleUrlRoute = () => {
       const path = window.location.pathname;
 
-      // 1. Decoy / Honeypot for common admin URLs:
-      // Redirect silently to Home (/) so scanners cannot guess that an admin portal exists
       if (DECOY_PATHS.includes(path.toLowerCase())) {
         window.history.replaceState({}, '', '/');
         setCurrentView('home');
         return;
       }
 
-      // 2. Secret Admin Route
       if (path === getSecretAdminPath()) {
         const token = localStorage.getItem('ubcexx_admin_token');
         if (token) {
@@ -87,13 +78,11 @@ export default function App() {
         return;
       }
 
-      // 3. Secret Admin Login Route
       if (path === getSecretLoginPath()) {
         setCurrentView('admin-login');
         return;
       }
 
-      // 4. Video Watch Route (/watch/:id)
       if (path.startsWith('/watch/')) {
         const idOrSlug = path.replace('/watch/', '');
         if (idOrSlug) {
@@ -103,7 +92,6 @@ export default function App() {
         }
       }
 
-      // Default to Public Guest Home
       setCurrentView('home');
     };
 
@@ -112,7 +100,6 @@ export default function App() {
     return () => window.removeEventListener('popstate', handleUrlRoute);
   }, []);
 
-  // Global Automatic Page Reload on App Resume / Un-minimize
   useEffect(() => {
     const HIDDEN_KEY = 'ubcexx_last_hidden_time';
     const RELOAD_KEY = 'ubcexx_just_reloaded';
@@ -126,26 +113,21 @@ export default function App() {
         try {
           sessionStorage.setItem(HIDDEN_KEY, String(now));
         } catch {
-          // ignore storage error
         }
       } else if (document.visibilityState === 'visible') {
         let storedHidden = 0;
         try {
           storedHidden = Number(sessionStorage.getItem(HIDDEN_KEY) || 0);
         } catch {
-          // ignore
         }
 
         const effectiveHiddenTime = hiddenTimestamp || storedHidden;
 
-        // Check if page was backgrounded for more than 2 seconds (2000ms)
         if (effectiveHiddenTime > 0 && now - effectiveHiddenTime > 2000) {
-          // Loop prevention guard: do not reload if a reload occurred in the last 4 seconds
           let lastReload = 0;
           try {
             lastReload = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
           } catch {
-            // ignore
           }
 
           if (now - lastReload > 4000) {
@@ -153,21 +135,17 @@ export default function App() {
               sessionStorage.removeItem(HIDDEN_KEY);
               sessionStorage.setItem(RELOAD_KEY, String(now));
             } catch {
-              // ignore
             }
             hiddenTimestamp = 0;
-            // Full automatic reload: restarts the current route (Home, Watch, etc.) fresh
             window.location.reload();
             return;
           }
         }
 
-        // Reset tracking if returning within < 2 seconds or after reload
         hiddenTimestamp = 0;
         try {
           sessionStorage.removeItem(HIDDEN_KEY);
         } catch {
-          // ignore
         }
       }
     };
@@ -180,17 +158,14 @@ export default function App() {
         storedHidden = Number(sessionStorage.getItem(HIDDEN_KEY) || 0);
         lastReload = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
       } catch {
-        // ignore
       }
 
-      // Check if restored from bfcache or if suspended in background for > 2 seconds
       if (event.persisted || (storedHidden > 0 && now - storedHidden > 2000)) {
         if (now - lastReload > 4000) {
           try {
             sessionStorage.removeItem(HIDDEN_KEY);
             sessionStorage.setItem(RELOAD_KEY, String(now));
           } catch {
-            // ignore
           }
           window.location.reload();
         }
@@ -206,7 +181,6 @@ export default function App() {
     };
   }, []);
 
-  // Fetch categories, videos, and monetization safely
   const loadData = async () => {
     setLoading(true);
     try {
@@ -223,8 +197,7 @@ export default function App() {
       if (vidsData?.success && vidsData.videos) setVideos(vidsData.videos);
       if (featData?.success && featData.videos) setFeaturedVideos(featData.videos);
       if (monetData?.success && monetData.monetization) setMonetization(monetData.monetization);
-    } catch (e: any) {
-      console.error('Failed to fetch tube data:', e.message);
+    } catch {
     } finally {
       setLoading(false);
     }
@@ -234,7 +207,6 @@ export default function App() {
     loadData();
   }, [currentView, selectedCategoryId, searchQuery, pageLimit]);
 
-  // Navigation Handlers
   const handleSelectVideo = (video: Video) => {
     setSelectedVideo(video);
     setActiveVideoId(video.slug || video.id);
@@ -265,7 +237,6 @@ export default function App() {
     window.history.pushState({}, '', getSecretLoginPath());
   };
 
-  // Render Admin Login (Isolated in separate chunk via Suspense)
   if (currentView === 'admin-login') {
     return (
       <Suspense fallback={AdminSuspenseLoader}>
@@ -277,7 +248,6 @@ export default function App() {
     );
   }
 
-  // Render Admin Dashboard (Isolated in separate chunk via Suspense)
   if (currentView === 'admin-dashboard') {
     return (
       <Suspense fallback={AdminSuspenseLoader}>
@@ -291,7 +261,6 @@ export default function App() {
     );
   }
 
-  // Render Watch Page
   if (currentView === 'watch' && activeVideoId) {
     return (
       <div className="min-h-screen bg-[#080C14] text-[#F8FAFC] flex flex-col selection:bg-[#F59E0B] selection:text-black">
@@ -320,13 +289,11 @@ export default function App() {
             }
           />
         </main>
-        {/* Sleek Tube Footer */}
         <TubeFooter />
       </div>
     );
   }
 
-  // Render Public Tube Home Page
   return (
     <Home
       categories={categories}
@@ -345,4 +312,3 @@ export default function App() {
     />
   );
 }
-

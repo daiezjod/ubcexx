@@ -1,6 +1,3 @@
-// Cloudflare Pages Function: /api/cron/cleanup
-// 100% Autonomous 24/7 Dead Video Background Purging Engine for Cloudflare D1
-
 interface Env {
   DB: D1Database;
   JWT_SECRET?: string;
@@ -14,7 +11,6 @@ const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-// Check if a single stream URL is dead (returns true if confirmed dead or invalid)
 export async function isStreamDead(url: string | null | undefined): Promise<boolean> {
   if (!url || !url.trim()) return true;
   const trimmed = url.trim();
@@ -23,12 +19,10 @@ export async function isStreamDead(url: string | null | undefined): Promise<bool
     const isOkRu = trimmed.includes('ok.ru') || trimmed.includes('odnoklassniki.ru');
 
     if (isOkRu) {
-      // Extract OK.ru numeric video ID
       const okMatch = trimmed.match(/(?:video|videoembed|live)\/(\d+)/i) || trimmed.match(/\/(\d{6,})/);
       const okId = okMatch ? okMatch[1] : null;
-      if (!okId) return true; // Malformed ok.ru link
+      if (!okId) return true;
 
-      // Perform fast validation of the embed endpoint
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 7000);
 
@@ -47,7 +41,6 @@ export async function isStreamDead(url: string | null | undefined): Promise<bool
         return true;
       }
 
-      // Check page text for OK.ru deletion/removal/restriction markers
       const body = await res.text();
       const lower = body.toLowerCase();
       if (
@@ -65,7 +58,6 @@ export async function isStreamDead(url: string | null | undefined): Promise<bool
 
       return false;
     } else {
-      // Direct media file (MP4, M3U8, WebM, etc.)
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 6000);
 
@@ -79,7 +71,6 @@ export async function isStreamDead(url: string | null | undefined): Promise<bool
           signal: controller.signal,
         });
       } catch {
-        // If HEAD fails (e.g. server blocks HEAD), retry with range GET
         const getController = new AbortController();
         const getTimeoutId = setTimeout(() => getController.abort(), 6000);
         res = await fetch(trimmed, {
@@ -101,15 +92,12 @@ export async function isStreamDead(url: string | null | undefined): Promise<bool
 
       return false;
     }
-  } catch (err) {
-    // If request timed out, connection failed, or DNS failed
-    console.warn(`[Auto-Cleaner] Stream validation failed for ${url}:`, err);
+  } catch {
     return true;
   }
 }
 
 async function handleCleanup(context: EventContext<Env, any, any>): Promise<Response> {
-  // 1. Verify Bearer Token matching JWT_SECRET or cron secret
   const authHeader = context.request.headers.get('Authorization') || '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
 
@@ -135,7 +123,6 @@ async function handleCleanup(context: EventContext<Env, any, any>): Promise<Resp
   }
 
   try {
-    // 2. Fetch all video records from D1
     const { results } = await context.env.DB.prepare(
       'SELECT id, title, video_url, backup_video_url FROM videos'
     ).all<{ id: number; title: string; video_url: string; backup_video_url?: string }>();
@@ -145,29 +132,24 @@ async function handleCleanup(context: EventContext<Env, any, any>): Promise<Resp
     const purged_titles: string[] = [];
     const purged_ids: number[] = [];
 
-    // 3. Validate streams and purge if BOTH primary and backup are dead
     for (const v of videos) {
       const isPrimaryDead = await isStreamDead(v.video_url);
 
       if (!isPrimaryDead) {
-        // Primary is healthy, keep video
         continue;
       }
 
-      // Primary is dead. Check if backup is available and alive
       let isBackupDead = true;
       if (v.backup_video_url && v.backup_video_url.trim()) {
         isBackupDead = await isStreamDead(v.backup_video_url);
       } else {
-        isBackupDead = true; // No backup provided
+        isBackupDead = true;
       }
 
-      // If BOTH streams are confirmed dead, delete from D1
       if (isPrimaryDead && isBackupDead) {
         await context.env.DB.prepare('DELETE FROM videos WHERE id = ?').bind(v.id).run();
         purged_titles.push(v.title);
         purged_ids.push(v.id);
-        console.info(`[Auto-Cleaner Bot] Purged dead video ID ${v.id}: "${v.title}"`);
       }
     }
 
@@ -184,7 +166,6 @@ async function handleCleanup(context: EventContext<Env, any, any>): Promise<Resp
       { status: 200, headers: corsHeaders }
     );
   } catch (err: any) {
-    console.error('[Auto-Cleaner Bot] Cron cleanup failed:', err);
     return new Response(
       JSON.stringify({
         success: false,

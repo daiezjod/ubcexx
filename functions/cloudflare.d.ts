@@ -1,5 +1,3 @@
-// Global Ambient Type Definitions for Cloudflare Pages Functions & D1 Database
-
 export {};
 
 declare global {

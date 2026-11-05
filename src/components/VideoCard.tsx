@@ -19,7 +19,6 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, onSelect }) => {
       onMouseLeave={() => setIsHovered(false)}
       className="group cursor-pointer flex flex-col transition-all"
     >
-      {/* 16:9 Compact Thumbnail */}
       <div className="rounded-md overflow-hidden aspect-video relative bg-slate-900 border border-[#1E293B]/60 shadow-sm">
         {!imageError ? (
           <img
@@ -37,7 +36,6 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, onSelect }) => {
           </div>
         )}
 
-        {/* Hover Dark Vignette & Play Glow */}
         <div
           className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity duration-200 ${
             isHovered ? 'opacity-100' : 'opacity-0'
@@ -48,12 +46,10 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, onSelect }) => {
           </div>
         </div>
 
-        {/* Duration Badge: Clean small badge pinned at the bottom-right corner of the thumbnail */}
         <div className="absolute bottom-1 right-1 bg-black/85 text-[10px] sm:text-xs font-mono font-medium px-1.5 py-0.5 rounded text-white pointer-events-none shadow-sm">
           {formatDuration(video.duration)}
         </div>
 
-        {/* Subtle Quality Tag (top-left) */}
         {video.is_featured === 1 && (
           <div className="absolute top-1 left-1 px-1 py-0.2 rounded bg-[#F59E0B] text-black font-mono text-[9px] font-black uppercase pointer-events-none">
             HD
@@ -61,7 +57,6 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, onSelect }) => {
         )}
       </div>
 
-      {/* Card Text & Meta Info (Below thumbnail) */}
       <div className="flex flex-col">
         <h3
           className="text-xs sm:text-sm font-medium line-clamp-2 text-white leading-tight mt-1 hover:text-[#F59E0B] transition-colors"

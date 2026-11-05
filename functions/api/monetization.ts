@@ -1,5 +1,3 @@
-// Cloudflare Pages Function: /api/monetization (GET & POST monetization settings)
-
 interface Env {
   DB: D1Database;
 }
@@ -24,7 +22,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const row: any = await stmt.first();
 
     if (row) {
-      // Safely parse top_rail_cards back to JSON array
       if (typeof row.top_rail_cards === 'string') {
         try {
           row.top_rail_cards = JSON.parse(row.top_rail_cards);
@@ -35,7 +32,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         row.top_rail_cards = [];
       }
 
-      // Safely parse placement_zones back to JSON object
       if (typeof row.placement_zones === 'string') {
         try {
           row.placement_zones = JSON.parse(row.placement_zones);
@@ -46,7 +42,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         row.placement_zones = {};
       }
 
-      // Populate aliases for backwards & forwards compatibility
       if (row.preroll_skip_seconds === undefined && row.preroll_skip_offset !== undefined) {
         row.preroll_skip_seconds = row.preroll_skip_offset;
       }
@@ -78,7 +73,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       }
     );
   } catch (err: any) {
-    console.error('Monetization get error:', err);
     return new Response(
       JSON.stringify({ success: false, error: err.message }),
       { status: 500, headers: corsHeaders }
@@ -90,24 +84,20 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
     const body: any = await context.request.json().catch(() => ({}));
     
-    // Safely read incoming body fields
     const preroll_enabled = body.preroll_enabled !== undefined ? (body.preroll_enabled ? 1 : 0) : 1;
     const preroll_video_url = body.preroll_video_url || '';
     const preroll_skip_seconds = Number(body.preroll_skip_seconds ?? body.preroll_skip_offset ?? 5) || 5;
     const native_ads_enabled = (body.native_ads_enabled !== undefined ? body.native_ads_enabled : body.native_enabled) ? 1 : 0;
     const native_ads_code = body.native_ads_code ?? body.native_code ?? '';
 
-    // Store top_rail_cards as JSON string
     const top_rail_cards = typeof body.top_rail_cards === 'string'
       ? body.top_rail_cards
       : JSON.stringify(body.top_rail_cards || []);
 
-    // Store placement_zones as JSON string
     const placement_zones = typeof body.placement_zones === 'string'
       ? body.placement_zones
       : JSON.stringify(body.placement_zones || {});
 
-    // Ensure monetization table exists
     await context.env.DB.prepare(`
       CREATE TABLE IF NOT EXISTS monetization (
         id INTEGER PRIMARY KEY DEFAULT 1,
@@ -121,12 +111,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       )
     `).run().catch(() => {});
 
-    // Ensure all required columns exist in D1 (avoids "no such column" 500 errors if migrated earlier)
     const addCol = async (colDef: string) => {
       try {
         await context.env.DB.prepare(`ALTER TABLE monetization ADD COLUMN ${colDef}`).run();
-      } catch (_) {
-        // Safe to ignore if column already exists
+      } catch {
       }
     };
 
@@ -143,13 +131,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     await addCol('placement_zones TEXT DEFAULT "{}"');
     await addCol('updated_at TEXT DEFAULT ""');
 
-    // Ensure row id = 1 exists
     const rowExists = await context.env.DB.prepare('SELECT id FROM monetization WHERE id = 1').first().catch(() => null);
     if (!rowExists) {
       await context.env.DB.prepare('INSERT OR IGNORE INTO monetization (id) VALUES (1)').run().catch(() => {});
     }
 
-    // Execute safe UPDATE on row id = 1
     const stmt = context.env.DB.prepare(`
       UPDATE monetization 
       SET preroll_enabled = ?, 
@@ -172,7 +158,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     await stmt.run();
 
-    // Also update legacy columns if available for backwards compatibility
     try {
       await context.env.DB.prepare(`
         UPDATE monetization 
@@ -192,8 +177,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         body.native_placements || 'top_rail,under_player,in_feed',
         body.top_rail_enabled !== undefined ? (body.top_rail_enabled ? 1 : 0) : 1
       ).run();
-    } catch (_) {
-      // Ignore if optional legacy columns fail
+    } catch {
     }
 
     return new Response(
@@ -204,7 +188,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       { status: 200, headers: corsHeaders }
     );
   } catch (err: any) {
-    console.error('Monetization update error:', err);
     return new Response(
       JSON.stringify({ success: false, error: err.message || 'Failed to update monetization settings' }),
       { status: 500, headers: corsHeaders }

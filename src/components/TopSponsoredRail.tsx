@@ -17,7 +17,6 @@ export const TopSponsoredRail: React.FC<TopSponsoredRailProps> = ({
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // If monetization is null or native ads are disabled or top_rail placement is unchecked
   const isNativeOn = monetization?.native_ads_enabled === 1 || monetization?.native_enabled === 1;
   const isTopRailOn = monetization?.top_rail_enabled === undefined || monetization?.top_rail_enabled === 1;
   const hasTopRailPlacement =
@@ -29,12 +28,10 @@ export const TopSponsoredRail: React.FC<TopSponsoredRailProps> = ({
 
   const isEnabled = isNativeOn && isTopRailOn && hasTopRailPlacement;
 
-  // If monetization isn't loaded yet or explicitly disabled, don't show
   if (!isEnabled) {
     return null;
   }
 
-  // Parse custom cards if explicitly provided by admin in D1
   let cards: TopRailCard[] = [];
   if (monetization?.top_rail_cards) {
     if (Array.isArray(monetization.top_rail_cards)) {
@@ -53,12 +50,10 @@ export const TopSponsoredRail: React.FC<TopSponsoredRailProps> = ({
     }
   }
 
-  // If no custom cards are set, do not display any hardcoded demo cards
   if (cards.length === 0) {
     return null;
   }
 
-  // Smooth scroll helpers for swipeable rail
   const handleScroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
       const { scrollLeft, clientWidth } = scrollRef.current;
@@ -70,7 +65,6 @@ export const TopSponsoredRail: React.FC<TopSponsoredRailProps> = ({
     }
   };
 
-  // Helper for badge color accents
   const getBadgeStyle = (badge: string) => {
     const text = badge.toUpperCase();
     if (text.includes('LIVE')) {
@@ -85,11 +79,9 @@ export const TopSponsoredRail: React.FC<TopSponsoredRailProps> = ({
     if (text.includes('PARTNER')) {
       return 'bg-[#3B82F6]/20 text-[#60A5FA] border-[#3B82F6]/40 shadow-[0_0_8px_rgba(96,165,250,0.3)]';
     }
-    // Default amber badge
     return 'bg-[#F59E0B]/20 text-[#F59E0B] border-[#F59E0B]/40 shadow-[0_0_8px_rgba(245,158,11,0.25)]';
   };
 
-  // Check if native_code specifically provides a top_rail custom ad script/widget
   const hasCustomTopRailScript =
     monetization?.native_code &&
     (monetization.native_code.includes('top_rail') ||
@@ -101,7 +93,6 @@ export const TopSponsoredRail: React.FC<TopSponsoredRailProps> = ({
       aria-label="Sponsored Channels & Partners"
       className={`w-full max-w-7xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 pt-3 pb-3 sm:pb-4 ${className}`}
     >
-      {/* Rail Header with Subtle Sponsor Badge & Scroll Buttons */}
       <div className="flex items-center justify-between mb-2.5">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#131C2E] border border-[#1E293B]">
@@ -115,7 +106,6 @@ export const TopSponsoredRail: React.FC<TopSponsoredRailProps> = ({
           </span>
         </div>
 
-        {/* Carousel Arrow Controls (Visible when scrolling is needed) */}
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -136,15 +126,12 @@ export const TopSponsoredRail: React.FC<TopSponsoredRailProps> = ({
         </div>
       </div>
 
-      {/* If an ad network script specifically targets the top rail, render it */}
       {hasCustomTopRailScript && (
         <div className="mb-3">
           <DynamicAdContainer adHtml={monetization.native_code || monetization.native_ads_code || ''} className="w-full" />
         </div>
       )}
 
-      {/* 1:1 Aspect Ratio Sponsored Rail Container */}
-      {/* Desktop: 5 to 6 column sleek row; Mobile/Tablet: swipeable horizontal carousel with snap */}
       <div
         ref={scrollRef}
         className="flex sm:grid sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-3 sm:gap-4 overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth pb-1"
@@ -158,7 +145,6 @@ export const TopSponsoredRail: React.FC<TopSponsoredRailProps> = ({
               rel="noopener noreferrer"
               className="group relative shrink-0 w-[145px] sm:w-auto snap-start flex flex-col rounded-xl overflow-hidden bg-[#0F172A] border border-[#1E293B] hover:border-[#F59E0B] transition-all duration-200 hover:shadow-[0_0_15px_rgba(245,158,11,0.25)] focus:outline-none focus:ring-1 focus:ring-[#F59E0B]"
             >
-              {/* Image Container: STRICT 1:1 SQUARE ASPECT RATIO */}
               <div className="relative w-full aspect-square overflow-hidden bg-[#131C2E]">
                 <img
                   src={card.image_url}
@@ -166,13 +152,11 @@ export const TopSponsoredRail: React.FC<TopSponsoredRailProps> = ({
                   loading="lazy"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out"
                   onError={(e) => {
-                    // Fallback to local cyberpunk image if remote fails
                     (e.target as HTMLImageElement).src =
                       '/src/assets/images/ubcexx_hero_cyberpunk_1793264277456.jpg';
                   }}
                 />
 
-                {/* Top Badge: Glowing Chip */}
                 <div className="absolute top-2 left-2 z-10">
                   <span
                     className={`inline-flex items-center gap-1 text-[9px] font-mono uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border backdrop-blur-md ${getBadgeStyle(
@@ -184,15 +168,12 @@ export const TopSponsoredRail: React.FC<TopSponsoredRailProps> = ({
                   </span>
                 </div>
 
-                {/* External Link Icon on Hover */}
                 <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 rounded-md p-1 backdrop-blur-sm">
                   <ExternalLink className="w-3 h-3 text-[#F59E0B]" />
                 </div>
 
-                {/* Bottom Gradient Overlay: dark gradient from transparent to deep black */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-transparent pointer-events-none" />
 
-                {/* Content Overlay: Title in bold white text (strictly 2 lines clamp) */}
                 <div className="absolute bottom-0 inset-x-0 p-2.5 z-10 pointer-events-none">
                   <h4 className="text-xs font-bold text-[#F8FAFC] leading-snug line-clamp-2 drop-shadow-md group-hover:text-[#F59E0B] transition-colors">
                     {card.title}

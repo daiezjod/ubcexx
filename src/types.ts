@@ -14,13 +14,13 @@ export interface Video {
   video_url: string;
   backup_video_url?: string;
   thumbnail_url: string;
-  duration: number; // in seconds
+  duration: number;
   views: number;
   likes: number;
   category_id: number;
   tags: string;
-  is_featured: number; // 0 or 1
-  status: string; // 'published' | 'draft'
+  is_featured: number;
+  status: string;
   created_at: string;
   category_name?: string;
   category_slug?: string;
@@ -56,20 +56,28 @@ export interface TopRailCard {
 
 export interface MonetizationSettings {
   id: number;
-  preroll_enabled: number; // 1 or 0
+  preroll_enabled: number;
   preroll_video_url: string;
   preroll_click_url?: string;
-  preroll_skip_offset?: number; // in seconds
-  preroll_skip_seconds?: number; // in seconds
-  native_enabled?: number; // 1 or 0
-  native_ads_enabled?: number; // 1 or 0
+  preroll_skip_offset?: number;
+  preroll_skip_seconds?: number;
+  native_enabled?: number;
+  native_ads_enabled?: number;
   native_code?: string;
   native_ads_code?: string;
-  native_placements?: string; // comma-separated e.g. "top_rail,under_player,in_feed"
+  native_placements?: string;
   placement_zones?: string | Record<string, boolean>;
-  top_rail_enabled?: number; // 1 or 0
-  top_rail_cards?: string | TopRailCard[]; // JSON string or parsed array
+  top_rail_enabled?: number;
+  top_rail_cards?: string | TopRailCard[];
   updated_at?: string;
+}
+
+export interface VideoReport {
+  id: number;
+  video_id: number;
+  video_title: string;
+  reason: string;
+  created_at: string;
 }
 
 

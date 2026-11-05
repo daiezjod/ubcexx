@@ -1,6 +1,3 @@
-// Cloudflare Pages Function: /api/videos/[id]
-// GET, PATCH, DELETE, OPTIONS - Fetch single video, toggle featured, or delete video
-
 interface Env {
   DB: D1Database;
 }
@@ -50,7 +47,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       );
     }
 
-    // Query related videos in same category
     const relatedStmt = context.env.DB.prepare(`
       SELECT id, title, slug, thumbnail_url, duration, views, created_at
       FROM videos

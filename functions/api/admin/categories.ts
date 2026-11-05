@@ -1,6 +1,3 @@
-// Cloudflare Pages Function: /api/admin/categories
-// GET (categories with video count) & POST (create category)
-
 interface Env {
   DB: D1Database;
 }

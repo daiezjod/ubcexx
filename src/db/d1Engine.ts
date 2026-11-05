@@ -19,13 +19,13 @@ export interface Video {
   video_url: string;
   backup_video_url?: string;
   thumbnail_url: string;
-  duration: number; // in seconds
+  duration: number;
   views: number;
   likes: number;
   category_id: number;
   tags: string;
-  is_featured: number; // 0 or 1
-  status: string; // 'published' | 'draft'
+  is_featured: number;
+  status: string;
   created_at: string;
   category_name?: string;
   category_slug?: string;
@@ -56,17 +56,25 @@ export interface MonetizationSettings {
   updated_at?: string;
 }
 
+export interface Report {
+  id: number;
+  video_id: number;
+  video_title: string;
+  reason: string;
+  created_at: string;
+}
+
 export interface DatabaseState {
   categories: Category[];
   videos: Video[];
   admins: AdminUser[];
   monetization: MonetizationSettings;
+  reports?: Report[];
 }
 
 const DATA_DIR = path.resolve(process.cwd(), 'data');
 const DATA_FILE = path.join(DATA_DIR, 'cloudflare_d1_store.json');
 
-// Initial seed data
 const initialCategories: Category[] = [
   { id: 1, name: 'Sci-Fi & Cyberpunk', slug: 'sci-fi-cyberpunk', created_at: new Date(Date.now() - 30 * 86400000).toISOString() },
   { id: 2, name: 'Motorsports & Drift', slug: 'motorsports-drift', created_at: new Date(Date.now() - 28 * 86400000).toISOString() },
@@ -85,7 +93,7 @@ const initialVideos: Video[] = [
     video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
     backup_video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
     thumbnail_url: '/src/assets/images/ubcexx_hero_cyberpunk_1793264277456.jpg',
-    duration: 734, // 12:14
+    duration: 734,
     views: 148290,
     likes: 8940,
     category_id: 1,
@@ -102,7 +110,7 @@ const initialVideos: Video[] = [
     video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4',
     backup_video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackSeeTheWorld.mp4',
     thumbnail_url: '/src/assets/images/ubcexx_drift_sports_1793264277775.jpg',
-    duration: 512, // 8:32
+    duration: 512,
     views: 92350,
     likes: 6410,
     category_id: 2,
@@ -119,7 +127,7 @@ const initialVideos: Video[] = [
     video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
     backup_video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
     thumbnail_url: '/src/assets/images/ubcexx_electronic_live_1793264278341.jpg',
-    duration: 1845, // 30:45
+    duration: 1845,
     views: 67120,
     likes: 5120,
     category_id: 3,
@@ -136,7 +144,7 @@ const initialVideos: Video[] = [
     video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
     backup_video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
     thumbnail_url: '/src/assets/images/ubcexx_deep_space_sci_fi_1793264277592.jpg',
-    duration: 888, // 14:48
+    duration: 888,
     views: 114700,
     likes: 9210,
     category_id: 1,
@@ -153,7 +161,7 @@ const initialVideos: Video[] = [
     video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackSeeTheWorld.mp4',
     backup_video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4',
     thumbnail_url: '/src/assets/images/ubcexx_hero_cyberpunk_1793264277456.jpg',
-    duration: 410, // 6:50
+    duration: 410,
     views: 43800,
     likes: 2790,
     category_id: 2,
@@ -170,7 +178,7 @@ const initialVideos: Video[] = [
     video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
     backup_video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
     thumbnail_url: '/src/assets/images/ubcexx_electronic_live_1793264278341.jpg',
-    duration: 1240, // 20:40
+    duration: 1240,
     views: 38200,
     likes: 3100,
     category_id: 3,
@@ -185,7 +193,6 @@ const initialAdmins: AdminUser[] = [
   {
     id: 1,
     username: 'admin',
-    // SHA-256 for 'ubcexx2026!' or plain fallback match
     password_hash: 'ubcexx2026!',
     created_at: new Date(Date.now() - 60 * 86400000).toISOString(),
   }
@@ -221,7 +228,6 @@ export class CloudflareD1Database {
         const raw = fs.readFileSync(DATA_FILE, 'utf-8');
         const parsed = JSON.parse(raw);
         if (parsed.categories && parsed.videos && parsed.admins) {
-          // Ensure videos have backup_video_url populated if missing from earlier file
           parsed.videos.forEach((v: Video, index: number) => {
             if (!v.backup_video_url && initialVideos[index]) {
               v.backup_video_url = initialVideos[index].backup_video_url;
@@ -240,11 +246,13 @@ export class CloudflareD1Database {
               parsed.monetization.native_placements = `top_rail,${parsed.monetization.native_placements || 'under_player,in_feed'}`;
             }
           }
+          if (!parsed.reports) {
+            parsed.reports = [];
+          }
           return parsed;
         }
       }
-    } catch (e) {
-      console.warn('Failed to load D1 state from file, resetting to initial seed', e);
+    } catch {
     }
 
     const defaultState: DatabaseState = {
@@ -252,6 +260,7 @@ export class CloudflareD1Database {
       videos: initialVideos,
       admins: initialAdmins,
       monetization: initialMonetization,
+      reports: [],
     };
     this.saveState(defaultState);
     return defaultState;
@@ -263,17 +272,14 @@ export class CloudflareD1Database {
         fs.mkdirSync(DATA_DIR, { recursive: true });
       }
       fs.writeFileSync(DATA_FILE, JSON.stringify(state || this.state, null, 2), 'utf-8');
-    } catch (e) {
-      console.error('Failed to save D1 state:', e);
+    } catch {
     }
   }
 
-  // Cloudflare D1 Prepared Statement API Emulation
   public prepare(query: string) {
     return new D1PreparedStatement(query, this);
   }
 
-  // Internal accessors
   public getState(): DatabaseState {
     return this.state;
   }
@@ -313,7 +319,6 @@ export class D1PreparedStatement {
     const q = this.query;
     const state = this.db.getState();
 
-    // Helper: enrich video with category details
     const enrichVideo = (v: Video): Video => {
       const cat = state.categories.find(c => c.id === v.category_id);
       return {
@@ -323,12 +328,9 @@ export class D1PreparedStatement {
       };
     };
 
-    // 1. SELECT videos with category details
     if (q.includes('FROM videos') || q.includes('from videos')) {
       let filtered = state.videos.map(enrichVideo);
 
-      // WHERE conditions:
-      // Status filter
       if (q.includes("status = 'published'") || q.includes('status = ?')) {
         const statusVal = q.includes('status = ?') ? this.boundValues[0] : 'published';
         if (statusVal) {
@@ -336,10 +338,8 @@ export class D1PreparedStatement {
         }
       }
 
-      // Category ID filter
       if (q.includes('category_id = ?')) {
-        const catId = Number(this.boundValues.find((v, idx) => {
-          // find bound param corresponding to category
+        const catId = Number(this.boundValues.find((v) => {
           return typeof v === 'number' || (!isNaN(Number(v)) && Number(v) > 0);
         }));
         if (catId) {
@@ -347,24 +347,20 @@ export class D1PreparedStatement {
         }
       }
 
-      // Featured filter
       if (q.includes('is_featured = 1') || q.includes('is_featured = ?')) {
         filtered = filtered.filter(v => v.is_featured === 1);
       }
 
-      // ID filter (single video)
       if (q.includes('videos.id = ?') || q.includes('id = ?')) {
         const targetId = Number(this.boundValues[0]);
         filtered = filtered.filter(v => v.id === targetId);
       }
 
-      // Slug filter
       if (q.includes('slug = ?')) {
         const targetSlug = String(this.boundValues[0]);
         filtered = filtered.filter(v => v.slug === targetSlug);
       }
 
-      // Search keyword filter
       if (this.boundValues.length > 0 && typeof this.boundValues[0] === 'string' && this.boundValues[0].startsWith('%')) {
         const kw = this.boundValues[0].replace(/%/g, '').toLowerCase();
         filtered = filtered.filter(v =>
@@ -374,14 +370,12 @@ export class D1PreparedStatement {
         );
       }
 
-      // Sort
       if (q.includes('views DESC') || q.includes('ORDER BY views DESC')) {
         filtered.sort((a, b) => b.views - a.views);
       } else {
         filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       }
 
-      // Limit
       const limitMatch = q.match(/LIMIT\s+(\d+|\?)/i);
       if (limitMatch) {
         let limit = 20;
@@ -396,7 +390,6 @@ export class D1PreparedStatement {
       return { results: filtered as unknown as T[], success: true, meta: { count: filtered.length } };
     }
 
-    // 2. SELECT categories
     if (q.includes('FROM categories') || q.includes('from categories')) {
       let cats = [...state.categories];
 
@@ -409,7 +402,6 @@ export class D1PreparedStatement {
         cats = cats.filter(c => c.slug === slug);
       }
 
-      // Add video_count
       const enriched = cats.map(c => ({
         ...c,
         video_count: state.videos.filter(v => v.category_id === c.id).length,
@@ -418,7 +410,6 @@ export class D1PreparedStatement {
       return { results: enriched as unknown as T[], success: true, meta: { count: enriched.length } };
     }
 
-    // 3. SELECT admins
     if (q.includes('FROM admins') || q.includes('from admins')) {
       let admins = [...state.admins];
       if (q.includes('username = ?')) {
@@ -428,7 +419,6 @@ export class D1PreparedStatement {
       return { results: admins as unknown as T[], success: true, meta: { count: admins.length } };
     }
 
-    // 4. Counts and aggregates
     if (q.includes('COUNT(*)') || q.includes('count(*)')) {
       let count = 0;
       if (q.includes('videos')) count = state.videos.length;
@@ -437,12 +427,29 @@ export class D1PreparedStatement {
       return { results: [{ count }] as unknown as T[], success: true, meta: {} };
     }
 
-    // 5. SELECT monetization
     if (q.includes('FROM monetization') || q.includes('from monetization')) {
       return {
         results: [state.monetization || initialMonetization] as unknown as T[],
         success: true,
         meta: { count: 1 },
+      };
+    }
+
+    if (q.includes('FROM reports') || q.includes('from reports')) {
+      const reports = (state.reports || []).map((r) => {
+        const v = state.videos.find((item) => item.id === r.video_id);
+        return {
+          ...r,
+          thumbnail_url: v ? v.thumbnail_url : '',
+          video_url: v ? v.video_url : '',
+          backup_video_url: v ? v.backup_video_url : '',
+          video_status: v ? v.status : 'deleted',
+        };
+      });
+      return {
+        results: reports as unknown as T[],
+        success: true,
+        meta: { count: reports.length },
       };
     }
 
@@ -455,7 +462,6 @@ export class D1PreparedStatement {
     let changes = 0;
     let lastRowId = 0;
 
-    // 1. INSERT INTO videos
     if (q.includes('INSERT INTO videos') || q.includes('insert into videos')) {
       const newId = (state.videos.reduce((max, v) => Math.max(max, v.id), 0) || 0) + 1;
       let title: any, slug: any, description: any, video_url: any, backup_video_url: any, thumbnail_url: any, duration: any, category_id: any, tags: any, is_featured: any, status: any;
@@ -513,7 +519,6 @@ export class D1PreparedStatement {
       this.db.commit();
     }
 
-    // 2. UPDATE videos (views increment)
     else if (q.includes('UPDATE videos SET views = views + 1') || q.includes('SET views = views + 1')) {
       const id = Number(this.boundValues[0]);
       const v = state.videos.find(item => item.id === id);
@@ -524,7 +529,6 @@ export class D1PreparedStatement {
       }
     }
 
-    // 3. UPDATE videos (likes increment)
     else if (q.includes('UPDATE videos SET likes = likes + 1') || q.includes('SET likes = likes + 1')) {
       const id = Number(this.boundValues[0]);
       const v = state.videos.find(item => item.id === id);
@@ -535,12 +539,10 @@ export class D1PreparedStatement {
       }
     }
 
-    // 4. UPDATE videos general
     else if (q.includes('UPDATE videos SET')) {
       const id = Number(this.boundValues[this.boundValues.length - 1]);
       const v = state.videos.find(item => item.id === id);
       if (v) {
-        // e.g. toggle featured
         if (q.includes('is_featured = ?')) {
           v.is_featured = Number(this.boundValues[0]) === 1 ? 1 : 0;
         }
@@ -549,7 +551,6 @@ export class D1PreparedStatement {
       }
     }
 
-    // 5. DELETE FROM videos
     else if (q.includes('DELETE FROM videos') || q.includes('delete from videos')) {
       const id = Number(this.boundValues[0]);
       const initialLen = state.videos.length;
@@ -558,7 +559,6 @@ export class D1PreparedStatement {
       this.db.commit();
     }
 
-    // 6. INSERT INTO categories
     else if (q.includes('INSERT INTO categories') || q.includes('insert into categories')) {
       const newId = (state.categories.reduce((max, c) => Math.max(max, c.id), 0) || 0) + 1;
       const [name, slug] = this.boundValues;
@@ -574,7 +574,6 @@ export class D1PreparedStatement {
       this.db.commit();
     }
 
-    // 7. DELETE FROM categories
     else if (q.includes('DELETE FROM categories') || q.includes('delete from categories')) {
       const id = Number(this.boundValues[0]);
       const initialLen = state.categories.length;
@@ -583,7 +582,6 @@ export class D1PreparedStatement {
       this.db.commit();
     }
 
-    // 8. UPDATE / INSERT monetization
     else if (q.includes('monetization')) {
       const prev = state.monetization || initialMonetization;
       if (q.includes('preroll_skip_seconds') || this.boundValues.length === 7) {
@@ -647,9 +645,39 @@ export class D1PreparedStatement {
       this.db.commit();
     }
 
+    else if (q.includes('INSERT INTO reports') || q.includes('insert into reports')) {
+      if (!state.reports) state.reports = [];
+      const newId = (state.reports.reduce((max, r) => Math.max(max, r.id), 0) || 0) + 1;
+      const [video_id, video_title, reason] = this.boundValues;
+      const newReport: Report = {
+        id: newId,
+        video_id: Number(video_id),
+        video_title: String(video_title || `Video #${video_id}`),
+        reason: String(reason || 'Stream Broken / Not Playing'),
+        created_at: new Date().toISOString(),
+      };
+      state.reports.unshift(newReport);
+      changes = 1;
+      lastRowId = newId;
+      this.db.commit();
+    }
+
+    else if (q.includes('DELETE FROM reports') || q.includes('delete from reports')) {
+      if (!state.reports) state.reports = [];
+      const initialLen = state.reports.length;
+      if (q.includes('video_id = ?')) {
+        const targetVideoId = Number(this.boundValues[0]);
+        state.reports = state.reports.filter((r) => r.video_id !== targetVideoId);
+      } else {
+        const targetId = Number(this.boundValues[0]);
+        state.reports = state.reports.filter((r) => r.id !== targetId);
+      }
+      changes = initialLen - state.reports.length;
+      this.db.commit();
+    }
+
     return { success: true, meta: { changes, last_row_id: lastRowId } };
   }
 }
 
-// Global singleton instance representing env.DB
 export const d1DB = new CloudflareD1Database();
