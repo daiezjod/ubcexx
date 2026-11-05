@@ -1,7 +1,7 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Navbar } from './components/Navbar.tsx';
 import { WatchPage } from './pages/WatchPage.tsx';
-import { Home, TubeFooter } from './pages/Home.tsx';
+import { Home } from './pages/Home.tsx';
 import { Video, Category, MonetizationSettings } from './types.ts';
 import { safeFetchJson } from './utils/api.ts';
 
@@ -289,7 +289,6 @@ export default function App() {
             }
           />
         </main>
-        <TubeFooter />
       </div>
     );
   }

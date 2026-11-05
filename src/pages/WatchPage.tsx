@@ -12,6 +12,7 @@ import { Video, MonetizationSettings } from '../types.ts';
 import { VideoPlayer } from '../components/VideoPlayer.tsx';
 import { VideoCard } from '../components/VideoCard.tsx';
 import { AdBanner } from '../components/AdBanner.tsx';
+import { Footer } from '../components/Footer.tsx';
 import { formatViews, formatTimeAgo, formatNumber } from '../utils/formatters.ts';
 import { safeFetchJson } from '../utils/api.ts';
 
@@ -505,6 +506,8 @@ export const WatchPage: React.FC<WatchPageProps> = ({
           </div>
         </div>
       </div>
+
+      <Footer />
 
       {showShareModal && (
         <div

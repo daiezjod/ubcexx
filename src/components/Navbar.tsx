@@ -411,10 +411,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wider text-[#F8FAFC] mb-1 font-mono">
-                  3. Guest-Only Streaming Disclaimer
+                  3. Adult 18+ Streaming Compliance
                 </h4>
                 <p>
-                  UBCEXX is provided strictly for educational, demonstration, and guest streaming preview purposes. Streams are distributed across high-performance global edge cache points. No personal identity verification or user tracking is utilized.
+                  UBCEXX is provided strictly for adult entertainment (18+) and streaming preview purposes. Streams are distributed across high-performance global edge cache points. No personal identity verification or user tracking is utilized.
                 </p>
               </div>
 

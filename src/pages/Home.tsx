@@ -3,6 +3,7 @@ import { Navbar } from '../components/Navbar.tsx';
 import { HeroFeatured } from '../components/HeroFeatured.tsx';
 import { VideoCard } from '../components/VideoCard.tsx';
 import { AdBanner } from '../components/AdBanner.tsx';
+import { Footer } from '../components/Footer.tsx';
 import { Video, Category, MonetizationSettings } from '../types.ts';
 import { Filter, RefreshCw } from 'lucide-react';
 
@@ -150,30 +151,9 @@ export const Home: React.FC<HomeProps> = ({
         )}
       </main>
 
-      <TubeFooter />
+      <Footer />
     </div>
   );
 };
 
-export function TubeFooter() {
-  return (
-    <footer className="border-t border-[#1E293B] bg-[#0F172A] py-8 mt-16 text-[#94A3B8] text-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex items-baseline">
-            <span className="text-lg font-black tracking-wider text-[#F8FAFC] font-display">UBC</span>
-            <span className="text-lg font-black tracking-wider text-[#F59E0B] font-display">EXX</span>
-          </div>
-          <span aria-hidden="true" className="text-[#253349]">·</span>
-          <span className="text-[#94A3B8] text-[11px]">
-            Guest-Only Tube Streaming Platform
-          </span>
-        </div>
-
-        <div className="flex items-center gap-3 text-[11px] text-[#94A3B8]">
-          <span>© UBCEXX • Ultra-Low Latency Streaming</span>
-        </div>
-      </div>
-    </footer>
-  );
-}
+export { Footer, Footer as TubeFooter } from '../components/Footer.tsx';
