@@ -16,6 +16,7 @@ interface HomeProps {
   searchQuery: string;
   loading: boolean;
   pageLimit: number;
+  feedSyncKey?: number;
   onSelectCategory: (id: number | null) => void;
   onSearch: (q: string) => void;
   onSelectVideo: (video: Video) => void;
@@ -32,6 +33,7 @@ export const Home: React.FC<HomeProps> = ({
   searchQuery,
   loading,
   pageLimit,
+  feedSyncKey = 0,
   onSelectCategory,
   onSearch,
   onSelectVideo,
@@ -125,7 +127,15 @@ export const Home: React.FC<HomeProps> = ({
             <div className="grid grid-cols-2 min-[440px]:grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
               {videos.map((video, index) => (
                 <React.Fragment key={video.id}>
-                  <VideoCard video={video} onSelect={onSelectVideo} />
+                  <div
+                    key={`feed-item-${feedSyncKey}-${video.id}`}
+                    className="feed-stagger-item flex flex-col"
+                    style={{
+                      animationDelay: `${Math.min(index * 35, 500)}ms`,
+                    }}
+                  >
+                    <VideoCard video={video} onSelect={onSelectVideo} />
+                  </div>
 
                   {index === 3 && isNativeAdEnabled && (
                     <div className="col-span-2 min-[440px]:col-span-3 sm:col-span-3 md:col-span-4 lg:col-span-5 my-2 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-[#0F172A] border border-[#1E293B] shadow-xl relative overflow-hidden group">

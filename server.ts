@@ -88,6 +88,70 @@ app.get('/api/videos', async (req: Request, res: Response) => {
   }
 });
 
+app.get('/api/search/suggest', async (req: Request, res: Response) => {
+  try {
+    const q = String(req.query.q || '').trim();
+    if (!q) {
+      return res.json({ success: true, suggestions: [] });
+    }
+
+    const pattern = `%${q}%`;
+    const stmt = d1DB.prepare('SELECT title, tags FROM videos WHERE title LIKE ? LIMIT 6').bind(pattern);
+    const result = await stmt.all();
+    const rows = (result.results || []) as Array<{ title?: string; tags?: string }>;
+
+    const rawSuggestions: string[] = [];
+
+    for (const row of rows) {
+      if (row.title) {
+        rawSuggestions.push(row.title);
+      }
+      if (row.tags) {
+        const tagList = row.tags.split(',').map((t) => t.trim()).filter(Boolean);
+        for (const tag of tagList) {
+          if (tag.toLowerCase().includes(q.toLowerCase())) {
+            rawSuggestions.push(tag);
+          }
+        }
+      }
+    }
+
+    try {
+      const catStmt = d1DB.prepare('SELECT name FROM categories');
+      const catResult = await catStmt.all();
+      const catRows = (catResult.results || []) as Array<{ name?: string }>;
+      for (const cat of catRows) {
+        if (cat.name && cat.name.toLowerCase().includes(q.toLowerCase())) {
+          rawSuggestions.push(cat.name);
+        }
+      }
+    } catch {
+    }
+
+    const seen = new Set<string>();
+    const suggestions: string[] = [];
+
+    for (const item of rawSuggestions) {
+      const clean = item.trim();
+      const lower = clean.toLowerCase();
+      if (clean && !seen.has(lower)) {
+        seen.add(lower);
+        suggestions.push(clean);
+        if (suggestions.length >= 6) {
+          break;
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      suggestions,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message, suggestions: [] });
+  }
+});
+
 app.get('/api/videos/:id', async (req: Request, res: Response) => {
   try {
     const idOrSlug = req.params.id;

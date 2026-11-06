@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Search,
   X,
@@ -34,17 +34,65 @@ export const Navbar: React.FC<NavbarProps> = ({
   isSticky = true,
 }) => {
   const [localSearch, setLocalSearch] = useState(searchQuery);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [isOpenSuggestions, setIsOpenSuggestions] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCategoriesExpanded, setIsCategoriesExpanded] = useState(true);
   const [showDmcaModal, setShowDmcaModal] = useState(false);
+
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setLocalSearch(searchQuery);
   }, [searchQuery]);
 
   useEffect(() => {
+    const query = localSearch.trim();
+    if (!query) {
+      setSuggestions([]);
+      setIsOpenSuggestions(false);
+      setSelectedIndex(-1);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/search/suggest?q=${encodeURIComponent(query)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const list: string[] = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.suggestions)
+          ? data.suggestions
+          : [];
+        setSuggestions(list);
+        setIsOpenSuggestions(list.length > 0);
+        setSelectedIndex(-1);
+      } catch {
+        setSuggestions([]);
+        setIsOpenSuggestions(false);
+      }
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [localSearch]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setIsOpenSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        setIsOpenSuggestions(false);
         setIsMenuOpen(false);
         setShowDmcaModal(false);
       }
@@ -53,14 +101,65 @@ export const Navbar: React.FC<NavbarProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const handleSelectSuggestion = (suggestion: string) => {
+    setLocalSearch(suggestion);
+    setIsOpenSuggestions(false);
+    setSelectedIndex(-1);
+    onSelectCategory(null);
+    onSearch(suggestion);
+    onNavigateHome();
+    if (searchInputRef.current) {
+      searchInputRef.current.blur();
+    }
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      setIsOpenSuggestions(false);
+      return;
+    }
+    if (!isOpenSuggestions || suggestions.length === 0) {
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : 0));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1));
+    } else if (e.key === 'Enter') {
+      if (selectedIndex >= 0 && selectedIndex < suggestions.length) {
+        e.preventDefault();
+        handleSelectSuggestion(suggestions[selectedIndex]);
+      }
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setIsOpenSuggestions(false);
+    if (selectedIndex >= 0 && selectedIndex < suggestions.length) {
+      handleSelectSuggestion(suggestions[selectedIndex]);
+      return;
+    }
+    setSelectedIndex(-1);
+    onSelectCategory(null);
     onSearch(localSearch);
+    onNavigateHome();
+    if (searchInputRef.current) {
+      searchInputRef.current.blur();
+    }
   };
 
   const handleClear = () => {
     setLocalSearch('');
+    setSuggestions([]);
+    setIsOpenSuggestions(false);
+    setSelectedIndex(-1);
     onSearch('');
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
   };
 
   const handleNavHome = () => {
@@ -103,13 +202,20 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </button>
 
-          <div className="flex-1 max-w-xl">
+          <div ref={searchContainerRef} className="flex-1 max-w-xl relative">
             <form onSubmit={handleSubmit} className="relative">
               <div className="relative flex items-center">
                 <input
+                  ref={searchInputRef}
                   type="text"
                   value={localSearch}
                   onChange={(e) => setLocalSearch(e.target.value)}
+                  onFocus={() => {
+                    if (suggestions.length > 0) {
+                      setIsOpenSuggestions(true);
+                    }
+                  }}
+                  onKeyDown={handleInputKeyDown}
                   placeholder="Search high-octane streams, 4K drift, synthwave..."
                   className="w-full bg-[#131C2E] text-xs sm:text-sm text-[#F8FAFC] placeholder-[#94A3B8] pl-9 sm:pl-10 pr-9 sm:pr-10 py-2 sm:py-2.5 rounded-full border border-[#253349] focus:outline-none focus:border-[#F59E0B] focus:ring-1 focus:ring-[#F59E0B] transition-all"
                 />
@@ -118,7 +224,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <button
                     type="button"
                     onClick={handleClear}
-                    className="absolute right-3 text-[#94A3B8] hover:text-[#F8FAFC] p-0.5 rounded-full"
+                    className="absolute right-3 text-[#94A3B8] hover:text-[#F8FAFC] p-0.5 rounded-full cursor-pointer focus:outline-none"
                     aria-label="Clear search"
                   >
                     <X className="w-4 h-4" />
@@ -126,6 +232,34 @@ export const Navbar: React.FC<NavbarProps> = ({
                 )}
               </div>
             </form>
+
+            {isOpenSuggestions && suggestions.length > 0 && (
+              <div className="absolute top-full left-0 w-full mt-1 bg-[#0F172A] border border-[#1E293B] rounded-xl shadow-2xl z-50 overflow-hidden divide-y divide-[#1E293B]/60 backdrop-blur-md">
+                {suggestions.map((item, idx) => {
+                  const isSelected = idx === selectedIndex;
+                  return (
+                    <button
+                      key={`${item}-${idx}`}
+                      type="button"
+                      onClick={() => handleSelectSuggestion(item)}
+                      onMouseEnter={() => setSelectedIndex(idx)}
+                      className={`w-full px-4 py-2.5 flex items-center gap-3 text-left transition-colors duration-150 cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#1E293B] text-[#F59E0B]'
+                          : 'text-[#E2E8F0] hover:bg-[#1E293B] hover:text-[#F59E0B]'
+                      }`}
+                    >
+                      <Search
+                        className={`w-3.5 h-3.5 shrink-0 transition-colors ${
+                          isSelected ? 'text-[#F59E0B]' : 'text-[#94A3B8]'
+                        }`}
+                      />
+                      <span className="text-xs sm:text-sm font-medium truncate flex-1">{item}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center shrink-0">

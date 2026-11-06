@@ -77,8 +77,8 @@ export const WatchPage: React.FC<WatchPageProps> = ({
   const [playerMountKey, setPlayerMountKey] = useState<number>(0);
 
   useEffect(() => {
+    const INACTIVITY_THRESHOLD_MS = 45000;
     const HIDDEN_KEY = 'ubcexx_watch_hidden_time';
-    const RELOAD_KEY = 'ubcexx_watch_reloaded';
     let hiddenTimestamp = 0;
 
     const handleVisibilityChange = () => {
@@ -100,24 +100,18 @@ export const WatchPage: React.FC<WatchPageProps> = ({
         const effectiveHidden = hiddenTimestamp || storedHidden;
         const elapsed = effectiveHidden > 0 ? now - effectiveHidden : 0;
 
-        if (elapsed > 2500) {
-          let lastReload = 0;
-          try {
-            lastReload = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
-          } catch {
-          }
-
-          if (now - lastReload > 3000) {
-            try {
-              sessionStorage.removeItem(HIDDEN_KEY);
-              sessionStorage.setItem(RELOAD_KEY, String(now));
-            } catch {
-            }
-            window.location.reload();
-            return;
-          }
-        } else if (elapsed > 800) {
+        if (elapsed >= INACTIVITY_THRESHOLD_MS) {
           setPlayerMountKey((prev) => prev + 1);
+          safeFetchJson<{ success: boolean; video?: Video; relatedVideos?: Video[] }>(
+            `/api/videos/${videoIdOrSlug}`
+          ).then((data) => {
+            if (data?.success && data.video) {
+              setVideo(data.video);
+              if (data.relatedVideos) {
+                setRelatedVideos(data.relatedVideos);
+              }
+            }
+          }).catch(() => {});
         }
 
         hiddenTimestamp = 0;
@@ -131,26 +125,14 @@ export const WatchPage: React.FC<WatchPageProps> = ({
     const handlePageShow = (event: PageTransitionEvent) => {
       const now = Date.now();
       let storedHidden = 0;
-      let lastReload = 0;
       try {
         storedHidden = Number(sessionStorage.getItem(HIDDEN_KEY) || 0);
-        lastReload = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
       } catch {
       }
 
-      if (event.persisted || (storedHidden > 0 && now - storedHidden > 2500)) {
-        if (now - lastReload > 3000) {
-          try {
-            sessionStorage.removeItem(HIDDEN_KEY);
-            sessionStorage.setItem(RELOAD_KEY, String(now));
-          } catch {
-          }
-          window.location.reload();
-          return;
-        }
+      if (event.persisted || (storedHidden > 0 && now - storedHidden >= INACTIVITY_THRESHOLD_MS)) {
+        setPlayerMountKey((prev) => prev + 1);
       }
-
-      setPlayerMountKey((prev) => prev + 1);
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -160,7 +142,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('pageshow', handlePageShow);
     };
-  }, []);
+  }, [videoIdOrSlug]);
 
   useEffect(() => {
     if (initialMonetization) {

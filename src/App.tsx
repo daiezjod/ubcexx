@@ -49,6 +49,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [pageLimit, setPageLimit] = useState(12);
+  const [feedSyncKey, setFeedSyncKey] = useState(0);
 
   useEffect(() => {
     const savedToken = localStorage.getItem('ubcexx_admin_token');
@@ -100,9 +101,34 @@ export default function App() {
     return () => window.removeEventListener('popstate', handleUrlRoute);
   }, []);
 
+  const loadData = async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
+    try {
+      const [catsData, vidsData, featData, monetData] = await Promise.all([
+        safeFetchJson<{ success: boolean; categories?: Category[] }>('/api/categories').catch(() => ({ success: false, categories: [] })),
+        safeFetchJson<{ success: boolean; videos?: Video[] }>(
+          `/api/videos?limit=${pageLimit}${selectedCategoryId ? `&category_id=${selectedCategoryId}` : ''}${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`
+        ).catch(() => ({ success: false, videos: [] })),
+        safeFetchJson<{ success: boolean; videos?: Video[] }>('/api/videos?featured=1').catch(() => ({ success: false, videos: [] })),
+        safeFetchJson<{ success: boolean; monetization?: MonetizationSettings }>('/api/monetization').catch(() => ({ success: false, monetization: null })),
+      ]);
+
+      if (catsData?.success && catsData.categories) setCategories(catsData.categories);
+      if (vidsData?.success && vidsData.videos) {
+        setVideos(vidsData.videos);
+        setFeedSyncKey((prev) => prev + 1);
+      }
+      if (featData?.success && featData.videos) setFeaturedVideos(featData.videos);
+      if (monetData?.success && monetData.monetization) setMonetization(monetData.monetization);
+    } catch {
+    } finally {
+      if (!isSilent) setLoading(false);
+    }
+  };
+
   useEffect(() => {
+    const INACTIVITY_THRESHOLD_MS = 45000;
     const HIDDEN_KEY = 'ubcexx_last_hidden_time';
-    const RELOAD_KEY = 'ubcexx_just_reloaded';
     let hiddenTimestamp = 0;
 
     const handleVisibilityChange = () => {
@@ -122,23 +148,11 @@ export default function App() {
         }
 
         const effectiveHiddenTime = hiddenTimestamp || storedHidden;
+        const elapsed = effectiveHiddenTime > 0 ? now - effectiveHiddenTime : 0;
 
-        if (effectiveHiddenTime > 0 && now - effectiveHiddenTime > 2000) {
-          let lastReload = 0;
-          try {
-            lastReload = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
-          } catch {
-          }
-
-          if (now - lastReload > 4000) {
-            try {
-              sessionStorage.removeItem(HIDDEN_KEY);
-              sessionStorage.setItem(RELOAD_KEY, String(now));
-            } catch {
-            }
-            hiddenTimestamp = 0;
-            window.location.reload();
-            return;
+        if (elapsed >= INACTIVITY_THRESHOLD_MS) {
+          if (currentView === 'home') {
+            loadData(true);
           }
         }
 
@@ -153,21 +167,14 @@ export default function App() {
     const handlePageShow = (event: PageTransitionEvent) => {
       const now = Date.now();
       let storedHidden = 0;
-      let lastReload = 0;
       try {
         storedHidden = Number(sessionStorage.getItem(HIDDEN_KEY) || 0);
-        lastReload = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
       } catch {
       }
 
-      if (event.persisted || (storedHidden > 0 && now - storedHidden > 2000)) {
-        if (now - lastReload > 4000) {
-          try {
-            sessionStorage.removeItem(HIDDEN_KEY);
-            sessionStorage.setItem(RELOAD_KEY, String(now));
-          } catch {
-          }
-          window.location.reload();
+      if (event.persisted || (storedHidden > 0 && now - storedHidden >= INACTIVITY_THRESHOLD_MS)) {
+        if (currentView === 'home') {
+          loadData(true);
         }
       }
     };
@@ -179,29 +186,7 @@ export default function App() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('pageshow', handlePageShow);
     };
-  }, []);
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const [catsData, vidsData, featData, monetData] = await Promise.all([
-        safeFetchJson<{ success: boolean; categories?: Category[] }>('/api/categories').catch(() => ({ success: false, categories: [] })),
-        safeFetchJson<{ success: boolean; videos?: Video[] }>(
-          `/api/videos?limit=${pageLimit}${selectedCategoryId ? `&category_id=${selectedCategoryId}` : ''}${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`
-        ).catch(() => ({ success: false, videos: [] })),
-        safeFetchJson<{ success: boolean; videos?: Video[] }>('/api/videos?featured=1').catch(() => ({ success: false, videos: [] })),
-        safeFetchJson<{ success: boolean; monetization?: MonetizationSettings }>('/api/monetization').catch(() => ({ success: false, monetization: null })),
-      ]);
-
-      if (catsData?.success && catsData.categories) setCategories(catsData.categories);
-      if (vidsData?.success && vidsData.videos) setVideos(vidsData.videos);
-      if (featData?.success && featData.videos) setFeaturedVideos(featData.videos);
-      if (monetData?.success && monetData.monetization) setMonetization(monetData.monetization);
-    } catch {
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [currentView, pageLimit, selectedCategoryId, searchQuery]);
 
   useEffect(() => {
     loadData();
@@ -303,6 +288,7 @@ export default function App() {
       searchQuery={searchQuery}
       loading={loading}
       pageLimit={pageLimit}
+      feedSyncKey={feedSyncKey}
       onSelectCategory={setSelectedCategoryId}
       onSearch={setSearchQuery}
       onSelectVideo={handleSelectVideo}
