@@ -31,15 +31,7 @@ export function isAdminSession(): boolean {
 }
 
 export function shouldShowPreRoll(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    if (isAdminSession()) {
-      return false;
-    }
-    return true;
-  } catch {
-    return true;
-  }
+  return true;
 }
 
 export function recordPreRollShown(): void {

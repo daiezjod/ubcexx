@@ -38,25 +38,35 @@ function routeViaProxy(html: string): string {
   return transformed;
 }
 
-function isAdminSession(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    const token = localStorage.getItem('ubcexx_admin_token');
-    return Boolean(token && token.trim().length > 0);
-  } catch {
-    return false;
-  }
-}
-
 export const AdBanner: React.FC<AdBannerProps> = ({ adHtml, className = '' }) => {
-  const isAdmin = isAdminSession();
-
   const is300x250 = useMemo(() => {
-    return Boolean(adHtml && (adHtml.includes('300x250') || adHtml.includes('width:300px') || adHtml.includes('width: 300px')));
+    if (!adHtml) return false;
+    const lower = adHtml.toLowerCase();
+    return (
+      lower.includes('300x250') ||
+      (lower.includes('300') && lower.includes('250')) ||
+      lower.includes('width:300') ||
+      lower.includes('width: 300') ||
+      lower.includes('height:250') ||
+      lower.includes('height: 250')
+    );
+  }, [adHtml]);
+
+  const is320x50 = useMemo(() => {
+    if (!adHtml) return false;
+    const lower = adHtml.toLowerCase();
+    return (
+      lower.includes('320x50') ||
+      (lower.includes('320') && lower.includes('50')) ||
+      lower.includes('width:320') ||
+      lower.includes('width: 320') ||
+      lower.includes('height:50') ||
+      lower.includes('height: 50')
+    );
   }, [adHtml]);
 
   const srcDocContent = useMemo(() => {
-    if (isAdmin || !adHtml || !adHtml.trim()) return '';
+    if (!adHtml || !adHtml.trim()) return '';
 
     const proxiedHtml = routeViaProxy(adHtml);
 
@@ -65,6 +75,7 @@ export const AdBanner: React.FC<AdBannerProps> = ({ adHtml, className = '' }) =>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <base href="/" />
   <style>
     * { box-sizing: border-box; }
     html, body {
@@ -87,27 +98,19 @@ export const AdBanner: React.FC<AdBannerProps> = ({ adHtml, className = '' }) =>
   ${proxiedHtml}
 </body>
 </html>`;
-  }, [adHtml, isAdmin]);
-
-  if (isAdmin) {
-    return (
-      <div className={`w-full flex justify-center my-3 px-2 ${className}`}>
-        <div className="w-full max-w-xl py-2 px-3 rounded-xl bg-[#0F172A]/80 border border-[#1E293B] text-[11px] font-mono text-[#94A3B8] flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
-            <span className="text-[#10B981] font-semibold">Admin Safe Mode Active</span>
-          </div>
-          <span className="text-[10px] text-[#64748B]">Banner scripts disabled on admin device</span>
-        </div>
-      </div>
-    );
-  }
+  }, [adHtml]);
 
   if (!adHtml || !adHtml.trim()) return null;
 
+  const targetWidth = is300x250 ? '300px' : is320x50 ? '320px' : '728px';
+  const targetHeight = is300x250 ? '250px' : is320x50 ? '50px' : '90px';
+
   return (
     <div className={`w-full flex justify-center my-3 px-2 ${className}`}>
-      <div className="w-full max-w-[728px] overflow-hidden flex flex-col items-center justify-center">
+      <div
+        className="w-full overflow-hidden flex flex-col items-center justify-center"
+        style={{ maxWidth: targetWidth }}
+      >
         <div className="flex items-center justify-between w-full px-1 pb-1 mb-0.5">
           <div className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-pulse" />
@@ -122,10 +125,10 @@ export const AdBanner: React.FC<AdBannerProps> = ({ adHtml, className = '' }) =>
             srcDoc={srcDocContent}
             title="Advertisement"
             scrolling="no"
-            className="w-full max-w-[728px] border-0 shrink-0 transition-all"
+            className="w-full border-0 shrink-0 transition-all"
             style={{
-              height: is300x250 ? '250px' : '90px',
-              maxWidth: is300x250 ? '300px' : '728px',
+              height: targetHeight,
+              maxWidth: targetWidth,
               border: 'none',
             }}
           />
@@ -134,3 +137,6 @@ export const AdBanner: React.FC<AdBannerProps> = ({ adHtml, className = '' }) =>
     </div>
   );
 };
+
+export const BannerAd = AdBanner;
+export default AdBanner;
