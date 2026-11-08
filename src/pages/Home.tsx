@@ -55,12 +55,13 @@ export const Home: React.FC<HomeProps> = ({
       })()
     : monetization?.placement_zones || {};
 
+  const activeAdHtml = monetization?.native_ads_code || monetization?.native_code || '';
+
   const showOnHome =
     isBannerAdEnabled &&
+    Boolean(activeAdHtml && activeAdHtml.trim()) &&
     placementZones.home !== false &&
     placementZones.in_feed !== false;
-
-  const activeAdHtml = monetization?.native_ads_code || monetization?.native_code || '';
 
   return (
     <div className="min-h-screen bg-[#080C14] text-[#F8FAFC] flex flex-col selection:bg-[#F59E0B] selection:text-black">
@@ -74,9 +75,7 @@ export const Home: React.FC<HomeProps> = ({
       />
 
       {showOnHome && (
-        <div className="w-full flex justify-center my-3 px-2">
-          <AdBanner adHtml={activeAdHtml} />
-        </div>
+        <AdBanner adHtml={activeAdHtml} />
       )}
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-6">
@@ -153,8 +152,8 @@ export const Home: React.FC<HomeProps> = ({
                   </div>
 
                   {index === 3 && showOnHome && (
-                    <div className="col-span-2 min-[440px]:col-span-3 sm:col-span-3 md:col-span-4 lg:col-span-5 w-full flex justify-center my-3 px-2">
-                      <AdBanner adHtml={activeAdHtml} className="my-0" />
+                    <div className="col-span-2 min-[440px]:col-span-3 sm:col-span-3 md:col-span-4 lg:col-span-5">
+                      <AdBanner adHtml={activeAdHtml} className="my-2" />
                     </div>
                   )}
                 </React.Fragment>

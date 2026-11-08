@@ -453,11 +453,9 @@ export const WatchPage: React.FC<WatchPageProps> = ({
                 }
               })()
             ) && (
-              <div className="w-full flex justify-center my-3 px-2">
-                <AdBanner
-                  adHtml={monetization?.native_ads_code || monetization?.native_code || ''}
-                />
-              </div>
+              <AdBanner
+                adHtml={monetization?.native_ads_code || monetization?.native_code || ''}
+              />
             )}
           </div>
 

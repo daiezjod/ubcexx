@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useMemo } from 'react';
 
 interface DynamicAdContainerProps {
   adHtml: string;
@@ -11,100 +11,68 @@ export const DynamicAdContainer: React.FC<DynamicAdContainerProps> = ({
   className = '',
   containerId,
 }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const trimmed = adHtml ? adHtml.trim() : '';
 
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+  const is728x90 = useMemo(() => {
+    if (!trimmed) return false;
+    const lower = trimmed.toLowerCase();
+    return lower.includes('728x90') || (lower.includes('728') && lower.includes('90'));
+  }, [trimmed]);
 
-    container.innerHTML = '';
+  const width = is728x90 ? 728 : 300;
+  const height = is728x90 ? 90 : 250;
 
-    if (!adHtml || !adHtml.trim()) return;
-
-    try {
-      const range = document.createRange();
-      range.selectNode(container);
-      const fragment = range.createContextualFragment(adHtml.trim());
-
-      const originalScripts = Array.from(fragment.querySelectorAll('script'));
-
-      const scriptExecutables: Array<{
-        element: HTMLScriptElement;
-        parent: Node;
-        placeholder: Comment;
-      }> = [];
-
-      originalScripts.forEach((oldScript) => {
-        const parent = oldScript.parentNode;
-        if (!parent) return;
-
-        const placeholder = document.createComment('ad-script-slot');
-        parent.replaceChild(placeholder, oldScript);
-
-        const newScript = document.createElement('script');
-
-        Array.from(oldScript.attributes).forEach((attr) => {
-          newScript.setAttribute(attr.name, attr.value);
-        });
-
-        if (oldScript.innerHTML) {
-          newScript.text = oldScript.innerHTML;
-        }
-
-        scriptExecutables.push({
-          element: newScript,
-          parent,
-          placeholder,
-        });
-      });
-
-      container.appendChild(fragment);
-
-      const originalWrite = document.write.bind(document);
-      const originalWriteln = document.writeln.bind(document);
-      document.write = (html: string) => {
-        try {
-          container.insertAdjacentHTML('beforeend', html);
-        } catch {
-        }
-      };
-      document.writeln = (html: string) => {
-        try {
-          container.insertAdjacentHTML('beforeend', html + '\n');
-        } catch {
-        }
-      };
-
-      scriptExecutables.forEach(({ element, placeholder }) => {
-        try {
-          if (placeholder.parentNode) {
-            placeholder.parentNode.replaceChild(element, placeholder);
-          } else {
-            container.appendChild(element);
-          }
-        } catch {
-        }
-      });
-
-      setTimeout(() => {
-        document.write = originalWrite;
-        document.writeln = originalWriteln;
-      }, 500);
-    } catch {
+  const srcDoc = useMemo(() => {
+    if (!trimmed) return '';
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
+  </style>
+</head>
+<body>
+${trimmed}
+</body>
+</html>`;
+  }, [trimmed]);
 
-    return () => {
-      if (container) {
-        container.innerHTML = '';
-      }
-    };
-  }, [adHtml]);
+  if (!trimmed) return null;
 
   return (
     <div
-      ref={containerRef}
       id={containerId}
-      className={`dynamic-ad-container w-full overflow-hidden ${className}`}
-    />
+      className={`w-full flex flex-col items-center justify-center ${className}`}
+    >
+      <iframe
+        srcDoc={srcDoc}
+        title="Advertisement Preview"
+        width={width}
+        height={height}
+        scrolling="no"
+        className="border-0 overflow-hidden shrink-0"
+        style={{
+          width: `${width}px`,
+          height: `${height}px`,
+          maxWidth: '100%',
+          border: 'none',
+          overflow: 'hidden',
+        }}
+      />
+    </div>
   );
 };
