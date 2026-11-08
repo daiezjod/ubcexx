@@ -58,7 +58,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
     return new Response(
       JSON.stringify({ success: true, video, relatedVideos: related || [] }),
-      { status: 200, headers: corsHeaders }
+      {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          'Cache-Control': 'public, s-maxage=60, max-age=60, stale-while-revalidate=300',
+        },
+      }
     );
   } catch (err: any) {
     return new Response(

@@ -20,6 +20,37 @@ export interface PreRollAdConfig {
   skipOffset: number;
 }
 
+export function isAdminSession(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const token = localStorage.getItem('ubcexx_admin_token');
+    return Boolean(token && token.trim().length > 0);
+  } catch {
+    return false;
+  }
+}
+
+export function shouldShowPreRoll(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    if (isAdminSession()) {
+      return false;
+    }
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+export function recordPreRollShown(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem('ubcexx_last_preroll_time');
+    sessionStorage.removeItem('ubcexx_last_preroll_time');
+  } catch {
+  }
+}
+
 export function parseOkRuVideoId(url: string | undefined | null): string | null {
   if (!url) return null;
   const trimmed = url.trim();
@@ -39,12 +70,78 @@ export interface ResolvedAdPayload {
   impressionUrls: string[];
   clickThroughUrl?: string;
   clickTrackingUrls: string[];
+  skipTrackingUrls: string[];
+  completeTrackingUrls: string[];
+  skipOffsetSeconds?: number;
 }
 
-export async function resolveAdStreamUrl(adUrl: string): Promise<ResolvedAdPayload> {
+export function replaceVastMacros(url: string): string {
+  if (!url) return '';
+  const now = Date.now().toString();
+  const rand = Math.floor(Math.random() * 100000000).toString();
+  const pageUrl = typeof window !== 'undefined' ? encodeURIComponent(window.location.href) : '';
+  const domain = typeof window !== 'undefined' ? window.location.hostname : 'ubcexx.com';
+
+  return url
+    .replace(/\[TIMESTAMP\]/gi, now)
+    .replace(/%%CACHEBUSTER%%/gi, now)
+    .replace(/\[CACHEBUSTER\]/gi, now)
+    .replace(/\[RANDOM\]/gi, rand)
+    .replace(/%%RANDOM%%/gi, rand)
+    .replace(/\[PAGEURL\]/gi, pageUrl)
+    .replace(/\[URL\]/gi, pageUrl)
+    .replace(/%%REFERRER_URL%%/gi, pageUrl)
+    .replace(/\[DOMAIN\]/gi, domain)
+    .replace(/\[WIDTH\]/gi, '1280')
+    .replace(/\[HEIGHT\]/gi, '720');
+}
+
+export function fireBeacon(url: string): void {
+  if (!url) return;
+  const target = replaceVastMacros(url.trim());
+  if (!target || (!target.startsWith('http://') && !target.startsWith('https://'))) return;
+
+  try {
+    if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+      const sent = navigator.sendBeacon(target);
+      if (sent) return;
+    }
+  } catch {
+  }
+
+  try {
+    fetch(`/api/proxy-ad?url=${encodeURIComponent(target)}`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+  } catch {
+    try {
+      const img = new Image();
+      img.src = target;
+    } catch {
+    }
+  }
+}
+
+export async function resolveAdStreamUrl(adUrl: string, depth = 0): Promise<ResolvedAdPayload> {
   const trimmed = (adUrl || '').trim();
-  if (!trimmed) {
-    return { streamUrl: '', impressionUrls: [], clickTrackingUrls: [] };
+  if (!trimmed || depth > 3) {
+    return {
+      streamUrl: '',
+      impressionUrls: [],
+      clickTrackingUrls: [],
+      skipTrackingUrls: [],
+      completeTrackingUrls: [],
+    };
+  }
+
+  const cleanAdUrl = replaceVastMacros(trimmed);
+  const isDirectVideo = /\.(mp4|webm|m3u8|mov|mkv)(\?.*)?$/i.test(cleanAdUrl);
+  if (isDirectVideo) {
+    return {
+      streamUrl: cleanAdUrl,
+      impressionUrls: [],
+      clickTrackingUrls: [],
+      skipTrackingUrls: [],
+      completeTrackingUrls: [],
+    };
   }
 
   const toProxied = (url: string) => {
@@ -54,77 +151,210 @@ export async function resolveAdStreamUrl(adUrl: string): Promise<ResolvedAdPaylo
     return `/api/proxy-ad?url=${encodeURIComponent(url)}`;
   };
 
-  const isDirectVideo = /\.(mp4|webm|m3u8|mov|mkv)(\?.*)?$/i.test(trimmed);
-  if (isDirectVideo) {
-    return {
-      streamUrl: toProxied(trimmed),
-      impressionUrls: [],
-      clickTrackingUrls: [],
-    };
-  }
-
   try {
-    const proxiedTagUrl = toProxied(trimmed);
+    const proxiedTagUrl = toProxied(cleanAdUrl);
     const res = await fetch(proxiedTagUrl, { mode: 'cors' });
     if (res.ok) {
       const text = await res.text();
-      if (
-        text.includes('<MediaFile') ||
+      const hasVastSignature =
         text.includes('<VAST') ||
+        text.includes('<MediaFile') ||
         text.includes('VASTAdTagURI') ||
-        text.includes('<Impression')
-      ) {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(text, 'application/xml');
+        text.includes('VASTTagURI') ||
+        text.includes('<Impression');
 
-        const wrapperUri = doc.querySelector('VASTAdTagURI')?.textContent?.trim();
-        if (wrapperUri && wrapperUri !== trimmed) {
-          return resolveAdStreamUrl(wrapperUri);
+      if (hasVastSignature) {
+        let doc: Document | null = null;
+        try {
+          const parser = new DOMParser();
+          doc = parser.parseFromString(text, 'application/xml');
+          if (doc.querySelector('parsererror')) {
+            doc = null;
+          }
+        } catch {
+          doc = null;
         }
 
-        const impressionUrls: string[] = [];
-        doc.querySelectorAll('Impression').forEach((el) => {
-          const u = el.textContent?.trim();
-          if (u && (u.startsWith('http://') || u.startsWith('https://'))) {
-            impressionUrls.push(u);
+        let wrapperUri = doc
+          ? (doc.querySelector('VASTAdTagURI, VASTTagURI')?.textContent || '')
+          : '';
+
+        if (!wrapperUri) {
+          const wrapperMatch = text.match(/<VAST(?:Ad)?TagURI[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/VAST(?:Ad)?TagURI>/i);
+          if (wrapperMatch && wrapperMatch[1]) {
+            wrapperUri = wrapperMatch[1];
           }
-        });
+        }
 
-        const clickTrackingUrls: string[] = [];
-        doc.querySelectorAll('ClickTracking').forEach((el) => {
-          const u = el.textContent?.trim();
-          if (u && (u.startsWith('http://') || u.startsWith('https://'))) {
-            clickTrackingUrls.push(u);
+        wrapperUri = wrapperUri.replace(/[\r\n\t\s]+/g, '').trim();
+
+        const currentImpressions: string[] = [];
+        if (doc) {
+          doc.querySelectorAll('Impression').forEach((el) => {
+            const u = el.textContent?.replace(/[\r\n\t\s]+/g, '').trim();
+            if (u && (u.startsWith('http://') || u.startsWith('https://'))) {
+              currentImpressions.push(u);
+            }
+          });
+        } else {
+          const impMatches = text.matchAll(/<Impression[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/Impression>/gi);
+          for (const m of impMatches) {
+            const u = m[1]?.replace(/[\r\n\t\s]+/g, '').trim();
+            if (u && (u.startsWith('http://') || u.startsWith('https://'))) {
+              currentImpressions.push(u);
+            }
           }
-        });
+        }
 
-        const clickThroughUrl = doc.querySelector('ClickThrough')?.textContent?.trim() || undefined;
+        const currentClickTracking: string[] = [];
+        if (doc) {
+          doc.querySelectorAll('ClickTracking').forEach((el) => {
+            const u = el.textContent?.replace(/[\r\n\t\s]+/g, '').trim();
+            if (u && (u.startsWith('http://') || u.startsWith('https://'))) {
+              currentClickTracking.push(u);
+            }
+          });
+        }
 
-        const mediaFiles = Array.from(doc.querySelectorAll('MediaFile'));
-        const mp4File = mediaFiles.find(
-          (mf) =>
-            (mf.getAttribute('type') || '').includes('mp4') ||
-            (mf.textContent || '').includes('.mp4')
-        );
-        const chosen = mp4File || mediaFiles[0];
-        const rawResolved = chosen?.textContent?.trim();
-        if (rawResolved && (rawResolved.startsWith('http://') || rawResolved.startsWith('https://'))) {
+        const currentSkipTracking: string[] = [];
+        const currentCompleteTracking: string[] = [];
+        if (doc) {
+          doc.querySelectorAll('Tracking').forEach((el) => {
+            const ev = el.getAttribute('event')?.toLowerCase();
+            const u = el.textContent?.replace(/[\r\n\t\s]+/g, '').trim();
+            if (u && (u.startsWith('http://') || u.startsWith('https://'))) {
+              if (ev === 'skip') {
+                currentSkipTracking.push(u);
+              } else if (ev === 'complete') {
+                currentCompleteTracking.push(u);
+              } else if (ev === 'start') {
+                currentImpressions.push(u);
+              }
+            }
+          });
+        }
+
+        if (wrapperUri && wrapperUri !== cleanAdUrl) {
+          const downstream = await resolveAdStreamUrl(wrapperUri, depth + 1);
           return {
-            streamUrl: toProxied(rawResolved),
-            impressionUrls,
-            clickThroughUrl,
-            clickTrackingUrls,
+            streamUrl: downstream.streamUrl,
+            impressionUrls: [...currentImpressions, ...downstream.impressionUrls],
+            clickThroughUrl: downstream.clickThroughUrl,
+            clickTrackingUrls: [...currentClickTracking, ...downstream.clickTrackingUrls],
+            skipTrackingUrls: [...currentSkipTracking, ...downstream.skipTrackingUrls],
+            completeTrackingUrls: [...currentCompleteTracking, ...downstream.completeTrackingUrls],
+            skipOffsetSeconds: downstream.skipOffsetSeconds,
           };
         }
+
+        let clickThroughUrl: string | undefined = undefined;
+        if (doc) {
+          const ct = doc.querySelector('ClickThrough')?.textContent?.replace(/[\r\n\t\s]+/g, '').trim();
+          if (ct && (ct.startsWith('http://') || ct.startsWith('https://'))) {
+            clickThroughUrl = ct;
+          }
+        } else {
+          const ctMatch = text.match(/<ClickThrough[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/ClickThrough>/i);
+          if (ctMatch && ctMatch[1]) {
+            const ct = ctMatch[1].replace(/[\r\n\t\s]+/g, '').trim();
+            if (ct && (ct.startsWith('http://') || ct.startsWith('https://'))) {
+              clickThroughUrl = ct;
+            }
+          }
+        }
+
+        let customSkipOffset: number | undefined = undefined;
+        if (doc) {
+          const linearEl = doc.querySelector('Linear[skipoffset]');
+          if (linearEl) {
+            const offsetAttr = linearEl.getAttribute('skipoffset')?.trim();
+            if (offsetAttr) {
+              if (offsetAttr.includes(':')) {
+                const parts = offsetAttr.split(':').map(Number);
+                if (parts.length === 3) {
+                  customSkipOffset = parts[0] * 3600 + parts[1] * 60 + parts[2];
+                }
+              } else {
+                const parsed = parseInt(offsetAttr, 10);
+                if (!isNaN(parsed) && parsed > 0) {
+                  customSkipOffset = parsed;
+                }
+              }
+            }
+          }
+        }
+
+        const candidateUrls: Array<{ url: string; type?: string }> = [];
+        if (doc) {
+          doc.querySelectorAll('MediaFile').forEach((mf) => {
+            const u = mf.textContent?.replace(/[\r\n\t\s]+/g, '').trim();
+            if (u && (u.startsWith('http://') || u.startsWith('https://'))) {
+              candidateUrls.push({
+                url: u,
+                type: (mf.getAttribute('type') || '').toLowerCase(),
+              });
+            }
+          });
+        } else {
+          const mfMatches = text.matchAll(/<MediaFile[^>]*?(?:type=["']([^"']*)["'])?[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/MediaFile>/gi);
+          for (const m of mfMatches) {
+            const mfType = (m[1] || '').toLowerCase();
+            const u = (m[2] || '').replace(/[\r\n\t\s]+/g, '').trim();
+            if (u && (u.startsWith('http://') || u.startsWith('https://'))) {
+              candidateUrls.push({ url: u, type: mfType });
+            }
+          }
+        }
+
+        if (candidateUrls.length > 0) {
+          const mp4Candidate = candidateUrls.find(
+            (c) => (c.type && c.type.includes('mp4')) || c.url.includes('.mp4')
+          );
+          const webmCandidate = candidateUrls.find(
+            (c) => (c.type && c.type.includes('webm')) || c.url.includes('.webm')
+          );
+          const chosen = mp4Candidate || webmCandidate || candidateUrls[0];
+
+          return {
+            streamUrl: chosen.url,
+            impressionUrls: currentImpressions,
+            clickThroughUrl,
+            clickTrackingUrls: currentClickTracking,
+            skipTrackingUrls: currentSkipTracking,
+            completeTrackingUrls: currentCompleteTracking,
+            skipOffsetSeconds: customSkipOffset,
+          };
+        }
+
+        return {
+          streamUrl: '',
+          impressionUrls: currentImpressions,
+          clickThroughUrl,
+          clickTrackingUrls: currentClickTracking,
+          skipTrackingUrls: currentSkipTracking,
+          completeTrackingUrls: currentCompleteTracking,
+        };
       }
     }
   } catch {
   }
 
+  if (isDirectVideo) {
+    return {
+      streamUrl: cleanAdUrl,
+      impressionUrls: [],
+      clickTrackingUrls: [],
+      skipTrackingUrls: [],
+      completeTrackingUrls: [],
+    };
+  }
+
   return {
-    streamUrl: toProxied(trimmed),
+    streamUrl: '',
     impressionUrls: [],
     clickTrackingUrls: [],
+    skipTrackingUrls: [],
+    completeTrackingUrls: [],
   };
 }
 
@@ -177,6 +407,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [canSkipAd, setCanSkipAd] = useState<boolean>(false);
   const adClickThroughRef = useRef<string | undefined>(undefined);
   const adClickTrackingRef = useRef<string[]>([]);
+  const adSkipTrackingRef = useRef<string[]>([]);
+  const adCompleteTrackingRef = useRef<string[]>([]);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -192,6 +424,20 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [hasReportedView, setHasReportedView] = useState(false);
 
   const [isIframeLoading, setIsIframeLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (!isAdActive) return;
+    const interval = window.setInterval(() => {
+      setAdCountdown((prev) => {
+        if (prev <= 1) {
+          setCanSkipAd(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [isAdActive]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -245,7 +491,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setActiveSource(videoUrl);
     setHasFailedOver(false);
     setIsAdActive(false);
-    setAdFinished(false);
+    setAdFinished(!shouldShowPreRoll());
     setAdCountdown(preRollAd?.skipOffset || 5);
     setCanSkipAd(false);
     setIsIframeLoading(true);
@@ -257,6 +503,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setHasReportedView(false);
     adClickThroughRef.current = undefined;
     adClickTrackingRef.current = [];
+    adSkipTrackingRef.current = [];
+    adCompleteTrackingRef.current = [];
   }, [videoUrl, backupVideoUrl, preRollAd?.videoUrl, preRollAd?.enabled]);
 
   useEffect(() => {
@@ -277,6 +525,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, [isOkRuActive, isAdActive, hasReportedView, onFirstPlay]);
 
   const handleSkipAd = useCallback(() => {
+    if (isAdActive && adSkipTrackingRef.current.length > 0) {
+      adSkipTrackingRef.current.forEach((u) => fireBeacon(u));
+    }
     setIsAdActive(false);
     setAdFinished(true);
     const mainStreamUrl = hasFailedOver && backupVideoUrl ? backupVideoUrl : (videoUrl || backupVideoUrl || '');
@@ -302,11 +553,62 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             onFirstPlay();
           }
         }).catch(() => {
-          handleVideoError();
+          if (backupVideoUrl && !hasFailedOver) {
+            setHasFailedOver(true);
+            setActiveSource(backupVideoUrl);
+          }
         });
       }
     }, 60);
-  }, [videoUrl, backupVideoUrl, hasFailedOver, hasReportedView, onFirstPlay]);
+  }, [videoUrl, backupVideoUrl, hasFailedOver, hasReportedView, onFirstPlay, isAdActive]);
+
+  useEffect(() => {
+    if (preRollAd?.enabled && preRollAd.videoUrl && isOkRuActive && !adFinished && !isAdActive) {
+      if (shouldShowPreRoll()) {
+        recordPreRollShown();
+        setIsAdActive(true);
+        setHasStarted(true);
+        const timerSeconds = preRollAd.skipOffset || 5;
+        setAdCountdown(timerSeconds);
+
+        resolveAdStreamUrl(preRollAd.videoUrl).then((resolvedAd) => {
+          if (!resolvedAd.streamUrl) {
+            handleSkipAd();
+            return;
+          }
+
+          const streamToPlay = resolvedAd.streamUrl;
+          setActiveSource(streamToPlay);
+
+          const finalSkip = resolvedAd.skipOffsetSeconds || timerSeconds;
+          setAdCountdown(finalSkip);
+
+          if (resolvedAd.impressionUrls && resolvedAd.impressionUrls.length > 0) {
+            resolvedAd.impressionUrls.forEach((impUrl) => fireBeacon(impUrl));
+          }
+
+          adClickThroughRef.current = resolvedAd.clickThroughUrl;
+          adClickTrackingRef.current = resolvedAd.clickTrackingUrls;
+          adSkipTrackingRef.current = resolvedAd.skipTrackingUrls;
+          adCompleteTrackingRef.current = resolvedAd.completeTrackingUrls;
+
+          setTimeout(() => {
+            if (videoRef.current) {
+              videoRef.current.play().then(() => {
+                setIsPlaying(true);
+              }).catch(() => {
+                handleSkipAd();
+              });
+            }
+          }, 60);
+        }).catch(() => {
+          handleSkipAd();
+        });
+      } else {
+        setAdFinished(true);
+      }
+    }
+  }, [preRollAd, isOkRuActive, adFinished, isAdActive, handleSkipAd]);
 
   const handleVideoError = useCallback(() => {
     if (document.visibilityState === 'hidden' || isPageHiddenRef.current) {
@@ -371,52 +673,67 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   const togglePlay = useCallback(async () => {
     if (!adFinished && !isAdActive) {
-      let adConfigToUse = preRollAd;
-      try {
-        const d1Data = await safeFetchJson<{ success: boolean; monetization?: MonetizationSettings }>('/api/monetization');
-        if (d1Data?.success && d1Data.monetization) {
-          adConfigToUse = {
-            enabled: d1Data.monetization.preroll_enabled === 1,
-            videoUrl: d1Data.monetization.preroll_video_url,
-            skipOffset: d1Data.monetization.preroll_skip_offset || 5,
-          };
-        }
-      } catch {
-      }
-
-      if (adConfigToUse?.enabled && adConfigToUse.videoUrl) {
-        setIsAdActive(true);
-        setHasStarted(true);
-        const timerSeconds = adConfigToUse.skipOffset || 5;
-        setAdCountdown(timerSeconds);
-
+      if (!shouldShowPreRoll()) {
+        setAdFinished(true);
+      } else {
+        let adConfigToUse = preRollAd;
         try {
-          const resolvedAd = await resolveAdStreamUrl(adConfigToUse.videoUrl);
-          const streamToPlay = resolvedAd.streamUrl || adConfigToUse.videoUrl;
-          setActiveSource(streamToPlay);
-
-          if (resolvedAd.impressionUrls && resolvedAd.impressionUrls.length > 0) {
-            resolvedAd.impressionUrls.forEach((impUrl) => {
-              fetch(`/api/proxy-ad?url=${encodeURIComponent(impUrl)}`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
-            });
+          const d1Data = await safeFetchJson<{ success: boolean; monetization?: MonetizationSettings }>('/api/monetization');
+          if (d1Data?.success && d1Data.monetization) {
+            adConfigToUse = {
+              enabled: d1Data.monetization.preroll_enabled === 1,
+              videoUrl: d1Data.monetization.preroll_video_url,
+              skipOffset: Number(d1Data.monetization.preroll_skip_seconds ?? d1Data.monetization.preroll_skip_offset ?? 5) || 5,
+            };
           }
-
-          adClickThroughRef.current = resolvedAd.clickThroughUrl;
-          adClickTrackingRef.current = resolvedAd.clickTrackingUrls;
-
-          setTimeout(() => {
-            if (videoRef.current) {
-              videoRef.current.play().then(() => {
-                setIsPlaying(true);
-              }).catch(() => {
-                handleSkipAd();
-              });
-            }
-          }, 60);
-          return;
         } catch {
-          handleSkipAd();
-          return;
+        }
+
+        if (adConfigToUse?.enabled && adConfigToUse.videoUrl) {
+          recordPreRollShown();
+          setIsAdActive(true);
+          setHasStarted(true);
+          const timerSeconds = adConfigToUse.skipOffset || 5;
+          setAdCountdown(timerSeconds);
+
+          try {
+            const resolvedAd = await resolveAdStreamUrl(adConfigToUse.videoUrl);
+            if (!resolvedAd.streamUrl) {
+              handleSkipAd();
+              return;
+            }
+
+            const streamToPlay = resolvedAd.streamUrl;
+            setActiveSource(streamToPlay);
+
+            const finalSkip = resolvedAd.skipOffsetSeconds || timerSeconds;
+            setAdCountdown(finalSkip);
+
+            if (resolvedAd.impressionUrls && resolvedAd.impressionUrls.length > 0) {
+              resolvedAd.impressionUrls.forEach((impUrl) => fireBeacon(impUrl));
+            }
+
+            adClickThroughRef.current = resolvedAd.clickThroughUrl;
+            adClickTrackingRef.current = resolvedAd.clickTrackingUrls;
+            adSkipTrackingRef.current = resolvedAd.skipTrackingUrls;
+            adCompleteTrackingRef.current = resolvedAd.completeTrackingUrls;
+
+            setTimeout(() => {
+              if (videoRef.current) {
+                videoRef.current.play().then(() => {
+                  setIsPlaying(true);
+                }).catch(() => {
+                  handleSkipAd();
+                });
+              }
+            }, 60);
+            return;
+          } catch {
+            handleSkipAd();
+            return;
+          }
+        } else {
+          setAdFinished(true);
         }
       }
     }
@@ -678,6 +995,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             }}
             onEnded={() => {
               if (isAdActive) {
+                if (adCompleteTrackingRef.current.length > 0) {
+                  adCompleteTrackingRef.current.forEach((u) => fireBeacon(u));
+                }
                 handleSkipAd();
               } else {
                 setIsPlaying(false);
@@ -694,7 +1014,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                   e.stopPropagation();
                   if (adClickTrackingRef.current && adClickTrackingRef.current.length > 0) {
                     adClickTrackingRef.current.forEach((clickUrl) => {
-                      fetch(`/api/proxy-ad?url=${encodeURIComponent(clickUrl)}`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+                      fireBeacon(clickUrl);
                     });
                   }
                   if (adClickThroughRef.current) {

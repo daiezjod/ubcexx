@@ -51,6 +51,11 @@ export const onRequest: PagesFunction = async (context) => {
       'Accept-Language': acceptLanguage,
     };
 
+    const reqRange = context.request.headers.get('range');
+    if (reqRange) {
+      upstreamHeaders['Range'] = reqRange;
+    }
+
     if (clientIp) {
       upstreamHeaders['X-Forwarded-For'] = clientIp;
       upstreamHeaders['X-Real-IP'] = clientIp;
@@ -73,6 +78,19 @@ export const onRequest: PagesFunction = async (context) => {
 
     const responseHeaders = new Headers();
     responseHeaders.set('Content-Type', contentType);
+
+    const contentRange = upstreamRes.headers.get('content-range');
+    if (contentRange) {
+      responseHeaders.set('Content-Range', contentRange);
+    }
+    const acceptRanges = upstreamRes.headers.get('accept-ranges');
+    if (acceptRanges) {
+      responseHeaders.set('Accept-Ranges', acceptRanges);
+    }
+    const contentLength = upstreamRes.headers.get('content-length');
+    if (contentLength) {
+      responseHeaders.set('Content-Length', contentLength);
+    }
     responseHeaders.set('Access-Control-Allow-Origin', '*');
     responseHeaders.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     responseHeaders.set('Cache-Control', 'no-cache, no-store, must-revalidate');

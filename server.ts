@@ -45,8 +45,44 @@ const requireAdminAuth = (req: Request, res: Response, next: NextFunction) => {
   next();
 };
 
+const ipRateMap = new Map<string, number[]>();
+const FLOOD_WINDOW_MS = 5000;
+const FLOOD_MAX_REQUESTS = 30;
+
+function silentFloodProtection(req: Request, res: Response, next: NextFunction) {
+  const ip =
+    (req.headers['cf-connecting-ip'] as string) ||
+    (req.headers['x-real-ip'] as string) ||
+    (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+    req.socket.remoteAddress ||
+    '127.0.0.1';
+
+  const now = Date.now();
+  let timestamps = ipRateMap.get(ip);
+  if (!timestamps) {
+    timestamps = [];
+    ipRateMap.set(ip, timestamps);
+  }
+
+  const validFrom = now - FLOOD_WINDOW_MS;
+  const recent = timestamps.filter((t) => t > validFrom);
+
+  if (recent.length >= FLOOD_MAX_REQUESTS) {
+    res.setHeader('Retry-After', '5');
+    return res.status(429).json({
+      success: false,
+      error: 'Too Many Requests',
+    });
+  }
+
+  recent.push(now);
+  ipRateMap.set(ip, recent);
+  next();
+}
+
 app.get('/api/videos', async (req: Request, res: Response) => {
   try {
+    res.setHeader('Cache-Control', 'public, s-maxage=60, max-age=60, stale-while-revalidate=300');
     const categoryId = req.query.category_id ? Number(req.query.category_id) : undefined;
     const featured = req.query.featured === '1' || req.query.featured === 'true';
     const search = req.query.search ? String(req.query.search).trim() : undefined;
@@ -88,8 +124,9 @@ app.get('/api/videos', async (req: Request, res: Response) => {
   }
 });
 
-app.get('/api/search/suggest', async (req: Request, res: Response) => {
+app.get('/api/search/suggest', silentFloodProtection, async (req: Request, res: Response) => {
   try {
+    res.setHeader('Cache-Control', 'public, s-maxage=60, max-age=60, stale-while-revalidate=300');
     const q = String(req.query.q || '').trim();
     if (!q) {
       return res.json({ success: true, suggestions: [] });
@@ -154,6 +191,7 @@ app.get('/api/search/suggest', async (req: Request, res: Response) => {
 
 app.get('/api/videos/:id', async (req: Request, res: Response) => {
   try {
+    res.setHeader('Cache-Control', 'public, s-maxage=60, max-age=60, stale-while-revalidate=300');
     const idOrSlug = req.params.id;
     const isNum = !isNaN(Number(idOrSlug));
 
@@ -203,7 +241,7 @@ app.post('/api/videos/:id/view', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/videos/:id/like', async (req: Request, res: Response) => {
+app.post('/api/videos/:id/like', silentFloodProtection, async (req: Request, res: Response) => {
   try {
     const videoId = Number(req.params.id);
     const stmt = d1DB.prepare('UPDATE videos SET likes = likes + 1 WHERE id = ?').bind(videoId);
@@ -223,6 +261,7 @@ app.post('/api/videos/:id/like', async (req: Request, res: Response) => {
 
 app.get('/api/categories', async (req: Request, res: Response) => {
   try {
+    res.setHeader('Cache-Control', 'public, s-maxage=60, max-age=60, stale-while-revalidate=300');
     const stmt = d1DB.prepare('SELECT * FROM categories');
     const result = await stmt.all();
     res.json({ success: true, categories: result.results });
@@ -233,6 +272,7 @@ app.get('/api/categories', async (req: Request, res: Response) => {
 
 app.get(['/api/monetization', '/api/admin/monetization'], async (req: Request, res: Response) => {
   try {
+    res.setHeader('Cache-Control', 'public, s-maxage=60, max-age=60, stale-while-revalidate=300');
     const rawMonetization: any = d1DB.getState().monetization || {};
     const monetization = { ...rawMonetization };
 
@@ -288,6 +328,10 @@ app.all('/api/proxy-ad', async (req: Request, res: Response) => {
       'Accept-Language': acceptLanguage,
     };
 
+    if (req.headers.range) {
+      upstreamHeaders['Range'] = req.headers.range as string;
+    }
+
     if (clientIp) {
       upstreamHeaders['X-Forwarded-For'] = clientIp;
       upstreamHeaders['X-Real-IP'] = clientIp;
@@ -311,6 +355,19 @@ app.all('/api/proxy-ad', async (req: Request, res: Response) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+
+    const contentRange = upstreamRes.headers.get('content-range');
+    if (contentRange) {
+      res.setHeader('Content-Range', contentRange);
+    }
+    const acceptRanges = upstreamRes.headers.get('accept-ranges');
+    if (acceptRanges) {
+      res.setHeader('Accept-Ranges', acceptRanges);
+    }
+    const contentLength = upstreamRes.headers.get('content-length');
+    if (contentLength) {
+      res.setHeader('Content-Length', contentLength);
+    }
 
     if (
       contentType.includes('javascript') ||
@@ -528,7 +585,7 @@ app.get('/api/reports', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/reports', async (req: Request, res: Response) => {
+app.post('/api/reports', silentFloodProtection, async (req: Request, res: Response) => {
   try {
     const { video_id, video_title, reason } = req.body;
     if (!video_id) {
@@ -823,7 +880,7 @@ const handleCronCleanup = async (req: Request, res: Response) => {
       const isPrimaryDead = await isStreamUrlDead(v.video_url);
 
       if (!isPrimaryDead) {
-        continue; // Primary is healthy, keep video
+        continue;
       }
 
       let isBackupDead = true;
@@ -888,14 +945,7 @@ async function startServer() {
     });
   }
 
-  const server = app.listen(PORT, HOST, () => {
-    console.log(`\n======================================================`);
-    console.log(`▶ UBCEXX Tube & Admin Server running at http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
-    console.log(`▶ Cloudflare D1 Binding: env.DB connected (6 seed categories, 6 videos)`);
-    console.log(`▶ Public Guest Tube: http://localhost:${PORT}`);
-    console.log(`▶ Secret Admin Portal: http://localhost:${PORT}/admindaiezgangsterrussianepalworld`);
-    console.log(`======================================================\n`);
-  });
+  const server = app.listen(PORT, HOST, () => {});
 
   server.on('error', (err: any) => {
     

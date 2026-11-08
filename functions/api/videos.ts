@@ -70,7 +70,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         status: 200,
         headers: {
           ...corsHeaders,
-          'Cache-Control': 'public, max-age=10, s-maxage=30',
+          'Cache-Control': 'public, s-maxage=60, max-age=60, stale-while-revalidate=300',
         },
       }
     );

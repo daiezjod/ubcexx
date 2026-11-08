@@ -1,3 +1,5 @@
+import { checkFloodProtection } from '../../_rateLimit.ts';
+
 interface Env {
   DB: D1Database;
 }
@@ -17,6 +19,23 @@ export const onRequestOptions: PagesFunction<Env> = async () => {
 };
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
+  const { isLimited, retryAfter } = checkFloodProtection(context.request);
+  if (isLimited) {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Too Many Requests',
+      }),
+      {
+        status: 429,
+        headers: {
+          ...corsHeaders,
+          'Retry-After': String(retryAfter),
+        },
+      }
+    );
+  }
+
   const id = Number(context.params.id);
 
   try {

@@ -26,92 +26,74 @@ export const Footer: React.FC = () => {
 
   return (
     <>
-      <footer className="border-t border-[#1E293B] bg-[#0A0F1D] text-[#94A3B8] text-xs mt-16 pt-10 pb-12 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col gap-8">
-          
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-6 border-b border-[#1E293B]/70">
-            <div className="flex items-center gap-3">
+      <footer className="border-t border-[#1E293B] bg-[#0A0F1D] text-[#94A3B8] text-xs mt-8 sm:mt-12 py-4 sm:py-5 transition-colors">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col gap-3.5">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-center gap-2.5 sm:gap-3">
               <div className="flex items-baseline">
-                <span className="text-xl font-black tracking-wider text-[#F8FAFC] font-display">UBC</span>
-                <span className="text-xl font-black tracking-wider text-[#F59E0B] font-display">EXX</span>
+                <span className="text-lg sm:text-xl font-black tracking-wider text-[#F8FAFC] font-display">UBC</span>
+                <span className="text-lg sm:text-xl font-black tracking-wider text-[#F59E0B] font-display">EXX</span>
               </div>
-              <span aria-hidden="true" className="text-[#253349]">·</span>
-              <span className="text-[11px] font-mono text-[#94A3B8]">Adult Video Entertainment</span>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2.5">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#2A1218] border border-[#EF4444]/50 text-[#EF4444] text-xs font-bold font-mono tracking-wide shadow-[0_0_12px_rgba(239,68,68,0.25)] select-none">
-                <span className="text-sm">🔞</span>
+              <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#2A1218] border border-[#EF4444]/50 text-[#EF4444] text-[11px] font-bold font-mono tracking-wide shadow-[0_0_10px_rgba(239,68,68,0.2)] select-none">
+                <span>🔞</span>
                 <span>18+ ADULTS ONLY</span>
               </div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#131C2E] border border-[#253349] text-[#CBD5E1] text-[11px] font-mono font-medium select-none">
+              <div className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#131C2E] border border-[#253349] text-[#CBD5E1] text-[10px] font-mono font-medium select-none">
                 <span>RTA RESTRICTED</span>
               </div>
             </div>
-          </div>
 
-          <div className="max-w-4xl text-[12px] leading-relaxed text-[#94A3B8]/90 space-y-2">
-            <p>
-              This website contains age-restricted adult materials. By entering this website, you certify that you are at least 18 years of age or the age of majority in your jurisdiction.
-            </p>
-            <p className="text-[11px] text-[#64748B]">
-              UBCEXX maintains a strict zero-tolerance policy against underage material and non-consensual content. All models and actors appearing on this website were 18 years of age or older at the time of production. Records required pursuant to 18 U.S.C. 2257 and 28 C.F.R. 75 are maintained by the respective designated custodian of records.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-3 pt-2 text-xs font-medium text-[#CBD5E1]">
-            <button
-              type="button"
-              onClick={() => setActiveModal('terms')}
-              className="hover:text-[#F59E0B] transition-colors cursor-pointer text-left"
-            >
-              Terms of Service
-            </button>
-            <span aria-hidden="true" className="text-[#253349]">·</span>
-            <button
-              type="button"
-              onClick={() => setActiveModal('privacy')}
-              className="hover:text-[#F59E0B] transition-colors cursor-pointer text-left"
-            >
-              Privacy Policy
-            </button>
-            <span aria-hidden="true" className="text-[#253349]">·</span>
-            <button
-              type="button"
-              onClick={() => setActiveModal('dmca')}
-              className="hover:text-[#F59E0B] transition-colors cursor-pointer text-left"
-            >
-              DMCA &amp; Copyright
-            </button>
-            <span aria-hidden="true" className="text-[#253349]">·</span>
-            <button
-              type="button"
-              onClick={() => setActiveModal('2257')}
-              className="hover:text-[#F59E0B] transition-colors cursor-pointer text-left"
-            >
-              18 U.S.C. 2257 Compliance
-            </button>
-            <span aria-hidden="true" className="text-[#253349]">·</span>
-            <button
-              type="button"
-              onClick={() => setActiveModal('support')}
-              className="hover:text-[#F59E0B] transition-colors cursor-pointer text-left"
-            >
-              Contact Support
-            </button>
-          </div>
-
-          <div className="pt-4 border-t border-[#1E293B]/70 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-[#64748B]">
-            <div>
-              <span>© 2026 UBCEXX. All rights reserved.</span>
+            <div className="flex flex-wrap items-center justify-center gap-x-4 sm:gap-x-5 gap-y-1.5 text-xs font-medium text-[#CBD5E1]">
+              <button
+                type="button"
+                onClick={() => setActiveModal('terms')}
+                className="hover:text-[#F59E0B] transition-colors cursor-pointer"
+              >
+                Terms of Service
+              </button>
+              <span aria-hidden="true" className="text-[#253349]">·</span>
+              <button
+                type="button"
+                onClick={() => setActiveModal('privacy')}
+                className="hover:text-[#F59E0B] transition-colors cursor-pointer"
+              >
+                Privacy Policy
+              </button>
+              <span aria-hidden="true" className="text-[#253349]">·</span>
+              <button
+                type="button"
+                onClick={() => setActiveModal('dmca')}
+                className="hover:text-[#F59E0B] transition-colors cursor-pointer"
+              >
+                DMCA &amp; Copyright
+              </button>
+              <span aria-hidden="true" className="text-[#253349]">·</span>
+              <button
+                type="button"
+                onClick={() => setActiveModal('2257')}
+                className="hover:text-[#F59E0B] transition-colors cursor-pointer"
+              >
+                18 U.S.C. 2257 Compliance
+              </button>
+              <span aria-hidden="true" className="text-[#253349]">·</span>
+              <button
+                type="button"
+                onClick={() => setActiveModal('support')}
+                className="hover:text-[#F59E0B] transition-colors cursor-pointer"
+              >
+                Contact Support
+              </button>
             </div>
-            <div className="flex items-center gap-2 font-mono">
+          </div>
+
+          <div className="pt-2 border-t border-[#1E293B]/50 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-[#64748B]">
+            <span>© 2026 UBCEXX. All rights reserved.</span>
+            <div className="flex items-center gap-2 font-mono text-[10px]">
               <span>Parental Control Filter Compatible</span>
               <span aria-hidden="true">·</span>
               <span>ICRA / RTA Certified</span>
             </div>
           </div>
-
         </div>
       </footer>
 

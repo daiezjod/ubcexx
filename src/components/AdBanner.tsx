@@ -38,9 +38,21 @@ function routeViaProxy(html: string): string {
   return transformed;
 }
 
+function isAdminSession(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const token = localStorage.getItem('ubcexx_admin_token');
+    return Boolean(token && token.trim().length > 0);
+  } catch {
+    return false;
+  }
+}
+
 export const AdBanner: React.FC<AdBannerProps> = ({ adHtml, className = '' }) => {
+  const isAdmin = isAdminSession();
+
   const srcDocContent = useMemo(() => {
-    if (!adHtml || !adHtml.trim()) return '';
+    if (isAdmin || !adHtml || !adHtml.trim()) return '';
 
     const proxiedHtml = routeViaProxy(adHtml);
 
@@ -64,6 +76,18 @@ export const AdBanner: React.FC<AdBannerProps> = ({ adHtml, className = '' }) =>
 </body>
 </html>`;
   }, [adHtml]);
+
+  if (isAdmin) {
+    return (
+      <div className={`ubcexx-promoted-rail w-full overflow-hidden my-3 px-3 py-2 rounded-xl bg-[#0F172A]/80 border border-[#1E293B] text-[11px] font-mono text-[#94A3B8] flex items-center justify-between ${className}`}>
+        <div className="flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+          <span className="text-[#10B981] font-semibold">Admin Safe Mode Active</span>
+        </div>
+        <span className="text-[10px] text-[#64748B]">Ad scripts disabled on admin device to prevent self-impressions</span>
+      </div>
+    );
+  }
 
   if (!adHtml || !adHtml.trim()) return null;
 

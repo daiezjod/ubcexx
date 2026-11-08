@@ -1,3 +1,5 @@
+import { checkFloodProtection } from '../_rateLimit.ts';
+
 interface Env {
   DB: D1Database;
 }
@@ -17,6 +19,24 @@ export const onRequestOptions: PagesFunction<Env> = async () => {
 };
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
+  const { isLimited, retryAfter } = checkFloodProtection(context.request);
+  if (isLimited) {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Too Many Requests',
+        suggestions: [],
+      }),
+      {
+        status: 429,
+        headers: {
+          ...corsHeaders,
+          'Retry-After': String(retryAfter),
+        },
+      }
+    );
+  }
+
   const url = new URL(context.request.url);
   const q = (url.searchParams.get('q') || '').trim();
 
@@ -26,7 +46,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         success: true,
         suggestions: [],
       }),
-      { status: 200, headers: corsHeaders }
+      {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          'Cache-Control': 'public, s-maxage=60, max-age=60, stale-while-revalidate=300',
+        },
+      }
     );
   }
 
@@ -91,7 +117,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       }),
       {
         status: 200,
-        headers: corsHeaders,
+        headers: {
+          ...corsHeaders,
+          'Cache-Control': 'public, s-maxage=60, max-age=60, stale-while-revalidate=300',
+        },
       }
     );
   } catch (err: any) {

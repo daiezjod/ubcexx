@@ -1647,26 +1647,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         onClick={() => setPrerollVideoUrl('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4')}
                         className="text-[10px] bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] px-2 py-0.5 rounded text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer"
                       >
-                        Blaze Promo MP4 (15s)
+                        Blaze Promo MP4
                       </button>
                       <button
                         type="button"
                         onClick={() => setPrerollVideoUrl('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4')}
                         className="text-[10px] bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] px-2 py-0.5 rounded text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer"
                       >
-                        Escapes Teaser MP4 (15s)
+                        Escapes Teaser MP4
                       </button>
                       <button
                         type="button"
                         onClick={() => setPrerollVideoUrl('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4')}
                         className="text-[10px] bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] px-2 py-0.5 rounded text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer"
                       >
-                        Sci-Fi Promo MP4 (15s)
+                        Sci-Fi Promo MP4
                       </button>
                     </div>
                   </div>
 
-                  {}
                   <div className="max-w-xs">
                     <label className="block text-xs font-semibold text-[#F8FAFC] uppercase tracking-wider mb-1.5">
                       Skip Timer (Seconds)
@@ -1680,7 +1679,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       placeholder="5"
                       className="w-full bg-[#131C2E] text-xs text-[#F8FAFC] px-3.5 py-2.5 rounded-xl border border-[#253349] font-mono focus:outline-none focus:border-[#F59E0B]"
                     />
-                    {}
                     <div className="flex gap-1.5 mt-2">
                       {['3', '5', '10'].map((sec) => (
                         <button
@@ -1699,20 +1697,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
 
-                  {}
                   <div className="p-3 bg-[#080C14] rounded-xl border border-[#1E293B] text-[11px] text-[#94A3B8] space-y-1">
-                    <span className="font-semibold text-[#F8FAFC] block">Universal In-Stream Ad Protocol:</span>
+                    <span className="font-semibold text-[#F8FAFC] block">Universal In-Stream Engine (100% Ad Network Compatible):</span>
                     <p>
-                      1. Viewer presses play &rarr; Ad Network Tag / VAST / Stream loads with live countdown: <strong className="text-[#F59E0B]">"Ad · Skip in {prerollSkipOffset}s..."</strong>.
+                      1. <strong className="text-[#F59E0B]">Every Video Play:</strong> High-yield monetization triggers on every single video click across all global viewers without cooldown limits.
                     </p>
                     <p>
-                      2. At 0s, an amber <strong className="text-[#F59E0B]">"Skip Ad ⏭"</strong> button illuminates.
+                      2. <strong className="text-[#F59E0B]">Any Ad Network:</strong> Accepts any VAST 2.0 / 3.0 / 4.0 XML, wrapper chain, or direct stream from Adsterra, ExoClick, JuicyAds, TrafficJunky, Monetag, etc.
                     </p>
                     <p>
-                      3. On skip or ad completion, the player switches straight into the main stream seamlessly with zero page reload.
+                      3. <strong className="text-[#F59E0B]">No-Fill Fast Bypass:</strong> If the network returns empty (no ad available), the player silently skips the ad and launches the main stream immediately with zero delay.
                     </p>
                     <p className="text-[#10B981] font-mono text-[10px]">
-                      Universal Ad Network: Click tracking, landing pages, and conversion pixels are handled automatically by the ad network's VAST tag.
+                      Zero Future Code Changes: Updates saved here in Cloudflare D1 propagate immediately to all video players worldwide in real time.
                     </p>
                   </div>
                 </div>
