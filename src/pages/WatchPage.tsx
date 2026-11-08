@@ -439,14 +439,26 @@ export const WatchPage: React.FC<WatchPageProps> = ({
               </div>
             </div>
 
-            {(monetization?.native_ads_enabled === 1 || monetization?.native_enabled === 1) &&
-              Boolean(monetization?.native_ads_code || monetization?.native_code) && (
-                <div className="w-full my-4">
-                  <AdBanner
-                    adHtml={monetization?.native_ads_code || monetization?.native_code || ''}
-                  />
-                </div>
-              )}
+            {Boolean(
+              (monetization?.native_ads_enabled === 1 || monetization?.native_enabled === 1) &&
+              (monetization?.native_ads_code || monetization?.native_code) &&
+              (() => {
+                try {
+                  const pz = typeof monetization?.placement_zones === 'string'
+                    ? JSON.parse(monetization.placement_zones as string)
+                    : monetization?.placement_zones || {};
+                  return pz.under_player !== false;
+                } catch {
+                  return true;
+                }
+              })()
+            ) && (
+              <div className="w-full flex justify-center my-3 px-2">
+                <AdBanner
+                  adHtml={monetization?.native_ads_code || monetization?.native_code || ''}
+                />
+              </div>
+            )}
           </div>
 
           <div className="mt-4 pt-6 border-t border-[#1E293B]">

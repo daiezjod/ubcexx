@@ -40,10 +40,25 @@ export const Home: React.FC<HomeProps> = ({
   onLoadMore,
   onNavigateHome,
 }) => {
-  const isNativeAdEnabled =
-    monetization &&
+  const isBannerAdEnabled =
+    Boolean(monetization &&
     (monetization.native_ads_enabled === 1 || monetization.native_enabled === 1) &&
-    Boolean(monetization.native_ads_code || monetization.native_code);
+    Boolean(monetization.native_ads_code || monetization.native_code));
+
+  const placementZones = typeof monetization?.placement_zones === 'string'
+    ? (() => {
+        try {
+          return JSON.parse(monetization.placement_zones as string);
+        } catch {
+          return {};
+        }
+      })()
+    : monetization?.placement_zones || {};
+
+  const showOnHome =
+    isBannerAdEnabled &&
+    placementZones.home !== false &&
+    placementZones.in_feed !== false;
 
   const activeAdHtml = monetization?.native_ads_code || monetization?.native_code || '';
 
@@ -58,8 +73,8 @@ export const Home: React.FC<HomeProps> = ({
         onNavigateHome={onNavigateHome}
       />
 
-      {isNativeAdEnabled && (
-        <div className="max-w-7xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 w-full">
+      {showOnHome && (
+        <div className="w-full flex justify-center my-3 px-2">
           <AdBanner adHtml={activeAdHtml} />
         </div>
       )}
@@ -137,8 +152,8 @@ export const Home: React.FC<HomeProps> = ({
                     <VideoCard video={video} onSelect={onSelectVideo} />
                   </div>
 
-                  {index === 3 && isNativeAdEnabled && (
-                    <div className="col-span-2 min-[440px]:col-span-3 sm:col-span-3 md:col-span-4 lg:col-span-5 my-2 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-[#0F172A] border border-[#1E293B] shadow-xl relative overflow-hidden group">
+                  {index === 3 && showOnHome && (
+                    <div className="col-span-2 min-[440px]:col-span-3 sm:col-span-3 md:col-span-4 lg:col-span-5 w-full flex justify-center my-3 px-2">
                       <AdBanner adHtml={activeAdHtml} className="my-0" />
                     </div>
                   )}
