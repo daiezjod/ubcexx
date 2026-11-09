@@ -56,6 +56,52 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [reportLoadingId, setReportLoadingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [inactivityLeft, setInactivityLeft] = useState<number>(10);
+
+  useEffect(() => {
+    let timer: number | null = null;
+    let interval: number | null = null;
+    let lastActivityTime = Date.now();
+
+    const triggerLogout = () => {
+      try {
+        sessionStorage.setItem('ubcexx_admin_logout_reason', 'Logged out due to 10 seconds of inactivity');
+        localStorage.removeItem('ubcexx_admin_token');
+        localStorage.removeItem('ubcexx_admin_user');
+        sessionStorage.removeItem('ubcexx_admin_token');
+        sessionStorage.removeItem('ubcexx_admin_user');
+      } catch {
+      }
+      onLogout();
+    };
+
+    const resetTimer = () => {
+      lastActivityTime = Date.now();
+      setInactivityLeft(10);
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(triggerLogout, 10000);
+    };
+
+    interval = window.setInterval(() => {
+      const elapsed = Math.floor((Date.now() - lastActivityTime) / 1000);
+      const remaining = Math.max(0, 10 - elapsed);
+      setInactivityLeft(remaining);
+      if (remaining <= 0) {
+        triggerLogout();
+      }
+    }, 1000);
+
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click', 'wheel'];
+    events.forEach((ev) => window.addEventListener(ev, resetTimer, { passive: true }));
+
+    resetTimer();
+
+    return () => {
+      if (timer) window.clearTimeout(timer);
+      if (interval) window.clearInterval(interval);
+      events.forEach((ev) => window.removeEventListener(ev, resetTimer));
+    };
+  }, [onLogout]);
 
   const [prerollEnabled, setPrerollEnabled] = useState(true);
   const [prerollVideoUrl, setPrerollVideoUrl] = useState('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4');
@@ -638,6 +684,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#131C2E] border border-[#253349] text-[11px] font-mono text-[#F59E0B]">
+              <Clock className="w-3.5 h-3.5 text-[#F59E0B]" />
+              <span>Auto-lock: {inactivityLeft}s</span>
+            </div>
+
             <button
               onClick={onLogout}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-[#FB7185] bg-[#3B0713] hover:bg-[#4C0D1A] border border-[#4C0D1A] transition-colors cursor-pointer shadow-sm"

@@ -52,9 +52,12 @@ export default function App() {
   const [feedSyncKey, setFeedSyncKey] = useState(0);
 
   useEffect(() => {
-    const savedToken = localStorage.getItem('ubcexx_admin_token');
-    if (savedToken) {
-      setAdminToken(savedToken);
+    try {
+      localStorage.removeItem('ubcexx_admin_token');
+      localStorage.removeItem('ubcexx_admin_user');
+      sessionStorage.removeItem('ubcexx_admin_token');
+      sessionStorage.removeItem('ubcexx_admin_user');
+    } catch {
     }
   }, []);
 
@@ -69,8 +72,7 @@ export default function App() {
       }
 
       if (path === getSecretAdminPath()) {
-        const token = localStorage.getItem('ubcexx_admin_token');
-        if (token) {
+        if (adminToken) {
           setCurrentView('admin-dashboard');
         } else {
           setCurrentView('admin-login');
@@ -99,7 +101,7 @@ export default function App() {
     handleUrlRoute();
     window.addEventListener('popstate', handleUrlRoute);
     return () => window.removeEventListener('popstate', handleUrlRoute);
-  }, []);
+  }, [adminToken]);
 
   const loadData = async (isSilent = false) => {
     if (!isSilent) setLoading(true);
@@ -221,8 +223,13 @@ export default function App() {
   };
 
   const handleAdminLogout = () => {
-    localStorage.removeItem('ubcexx_admin_token');
-    localStorage.removeItem('ubcexx_admin_user');
+    try {
+      localStorage.removeItem('ubcexx_admin_token');
+      localStorage.removeItem('ubcexx_admin_user');
+      sessionStorage.removeItem('ubcexx_admin_token');
+      sessionStorage.removeItem('ubcexx_admin_user');
+    } catch {
+    }
     setAdminToken(null);
     setCurrentView('admin-login');
     window.history.pushState({}, '', getSecretLoginPath());

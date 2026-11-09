@@ -393,9 +393,40 @@ app.all('/api/proxy-ad', async (req: Request, res: Response) => {
   }
 });
 
+let adminFailedAttempts = 0;
+let adminLockoutUntil = 0;
+
+app.get('/api/admin/login', (req: Request, res: Response) => {
+  const now = Date.now();
+  const isLocked = now < adminLockoutUntil;
+  if (!isLocked && adminLockoutUntil > 0) {
+    adminFailedAttempts = 0;
+    adminLockoutUntil = 0;
+  }
+  res.json({
+    success: true,
+    locked: isLocked,
+    lockoutUntil: isLocked ? adminLockoutUntil : 0,
+    remainingSeconds: isLocked ? Math.ceil((adminLockoutUntil - now) / 1000) : 0,
+    failedAttempts: isLocked ? 2 : adminFailedAttempts,
+  });
+});
+
 app.post('/api/admin/login', async (req: Request, res: Response) => {
   try {
-    const { username, password } = req.body;
+    const now = Date.now();
+    if (now < adminLockoutUntil) {
+      const remainingSeconds = Math.ceil((adminLockoutUntil - now) / 1000);
+      return res.status(429).json({
+        success: false,
+        locked: true,
+        lockoutUntil: adminLockoutUntil,
+        remainingSeconds,
+        error: 'Security Lockout: 2 failed attempts exceeded. Admin access locked for 2 hours.',
+      });
+    }
+
+    const { username, password } = req.body || {};
     if (!username || !password) {
       return res.status(400).json({ success: false, error: 'Username and password required' });
     }
@@ -403,13 +434,32 @@ app.post('/api/admin/login', async (req: Request, res: Response) => {
     const stmt = d1DB.prepare('SELECT * FROM admins WHERE username = ?').bind(username);
     const admin = await stmt.first();
 
-    if (!admin) {
-      return res.status(401).json({ success: false, error: 'Invalid admin credentials' });
+    const isMatch = Boolean(
+      admin &&
+      (admin.password_hash === password || password === 'ubcexx2026!' || password === 'admin123')
+    );
+
+    if (!admin || !isMatch) {
+      adminFailedAttempts += 1;
+      if (adminFailedAttempts >= 2) {
+        adminLockoutUntil = now + (2 * 60 * 60 * 1000);
+        return res.status(429).json({
+          success: false,
+          locked: true,
+          lockoutUntil: adminLockoutUntil,
+          remainingSeconds: 7200,
+          error: 'Security Lockout: 2 failed attempts exceeded. Admin access locked for 2 hours.',
+        });
+      }
+      return res.status(401).json({
+        success: false,
+        remainingAttempts: 1,
+        error: 'Invalid admin credentials. 1 attempt remaining before 2-hour lockout.',
+      });
     }
 
-    if (admin.password_hash !== password && password !== 'ubcexx2026!' && password !== 'admin123') {
-      return res.status(401).json({ success: false, error: 'Invalid admin credentials' });
-    }
+    adminFailedAttempts = 0;
+    adminLockoutUntil = 0;
 
     const token = `ubcexx_admin_${Buffer.from(`${admin.id}:${admin.username}:${Date.now()}`).toString('base64')}`;
 
