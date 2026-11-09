@@ -127,66 +127,72 @@ export default function App() {
   };
 
   useEffect(() => {
-    const INACTIVITY_THRESHOLD_MS = 45000;
-    const HIDDEN_KEY = 'ubcexx_last_hidden_time';
-    let hiddenTimestamp = 0;
+    const EXIT_KEY = 'ubcexx_app_exit_time';
+    const HARD_RELOAD_THRESHOLD_MS = 15000;
+    let isReloading = false;
+
+    const recordExitTime = () => {
+      try {
+        localStorage.setItem(EXIT_KEY, Date.now().toString());
+      } catch {
+      }
+    };
+
+    const checkAndReload = () => {
+      if (isReloading) return;
+      try {
+        const stored = localStorage.getItem(EXIT_KEY);
+        if (!stored) return;
+        const exitTime = Number(stored);
+        if (!exitTime || isNaN(exitTime)) return;
+        const elapsed = Date.now() - exitTime;
+        if (elapsed > HARD_RELOAD_THRESHOLD_MS) {
+          isReloading = true;
+          localStorage.setItem(EXIT_KEY, Date.now().toString());
+          window.location.reload();
+        }
+      } catch {
+      }
+    };
 
     const handleVisibilityChange = () => {
-      const now = Date.now();
-
       if (document.visibilityState === 'hidden') {
-        hiddenTimestamp = now;
-        try {
-          sessionStorage.setItem(HIDDEN_KEY, String(now));
-        } catch {
-        }
+        recordExitTime();
       } else if (document.visibilityState === 'visible') {
-        let storedHidden = 0;
-        try {
-          storedHidden = Number(sessionStorage.getItem(HIDDEN_KEY) || 0);
-        } catch {
-        }
+        checkAndReload();
+      }
+    };
 
-        const effectiveHiddenTime = hiddenTimestamp || storedHidden;
-        const elapsed = effectiveHiddenTime > 0 ? now - effectiveHiddenTime : 0;
-
-        if (elapsed >= INACTIVITY_THRESHOLD_MS) {
-          if (currentView === 'home') {
-            loadData(true);
-          }
-        }
-
-        hiddenTimestamp = 0;
-        try {
-          sessionStorage.removeItem(HIDDEN_KEY);
-        } catch {
-        }
+    const handleFocus = () => {
+      if (document.visibilityState === 'visible') {
+        checkAndReload();
       }
     };
 
     const handlePageShow = (event: PageTransitionEvent) => {
-      const now = Date.now();
-      let storedHidden = 0;
-      try {
-        storedHidden = Number(sessionStorage.getItem(HIDDEN_KEY) || 0);
-      } catch {
+      if (event.persisted) {
+        checkAndReload();
+      } else if (document.visibilityState === 'visible') {
+        checkAndReload();
       }
+    };
 
-      if (event.persisted || (storedHidden > 0 && now - storedHidden >= INACTIVITY_THRESHOLD_MS)) {
-        if (currentView === 'home') {
-          loadData(true);
-        }
-      }
+    const handlePageHide = () => {
+      recordExitTime();
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
     window.addEventListener('pageshow', handlePageShow);
+    window.addEventListener('pagehide', handlePageHide);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
       window.removeEventListener('pageshow', handlePageShow);
+      window.removeEventListener('pagehide', handlePageHide);
     };
-  }, [currentView, pageLimit, selectedCategoryId, searchQuery]);
+  }, []);
 
   useEffect(() => {
     loadData();
