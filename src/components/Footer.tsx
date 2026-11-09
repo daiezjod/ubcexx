@@ -38,9 +38,6 @@ export const Footer: React.FC = () => {
                 <span>🔞</span>
                 <span>18+ ADULTS ONLY</span>
               </div>
-              <div className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#131C2E] border border-[#253349] text-[#CBD5E1] text-[10px] font-mono font-medium select-none">
-                <span>RTA RESTRICTED</span>
-              </div>
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-x-4 sm:gap-x-5 gap-y-1.5 text-xs font-medium text-[#CBD5E1]">
@@ -88,11 +85,6 @@ export const Footer: React.FC = () => {
 
           <div className="pt-2 border-t border-[#1E293B]/50 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-[#64748B]">
             <span>© 2026 UBCEXX. All rights reserved.</span>
-            <div className="flex items-center gap-2 font-mono text-[10px]">
-              <span>Parental Control Filter Compatible</span>
-              <span aria-hidden="true">·</span>
-              <span>ICRA / RTA Certified</span>
-            </div>
           </div>
         </div>
       </footer>

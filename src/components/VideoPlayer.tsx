@@ -415,8 +415,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [hasStarted, setHasStarted] = useState(false);
   const [hasReportedView, setHasReportedView] = useState(false);
 
-  const [isIframeLoading, setIsIframeLoading] = useState<boolean>(true);
-
   useEffect(() => {
     if (!isAdActive) return;
     const interval = window.setInterval(() => {
@@ -447,15 +445,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         if (elapsed > 1000) {
           if (isOkRuActive) {
             setIframeMountKey((prev) => prev + 1);
-            setIsIframeLoading(true);
-            setTimeout(() => setIsIframeLoading(false), 2200);
           } else if (videoRef.current) {
             if (videoRef.current.paused && (wasPlayingRef.current || hasStarted)) {
               videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
             }
           }
-        } else {
-          setIsIframeLoading(false);
         }
       }
     };
@@ -466,7 +460,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
       if (e.persisted || isOkRuActive) {
         setIframeMountKey((prev) => prev + 1);
-        setIsIframeLoading(false);
       }
     };
 
@@ -486,7 +479,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setAdFinished(!shouldShowPreRoll());
     setAdCountdown(preRollAd?.skipOffset || 5);
     setCanSkipAd(false);
-    setIsIframeLoading(true);
     savedTimestampRef.current = 0;
     wasPlayingRef.current = false;
     setCurrentTime(0);
@@ -498,16 +490,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     adSkipTrackingRef.current = [];
     adCompleteTrackingRef.current = [];
   }, [videoUrl, backupVideoUrl, preRollAd?.videoUrl, preRollAd?.enabled]);
-
-  useEffect(() => {
-    if (isOkRuActive && !isAdActive) {
-      setIsIframeLoading(true);
-      const timer = window.setTimeout(() => {
-        setIsIframeLoading(false);
-      }, 4500);
-      return () => window.clearTimeout(timer);
-    }
-  }, [isOkRuActive, isAdActive, okRuId, activeSource]);
 
   useEffect(() => {
     if (isOkRuActive && !isAdActive && !hasReportedView && onFirstPlay) {
@@ -620,7 +602,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       if (backupOkRuId && backupVideoUrl && !hasFailedOver && activeSource !== backupVideoUrl) {
         setHasFailedOver(true);
         setActiveSource(backupVideoUrl);
-        setIsIframeLoading(true);
       }
       return;
     }
@@ -632,7 +613,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
       setHasFailedOver(true);
       setActiveSource(backupVideoUrl);
-      setIsIframeLoading(true);
     }
   }, [isAdActive, handleSkipAd, isOkRuActive, backupOkRuId, backupVideoUrl, hasFailedOver, activeSource, currentTime, isPlaying, hasStarted]);
 
@@ -903,43 +883,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     >
       {isOkRuActive && !isAdActive ? (
         <div className="relative w-full h-full aspect-video bg-black overflow-hidden">
-          <div
-            className={`absolute inset-0 z-10 flex flex-col items-center justify-center transition-opacity duration-500 ease-out select-none ${
-              isIframeLoading ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-            }`}
-          >
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-              <img
-                src={thumbnailUrl}
-                alt={title}
-                className="w-full h-full object-cover scale-110 filter blur-md brightness-50 transition-transform duration-1000 ease-out"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/src/assets/images/ubcexx_hero_cyberpunk_1793264277456.jpg';
-                }}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#080C14] via-[#080C14]/70 to-[#080C14]/50 backdrop-blur-md" />
-            </div>
-
-            <div className="relative z-10 flex flex-col items-center gap-3.5 text-center px-4">
-              <div className="relative flex items-center justify-center">
-                <div className="w-14 h-14 rounded-full border-3 border-[#1E293B] border-t-[#F59E0B] animate-spin shadow-lg shadow-[#F59E0B]/20" />
-                <div className="absolute w-8 h-8 rounded-full bg-[#F59E0B]/20 animate-ping" />
-              </div>
-
-              <div className="flex flex-col items-center gap-1.5">
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#131C2E]/90 border border-[#F59E0B]/50 shadow-[0_0_20px_rgba(245,158,11,0.3)]">
-                  <span className="w-2 h-2 rounded-full bg-[#F59E0B] animate-pulse" />
-                  <span className="text-xs font-bold text-[#F8FAFC] tracking-wide">
-                    ⚡ Initializing Ultra-Fast Stream...
-                  </span>
-                </div>
-                <span className="text-[11px] font-mono text-[#94A3B8]/90">
-                  Connecting to High-Bitrate Stream Engine
-                </span>
-              </div>
-            </div>
-          </div>
-
           <iframe
             ref={iframeRef}
             key={`okru-${okRuId}-${iframeMountKey}`}
@@ -950,7 +893,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             className="absolute -top-[44px] left-0 w-full h-[calc(100%+44px)] border-0"
             allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
             allowFullScreen
-            onLoad={() => setIsIframeLoading(false)}
           />
         </div>
       ) : (
