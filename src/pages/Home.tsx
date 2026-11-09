@@ -2,6 +2,7 @@ import React from 'react';
 import { Navbar } from '../components/Navbar.tsx';
 import { HeroFeatured } from '../components/HeroFeatured.tsx';
 import { VideoCard } from '../components/VideoCard.tsx';
+import { BannerAd } from '../components/BannerAd.tsx';
 import { AdBanner } from '../components/AdBanner.tsx';
 import { Footer } from '../components/Footer.tsx';
 import { Video, Category, MonetizationSettings } from '../types.ts';
@@ -40,10 +41,10 @@ export const Home: React.FC<HomeProps> = ({
   onLoadMore,
   onNavigateHome,
 }) => {
-  const isBannerAdEnabled =
-    Boolean(monetization &&
-    (monetization.native_ads_enabled === 1 || monetization.native_enabled === 1) &&
-    Boolean(monetization.native_ads_code || monetization.native_code));
+  const isBannerAdEnabled = Boolean(
+    monetization &&
+    (monetization.native_ads_enabled === 1 || monetization.native_enabled === 1)
+  );
 
   const placementZones = typeof monetization?.placement_zones === 'string'
     ? (() => {
@@ -55,12 +56,22 @@ export const Home: React.FC<HomeProps> = ({
       })()
     : monetization?.placement_zones || {};
 
-  const activeAdHtml = monetization?.native_ads_code || monetization?.native_code || '';
+  const topBannerCode = (monetization?.banner_top_code || '').trim();
+  const infeedBannerCode = (
+    monetization?.banner_infeed_code ||
+    monetization?.native_ads_code ||
+    monetization?.native_code ||
+    ''
+  ).trim();
 
-  const showOnHome =
+  const showTopBanner =
     isBannerAdEnabled &&
-    Boolean(activeAdHtml && activeAdHtml.trim()) &&
-    placementZones.home !== false &&
+    Boolean(topBannerCode) &&
+    placementZones.home !== false;
+
+  const showInFeedBanner =
+    isBannerAdEnabled &&
+    Boolean(infeedBannerCode) &&
     placementZones.in_feed !== false;
 
   return (
@@ -74,8 +85,10 @@ export const Home: React.FC<HomeProps> = ({
         onNavigateHome={onNavigateHome}
       />
 
-      {showOnHome && (
-        <AdBanner adHtml={activeAdHtml} />
+      {showTopBanner && (
+        <div className="w-full flex justify-center my-2 px-2 overflow-hidden">
+          <BannerAd adHtml={topBannerCode} width={320} height={50} className="my-0" />
+        </div>
       )}
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-6">
@@ -151,9 +164,9 @@ export const Home: React.FC<HomeProps> = ({
                     <VideoCard video={video} onSelect={onSelectVideo} />
                   </div>
 
-                  {index === 3 && showOnHome && (
-                    <div className="col-span-2 min-[440px]:col-span-3 sm:col-span-3 md:col-span-4 lg:col-span-5">
-                      <AdBanner adHtml={activeAdHtml} className="my-2" />
+                  {(index + 1) % 9 === 0 && showInFeedBanner && (
+                    <div className="col-span-2 min-[440px]:col-span-3 sm:col-span-3 md:col-span-4 lg:col-span-5 w-full flex justify-center my-3 px-2">
+                      <BannerAd adHtml={infeedBannerCode} width={300} height={250} className="my-0" />
                     </div>
                   )}
                 </React.Fragment>

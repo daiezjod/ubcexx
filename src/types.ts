@@ -65,6 +65,8 @@ export interface MonetizationSettings {
   native_ads_enabled?: number;
   native_code?: string;
   native_ads_code?: string;
+  banner_top_code?: string;
+  banner_infeed_code?: string;
   native_placements?: string;
   placement_zones?: string | Record<string, boolean>;
   top_rail_enabled?: number;

@@ -49,6 +49,8 @@ export interface MonetizationSettings {
   native_ads_enabled?: number;
   native_code: string;
   native_ads_code?: string;
+  banner_top_code?: string;
+  banner_infeed_code?: string;
   native_placements: string;
   placement_zones?: string | any;
   top_rail_enabled?: number;
@@ -205,7 +207,9 @@ const initialMonetization: MonetizationSettings = {
   preroll_click_url: 'https://ubcexx.com/vip-pass',
   preroll_skip_offset: 5,
   native_enabled: 1,
-  native_code: '<div style="background:linear-gradient(135deg, #131C2E, #0F172A);border:1px solid #253349;padding:16px;border-radius:12px;text-align:center;color:#F8FAFC;"><span style="color:#F59E0B;font-weight:800;font-size:11px;letter-spacing:1px;text-transform:uppercase;">SPONSORED PARTNER</span><h4 style="margin:6px 0;font-size:15px;font-weight:700;">CYBERPUNK VPN · 80% OFF ULTRA-SPEED BANDWIDTH</h4><p style="margin:0 0 10px 0;font-size:12px;color:#94A3B8;">Zero latency streaming with anonymous P2P routing across 120 global edge locations.</p><a href="https://ubcexx.com/vpn-deal" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#F59E0B;color:#000000;font-weight:700;font-size:12px;padding:6px 16px;border-radius:8px;text-decoration:none;">CLAIM EXCLUSIVE 80% OFF →</a></div>',
+  native_code: '<div style="width:300px;max-width:100%;height:250px;background:linear-gradient(135deg,#0d1526,#182234);border:1px solid #F59E0B;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;text-align:center;box-sizing:border-box;"><span style="color:#F59E0B;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;">⚡ SPONSORED PARTNER · 300x250</span><strong style="color:#FFFFFF;font-size:15px;line-height:1.3;margin-bottom:6px;">Ultra-Fast Edge Streaming & Video CDN</strong><p style="color:#94A3B8;font-size:11px;margin:0 0 12px 0;line-height:1.4;">Zero-buffering 4K playback with global edge nodes.</p><a href="https://ubcexx.com/vip-offer" target="_blank" rel="noopener noreferrer" style="background:#F59E0B;color:#000000;font-weight:800;font-size:12px;padding:8px 20px;border-radius:8px;text-decoration:none;display:inline-block;">Claim Offer ↗</a></div>',
+  banner_top_code: '<div style="width:320px;height:50px;background:linear-gradient(90deg,#0d1526,#182234);border:1px solid #F59E0B;border-radius:8px;display:flex;align-items:center;justify-content:space-between;padding:6px 12px;box-sizing:border-box;"><div style="display:flex;align-items:center;gap:6px;"><span style="color:#F59E0B;font-size:14px;">⚡</span><div style="text-align:left;"><strong style="color:#FFFFFF;font-size:11px;display:block;line-height:1.2;">UBCEXX VIP EDGE STREAMING</strong><span style="color:#94A3B8;font-size:9px;">Ultra-fast uncapped 4K playback</span></div></div><a href="https://ubcexx.com/vip-pass" target="_blank" rel="noopener noreferrer" style="background:#F59E0B;color:#000000;font-size:10px;font-weight:800;padding:4px 8px;border-radius:4px;text-decoration:none;white-space:nowrap;">JOIN VIP</a></div>',
+  banner_infeed_code: '<div style="width:300px;max-width:100%;height:250px;background:linear-gradient(135deg,#0d1526,#182234);border:1px solid #F59E0B;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;text-align:center;box-sizing:border-box;"><span style="color:#F59E0B;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;">⚡ SPONSORED PARTNER · 300x250</span><strong style="color:#FFFFFF;font-size:15px;line-height:1.3;margin-bottom:6px;">Ultra-Fast Edge Streaming & Video CDN</strong><p style="color:#94A3B8;font-size:11px;margin:0 0 12px 0;line-height:1.4;">Zero-buffering 4K playback with global edge nodes.</p><a href="https://ubcexx.com/vip-offer" target="_blank" rel="noopener noreferrer" style="background:#F59E0B;color:#000000;font-weight:800;font-size:12px;padding:8px 20px;border-radius:8px;text-decoration:none;display:inline-block;">Claim Offer ↗</a></div>',
   native_placements: 'top_rail,under_player,in_feed',
   top_rail_enabled: 1,
   top_rail_cards: JSON.stringify(defaultTopRailCards),
@@ -244,6 +248,12 @@ export class CloudflareD1Database {
             }
             if (!parsed.monetization.native_placements?.includes('top_rail')) {
               parsed.monetization.native_placements = `top_rail,${parsed.monetization.native_placements || 'under_player,in_feed'}`;
+            }
+            if (parsed.monetization.banner_top_code === undefined) {
+              parsed.monetization.banner_top_code = initialMonetization.banner_top_code || '';
+            }
+            if (parsed.monetization.banner_infeed_code === undefined) {
+              parsed.monetization.banner_infeed_code = parsed.monetization.native_ads_code || initialMonetization.banner_infeed_code || '';
             }
           }
           if (!parsed.reports) {
@@ -584,7 +594,34 @@ export class D1PreparedStatement {
 
     else if (q.includes('monetization')) {
       const prev = state.monetization || initialMonetization;
-      if (q.includes('preroll_skip_seconds') || this.boundValues.length === 7) {
+      if (q.includes('banner_top_code')) {
+        const [
+          preroll_click_url,
+          preroll_skip_offset,
+          native_enabled,
+          native_code,
+          banner_top_code,
+          banner_infeed_code,
+          native_placements,
+          top_rail_enabled,
+        ] = this.boundValues;
+
+        state.monetization = {
+          ...prev,
+          preroll_click_url: String(preroll_click_url || ''),
+          preroll_skip_seconds: Number(preroll_skip_offset) || 5,
+          preroll_skip_offset: Number(preroll_skip_offset) || 5,
+          native_ads_enabled: Number(native_enabled) === 1 ? 1 : 0,
+          native_enabled: Number(native_enabled) === 1 ? 1 : 0,
+          native_ads_code: String(native_code || ''),
+          native_code: String(native_code || ''),
+          banner_top_code: String(banner_top_code || ''),
+          banner_infeed_code: String(banner_infeed_code || ''),
+          native_placements: String(native_placements || 'top_rail,under_player,in_feed'),
+          top_rail_enabled: top_rail_enabled !== undefined ? (Number(top_rail_enabled) === 1 ? 1 : 0) : 1,
+          updated_at: new Date().toISOString(),
+        };
+      } else if (q.includes('preroll_skip_seconds') || this.boundValues.length === 7) {
         const [
           preroll_enabled,
           preroll_video_url,

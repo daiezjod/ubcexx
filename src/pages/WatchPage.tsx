@@ -441,7 +441,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
 
             {Boolean(
               (monetization?.native_ads_enabled === 1 || monetization?.native_enabled === 1) &&
-              (monetization?.native_ads_code || monetization?.native_code) &&
+              (monetization?.banner_infeed_code || monetization?.native_ads_code || monetization?.native_code) &&
               (() => {
                 try {
                   const pz = typeof monetization?.placement_zones === 'string'
@@ -454,7 +454,9 @@ export const WatchPage: React.FC<WatchPageProps> = ({
               })()
             ) && (
               <AdBanner
-                adHtml={monetization?.native_ads_code || monetization?.native_code || ''}
+                adHtml={monetization?.banner_infeed_code || monetization?.native_ads_code || monetization?.native_code || ''}
+                width={300}
+                height={250}
               />
             )}
           </div>

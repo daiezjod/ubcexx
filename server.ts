@@ -731,6 +731,9 @@ app.post(['/api/monetization', '/api/admin/monetization'], async (req: Request, 
       ? body.placement_zones
       : JSON.stringify(body.placement_zones || {});
 
+    const banner_top_code = body.banner_top_code !== undefined ? body.banner_top_code : (body.bannerTopCode || '');
+    const banner_infeed_code = body.banner_infeed_code !== undefined ? body.banner_infeed_code : (body.bannerInfeedCode || body.native_ads_code || body.native_code || '');
+
     const state = d1DB.getState();
     state.monetization = {
       id: 1,
@@ -743,6 +746,8 @@ app.post(['/api/monetization', '/api/admin/monetization'], async (req: Request, 
       native_enabled: native_ads_enabled,
       native_ads_code,
       native_code: native_ads_code,
+      banner_top_code,
+      banner_infeed_code,
       native_placements,
       placement_zones,
       top_rail_enabled,

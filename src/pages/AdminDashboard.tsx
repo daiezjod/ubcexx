@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { Video, Category, AdminStats, MonetizationSettings, VideoReport } from '../types.ts';
 import { DynamicAdContainer } from '../components/DynamicAdContainer.tsx';
+import { BannerAd } from '../components/BannerAd.tsx';
 import { formatDuration, formatViews, formatNumber, formatTimeAgo } from '../utils/formatters.ts';
 import { safeFetchJson } from '../utils/api.ts';
 
@@ -62,6 +63,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [prerollSkipOffset, setPrerollSkipOffset] = useState('5');
   const [bannerEnabled, setBannerEnabled] = useState(true);
   const [bannerCode, setBannerCode] = useState('');
+  const [bannerTopCode, setBannerTopCode] = useState('');
+  const [bannerInfeedCode, setBannerInfeedCode] = useState('');
   const [showBannerHome, setShowBannerHome] = useState(true);
   const [showBannerWatch, setShowBannerWatch] = useState(true);
   const [isSavingMonetization, setIsSavingMonetization] = useState(false);
@@ -179,7 +182,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             setPrerollSkipOffset(String(skipSec));
             const natEnabled = m.native_ads_enabled !== undefined ? m.native_ads_enabled : m.native_enabled;
             setBannerEnabled(natEnabled === 1 || natEnabled === true);
-            setBannerCode(m.native_ads_code ?? m.native_code ?? '');
+            const rawCode = m.native_ads_code ?? m.native_code ?? '';
+            setBannerCode(rawCode);
+            setBannerTopCode(m.banner_top_code || '');
+            setBannerInfeedCode(m.banner_infeed_code || rawCode || '');
 
             if (m.placement_zones) {
               try {
@@ -519,8 +525,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         preroll_skip_offset: skipSeconds,
         native_ads_enabled: bannerEnabled ? 1 : 0,
         native_enabled: bannerEnabled ? 1 : 0,
-        native_ads_code: bannerCode,
-        native_code: bannerCode,
+        native_ads_code: bannerInfeedCode || bannerTopCode || bannerCode,
+        native_code: bannerInfeedCode || bannerTopCode || bannerCode,
+        banner_top_code: bannerTopCode,
+        banner_infeed_code: bannerInfeedCode,
         native_placements: placements.join(','),
         placement_zones: placementZones,
         top_rail_enabled: 0,
@@ -1746,99 +1754,156 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
 
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-xs font-semibold text-[#F8FAFC] uppercase tracking-wider flex items-center gap-1.5">
-                        <span>Banner Ad Script / HTML Code</span>
-                      </label>
-                      <span className="text-[10px] text-[#94A3B8] font-mono">Adsterra · ExoClick · HTML · JS Script</span>
+                  <div className="p-4 bg-[#080C14] border border-[#1E293B] rounded-xl space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-[#1E293B]">
+                      <div>
+                        <label className="text-xs font-bold text-[#F8FAFC] uppercase tracking-wider flex items-center gap-2">
+                          <span>1. Top Mobile Banner (320x50)</span>
+                          <span className="text-[10px] font-mono text-[#F59E0B] font-semibold bg-[#F59E0B]/10 px-2 py-0.5 rounded">
+                            320x50 Top Slot
+                          </span>
+                        </label>
+                        <p className="text-[11px] text-[#94A3B8] mt-0.5">
+                          Renders exclusively at the top of the Home Page directly below categories. Fixed 320px width & 50px height.
+                        </p>
+                      </div>
+                      <span className="text-[10px] text-[#94A3B8] font-mono">D1 'banner_top_code'</span>
+                    </div>
+
+                    <textarea
+                      rows={4}
+                      value={bannerTopCode}
+                      onChange={(e) => setBannerTopCode(e.target.value)}
+                      placeholder='<!-- Paste 320x50 banner ad script tag or HTML creative here -->'
+                      className="w-full bg-[#0F172A] text-xs font-mono text-[#10B981] p-3.5 rounded-xl border border-[#253349] focus:outline-none focus:border-[#F59E0B]"
+                    />
+
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] text-[#94A3B8]">Presets:</span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setBannerTopCode(
+                              `<div style="width:320px;height:50px;background:linear-gradient(90deg,#0d1526,#182234);border:1px solid #F59E0B;border-radius:8px;display:flex;align-items:center;justify-content:space-between;padding:6px 12px;box-sizing:border-box;"><div style="display:flex;align-items:center;gap:6px;"><span style="color:#F59E0B;font-size:14px;">⚡</span><div style="text-align:left;"><strong style="color:#FFFFFF;font-size:11px;display:block;line-height:1.2;">UBCEXX VIP EDGE STREAMING</strong><span style="color:#94A3B8;font-size:9px;">Ultra-fast uncapped 4K playback</span></div></div><a href="https://ubcexx.com/vip-pass" target="_blank" rel="noopener noreferrer" style="background:#F59E0B;color:#000000;font-size:10px;font-weight:800;padding:4px 8px;border-radius:4px;text-decoration:none;white-space:nowrap;">JOIN VIP</a></div>`
+                            )
+                          }
+                          className="text-[10px] bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] px-2 py-0.5 rounded text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer"
+                        >
+                          320x50 VIP Strip
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBannerTopCode('')}
+                          className="text-[10px] bg-[#3B0713] hover:bg-[#4C0D1A] border border-[#4C0D1A] px-2 py-0.5 rounded text-[#FB7185] cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      </div>
+
+                      <span className="text-[10px] font-mono text-[#94A3B8]">
+                        {bannerTopCode ? 'Code Configured' : 'Empty (Collapsed)'}
+                      </span>
+                    </div>
+
+                    <div className="pt-2 border-t border-[#1E293B]/60">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] font-semibold text-[#94A3B8] flex items-center gap-1.5">
+                          <Eye className="w-3 h-3 text-[#F59E0B]" />
+                          <span>320x50 Live Preview</span>
+                        </span>
+                      </div>
+                      <div className="p-3 bg-[#0F172A] border border-[#1E293B] rounded-xl flex items-center justify-center min-h-[60px]">
+                        {bannerTopCode ? (
+                          <BannerAd adHtml={bannerTopCode} width={320} height={50} className="my-0" />
+                        ) : (
+                          <span className="text-[11px] text-[#94A3B8] italic">
+                            Empty slot — container will cleanly collapse with zero empty boxes
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-[#080C14] border border-[#1E293B] rounded-xl space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-[#1E293B]">
+                      <div>
+                        <label className="text-xs font-bold text-[#F8FAFC] uppercase tracking-wider flex items-center gap-2">
+                          <span>2. In-Feed Rectangle Banner (300x250)</span>
+                          <span className="text-[10px] font-mono text-[#F59E0B] font-semibold bg-[#F59E0B]/10 px-2 py-0.5 rounded">
+                            Every 9 Videos
+                          </span>
+                        </label>
+                        <p className="text-[11px] text-[#94A3B8] mt-0.5">
+                          Automatically injected directly after every 9th video card in the browse grid, spanning full width.
+                        </p>
+                      </div>
+                      <span className="text-[10px] text-[#94A3B8] font-mono">D1 'banner_infeed_code'</span>
                     </div>
 
                     <textarea
                       rows={5}
-                      value={bannerCode}
-                      onChange={(e) => setBannerCode(e.target.value)}
-                      placeholder='<!-- Paste banner ad script tag or HTML creative here -->'
-                      className="w-full bg-[#080C14] text-xs font-mono text-[#10B981] p-3.5 rounded-xl border border-[#253349] focus:outline-none focus:border-[#F59E0B]"
+                      value={bannerInfeedCode}
+                      onChange={(e) => setBannerInfeedCode(e.target.value)}
+                      placeholder='<!-- Paste 300x250 banner ad script tag or HTML creative here -->'
+                      className="w-full bg-[#0F172A] text-xs font-mono text-[#10B981] p-3.5 rounded-xl border border-[#253349] focus:outline-none focus:border-[#F59E0B]"
                     />
 
-                    <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                      <span className="text-[10px] text-[#94A3B8]">Presets:</span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setBannerCode(
-                            `<div style="display:inline-block;width:728px;max-width:100%;height:90px;background:#131C2E;border:1px dashed #253349;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#94A3B8;font-size:12px;font-family:monospace;"><span style="color:#F59E0B;font-weight:bold;margin-right:8px;">[UBCEXX PARTNER 728x90]</span> Leaderboard Ad Slot</div>`
-                          )
-                        }
-                        className="text-[10px] bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] px-2 py-0.5 rounded text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer"
-                      >
-                        728x90 Leaderboard
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setBannerCode(
-                            `<div style="display:inline-block;width:300px;max-width:100%;height:250px;background:#131C2E;border:1px dashed #253349;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#94A3B8;font-size:12px;font-family:monospace;"><span style="color:#F59E0B;font-weight:bold;margin-right:8px;">[UBCEXX 300x250]</span> Medium Rectangle</div>`
-                          )
-                        }
-                        className="text-[10px] bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] px-2 py-0.5 rounded text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer"
-                      >
-                        300x250 Medium Rectangle
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setBannerCode(
-                            `<div style="display:inline-block;width:320px;max-width:100%;height:50px;background:#131C2E;border:1px dashed #253349;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#94A3B8;font-size:12px;font-family:monospace;"><span style="color:#F59E0B;font-weight:bold;margin-right:8px;">[UBCEXX 320x50]</span> Mobile Leaderboard</div>`
-                          )
-                        }
-                        className="text-[10px] bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] px-2 py-0.5 rounded text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer"
-                      >
-                        320x50 Mobile
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setBannerCode(
-                            `<div style="display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,#0d1526,#182234);border:1px solid #F59E0B;border-radius:12px;padding:14px 20px;width:100%;max-width:728px;box-shadow:0 0 20px rgba(245,158,11,0.12);"><div style="text-align:left;"><span style="color:#F59E0B;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;display:block;">⚡ UBCEXX PLATINUM PARTNER</span><strong style="color:#FFFFFF;font-size:14px;display:block;margin-top:2px;">Ultra-Fast Edge Streaming & Video CDN</strong><span style="color:#94A3B8;font-size:11px;">Claim 100GB free tier and zero-egress video CDN hosting.</span></div><a href="https://ubcexx.com/vip-offer" target="_blank" rel="noopener noreferrer" style="background:#F59E0B;color:#000000;font-weight:800;font-size:12px;padding:8px 18px;border-radius:8px;text-decoration:none;white-space:nowrap;margin-left:16px;">Claim Offer ↗</a></div>`
-                          )
-                        }
-                        className="text-[10px] bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] px-2 py-0.5 rounded text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer"
-                      >
-                        Responsive Gold Banner
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setBannerCode('')}
-                        className="text-[10px] bg-[#3B0713] hover:bg-[#4C0D1A] border border-[#4C0D1A] px-2 py-0.5 rounded text-[#FB7185] cursor-pointer"
-                      >
-                        Clear
-                      </button>
-                    </div>
-                  </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] text-[#94A3B8]">Presets:</span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setBannerInfeedCode(
+                              `<div style="width:300px;max-width:100%;height:250px;background:linear-gradient(135deg,#0d1526,#182234);border:1px solid #F59E0B;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;text-align:center;box-sizing:border-box;"><span style="color:#F59E0B;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;">⚡ SPONSORED PARTNER · 300x250</span><strong style="color:#FFFFFF;font-size:15px;line-height:1.3;margin-bottom:6px;">Ultra-Fast Edge Streaming & Video CDN</strong><p style="color:#94A3B8;font-size:11px;margin:0 0 12px 0;line-height:1.4;">Zero-buffering 4K playback with global edge nodes.</p><a href="https://ubcexx.com/vip-offer" target="_blank" rel="noopener noreferrer" style="background:#F59E0B;color:#000000;font-weight:800;font-size:12px;padding:8px 20px;border-radius:8px;text-decoration:none;display:inline-block;">Claim Offer ↗</a></div>`
+                            )
+                          }
+                          className="text-[10px] bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] px-2 py-0.5 rounded text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer"
+                        >
+                          300x250 Rectangle Preset
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setBannerInfeedCode(
+                              `<div style="display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,#0d1526,#182234);border:1px solid #F59E0B;border-radius:12px;padding:14px 20px;width:100%;max-width:728px;box-shadow:0 0 20px rgba(245,158,11,0.12);"><div style="text-align:left;"><span style="color:#F59E0B;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;display:block;">⚡ UBCEXX PLATINUM PARTNER</span><strong style="color:#FFFFFF;font-size:14px;display:block;margin-top:2px;">Ultra-Fast Edge Streaming & Video CDN</strong><span style="color:#94A3B8;font-size:11px;">Claim 100GB free tier and zero-egress video CDN hosting.</span></div><a href="https://ubcexx.com/vip-offer" target="_blank" rel="noopener noreferrer" style="background:#F59E0B;color:#000000;font-weight:800;font-size:12px;padding:8px 18px;border-radius:8px;text-decoration:none;white-space:nowrap;margin-left:16px;">Claim Offer ↗</a></div>`
+                            )
+                          }
+                          className="text-[10px] bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] px-2 py-0.5 rounded text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer"
+                        >
+                          Responsive Gold Banner
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBannerInfeedCode('')}
+                          className="text-[10px] bg-[#3B0713] hover:bg-[#4C0D1A] border border-[#4C0D1A] px-2 py-0.5 rounded text-[#FB7185] cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      </div>
 
-                  <div className="pt-2">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[11px] font-semibold text-[#94A3B8] flex items-center gap-1.5">
-                        <Eye className="w-3.5 h-3.5 text-[#F59E0B]" />
-                        <span>Live Banner Ad Preview</span>
-                      </span>
-                      <span className="text-[10px] font-mono text-[#10B981]">
-                        {bannerCode ? 'Dynamic Sandbox Rendering' : 'No Code Configured'}
+                      <span className="text-[10px] font-mono text-[#94A3B8]">
+                        {bannerInfeedCode ? 'Code Configured' : 'Empty (Collapsed)'}
                       </span>
                     </div>
-                    <div className="p-4 bg-[#0F172A] border border-[#1E293B] rounded-xl overflow-x-auto flex items-center justify-center min-h-[120px]">
-                      {bannerCode ? (
-                        <DynamicAdContainer
-                          adHtml={bannerCode}
-                          className="w-full flex items-center justify-center"
-                        />
-                      ) : (
-                        <span className="text-xs text-[#94A3B8] italic">
-                          Paste ad script or choose a preset above to preview the banner
+
+                    <div className="pt-2 border-t border-[#1E293B]/60">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] font-semibold text-[#94A3B8] flex items-center gap-1.5">
+                          <Eye className="w-3 h-3 text-[#F59E0B]" />
+                          <span>300x250 Live Preview</span>
                         </span>
-                      )}
+                      </div>
+                      <div className="p-3 bg-[#0F172A] border border-[#1E293B] rounded-xl flex items-center justify-center min-h-[120px]">
+                        {bannerInfeedCode ? (
+                          <BannerAd adHtml={bannerInfeedCode} width={300} height={250} className="my-0" />
+                        ) : (
+                          <span className="text-[11px] text-[#94A3B8] italic">
+                            Empty slot — container will cleanly collapse with zero empty boxes
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

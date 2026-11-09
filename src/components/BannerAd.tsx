@@ -3,19 +3,39 @@ import React, { useMemo } from 'react';
 interface BannerAdProps {
   adHtml?: string;
   className?: string;
+  width?: number;
+  height?: number;
+  variant?: 'top' | 'infeed' | 'auto';
 }
 
-export const BannerAd: React.FC<BannerAdProps> = ({ adHtml = '', className = '' }) => {
+export const BannerAd: React.FC<BannerAdProps> = ({
+  adHtml = '',
+  className = '',
+  width: propWidth,
+  height: propHeight,
+  variant = 'auto',
+}) => {
   const trimmed = adHtml ? adHtml.trim() : '';
 
-  const is728x90 = useMemo(() => {
-    if (!trimmed) return false;
+  const { width, height } = useMemo(() => {
+    if (propWidth && propHeight) {
+      return { width: propWidth, height: propHeight };
+    }
+    if (variant === 'top') {
+      return { width: 320, height: 50 };
+    }
+    if (variant === 'infeed') {
+      return { width: 300, height: 250 };
+    }
     const lower = trimmed.toLowerCase();
-    return lower.includes('728x90') || (lower.includes('728') && lower.includes('90'));
-  }, [trimmed]);
-
-  const width = is728x90 ? 728 : 300;
-  const height = is728x90 ? 90 : 250;
+    if (lower.includes('320x50') || (lower.includes('320') && lower.includes('50'))) {
+      return { width: 320, height: 50 };
+    }
+    if (lower.includes('728x90') || (lower.includes('728') && lower.includes('90'))) {
+      return { width: 728, height: 90 };
+    }
+    return { width: 300, height: 250 };
+  }, [trimmed, propWidth, propHeight, variant]);
 
   const srcDoc = useMemo(() => {
     if (!trimmed) return '';

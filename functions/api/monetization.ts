@@ -125,11 +125,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     await addCol('native_enabled INTEGER DEFAULT 1');
     await addCol('native_ads_code TEXT DEFAULT ""');
     await addCol('native_code TEXT DEFAULT ""');
+    await addCol('banner_top_code TEXT DEFAULT ""');
+    await addCol('banner_infeed_code TEXT DEFAULT ""');
     await addCol('native_placements TEXT DEFAULT "top_rail,under_player,in_feed"');
     await addCol('top_rail_enabled INTEGER DEFAULT 1');
     await addCol('top_rail_cards TEXT DEFAULT "[]"');
     await addCol('placement_zones TEXT DEFAULT "{}"');
     await addCol('updated_at TEXT DEFAULT ""');
+
+    const banner_top_code = body.banner_top_code !== undefined ? body.banner_top_code : (body.bannerTopCode || '');
+    const banner_infeed_code = body.banner_infeed_code !== undefined ? body.banner_infeed_code : (body.bannerInfeedCode || body.native_ads_code || body.native_code || '');
 
     const rowExists = await context.env.DB.prepare('SELECT id FROM monetization WHERE id = 1').first().catch(() => null);
     if (!rowExists) {
@@ -165,6 +170,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             preroll_skip_offset = ?,
             native_enabled = ?,
             native_code = ?,
+            banner_top_code = ?,
+            banner_infeed_code = ?,
             native_placements = ?,
             top_rail_enabled = ?,
             updated_at = datetime('now')
@@ -174,6 +181,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         preroll_skip_seconds,
         native_ads_enabled,
         native_ads_code,
+        banner_top_code,
+        banner_infeed_code,
         body.native_placements || 'top_rail,under_player,in_feed',
         body.top_rail_enabled !== undefined ? (body.top_rail_enabled ? 1 : 0) : 1
       ).run();
