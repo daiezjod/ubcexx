@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Film,
   PlusCircle,
@@ -131,6 +131,54 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isFeatured, setIsFeatured] = useState(false);
   const [status, setStatus] = useState('published');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDetectingMeta, setIsDetectingMeta] = useState(false);
+  const lastDetectedUrlRef = useRef<string>('');
+
+  useEffect(() => {
+    const trimmed = (videoUrl || '').trim();
+    if (!trimmed) return;
+    if (!trimmed.includes('ok.ru') && !trimmed.includes('odnoklassniki.ru')) return;
+    if (lastDetectedUrlRef.current === trimmed) return;
+
+    lastDetectedUrlRef.current = trimmed;
+    setIsDetectingMeta(true);
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      fetch(`/api/admin/video-meta?url=${encodeURIComponent(trimmed)}`, {
+        signal: controller.signal,
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.success) {
+            if (data.duration && data.duration !== '00:00') {
+              setDuration(data.duration);
+            }
+            if (data.title && !title.trim()) {
+              setTitle(data.title);
+              const autoSlug = data.title
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/(^-|-$)/g, '');
+              setSlug(autoSlug);
+            }
+            if (data.thumbnail_url && (!thumbnailUrl.trim() || thumbnailUrl.includes('cyberpunk_1793264277456'))) {
+              setThumbnailUrl(data.thumbnail_url);
+            }
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          setIsDetectingMeta(false);
+        });
+    }, 400);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [videoUrl, title, thumbnailUrl, token]);
 
   const [catName, setCatName] = useState('');
   const [catSlug, setCatSlug] = useState('');
@@ -1127,6 +1175,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       placeholder="https://ok.ru/videoembed/... or https://pub-r2.ubcexx.com/primary.mp4"
                       className="w-full bg-[#131C2E] text-xs text-[#F8FAFC] px-3.5 py-2.5 rounded-xl border border-[#253349] font-mono focus:outline-none focus:border-[#F59E0B]"
                     />
+                    {isDetectingMeta && (
+                      <div className="flex items-center gap-2 mt-2 px-3 py-1.5 rounded-lg bg-[#2A1D0B] border border-[#F59E0B]/50 text-xs text-[#F59E0B] font-mono animate-pulse">
+                        <span className="w-2 h-2 rounded-full bg-[#F59E0B] animate-ping shrink-0" />
+                        <span>⚡ Auto-detecting video duration...</span>
+                      </div>
+                    )}
                     {}
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       <span className="text-[10px] text-[#94A3B8] self-center">Presets:</span>
@@ -1292,11 +1346,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div>
                   <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-1.5 flex items-center justify-between">
                     <span>Duration (MM:SS or HH:MM:SS)</span>
-                    {parseDurationToSeconds(duration) > 0 && (
+                    {isDetectingMeta ? (
+                      <span className="text-[11px] text-[#F59E0B] font-mono animate-pulse">
+                        ⚡ Auto-detecting...
+                      </span>
+                    ) : parseDurationToSeconds(duration) > 0 ? (
                       <span className="text-[11px] text-[#F59E0B] font-mono font-semibold">
                         = {formatDuration(parseDurationToSeconds(duration))}
                       </span>
-                    )}
+                    ) : null}
                   </label>
                   <input
                     type="text"
