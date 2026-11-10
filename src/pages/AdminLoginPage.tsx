@@ -25,7 +25,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
   onLoginSuccess,
   onBackToTube,
 }) => {
-  const [username, setUsername] = useState('admin');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,7 +108,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
       const res = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email: email.trim(), username: email.trim(), password }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -223,15 +223,15 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-2">
-              Admin Username
+              Admin Email / Username
             </label>
             <input
               type="text"
               required
               disabled={isLocked || loading}
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="admin"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter admin email"
               className="w-full bg-[#131C2E] text-sm text-[#F8FAFC] px-4 py-3 rounded-xl border border-[#253349] focus:outline-none focus:border-[#F59E0B] focus:ring-1 focus:ring-[#F59E0B] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             />
           </div>
@@ -247,7 +247,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
               disabled={isLocked || loading}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter master password"
+              placeholder="Enter admin password"
               className="w-full bg-[#131C2E] text-sm text-[#F8FAFC] px-4 py-3 rounded-xl border border-[#253349] focus:outline-none focus:border-[#F59E0B] focus:ring-1 focus:ring-[#F59E0B] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             />
           </div>
@@ -277,11 +277,11 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
           <div className="bg-[#131C2E] rounded-xl p-3.5 border border-[#1E293B] text-xs">
             <div className="flex items-center gap-2 text-[#F8FAFC] font-semibold mb-1">
               <ShieldCheck className="w-4 h-4 text-[#10B981]" />
-              <span>Default Master Credentials</span>
+              <span>Cloudflare D1 Dynamic Authentication</span>
             </div>
             <div className="flex justify-between items-center text-[#94A3B8] font-mono text-[11px] mt-1.5">
-              <span>User: <strong className="text-[#F8FAFC]">admin</strong></span>
-              <span>Pass: <strong className="text-[#F8FAFC]">ubcexx2026!</strong></span>
+              <span>Security: <strong className="text-[#10B981]">Encrypted D1 Store</strong></span>
+              <span>Shield: <strong className="text-[#F59E0B]">2-Attempt Lockout</strong></span>
             </div>
           </div>
         </div>

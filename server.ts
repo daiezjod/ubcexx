@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { d1DB } from './src/db/d1Engine.ts';
+import { getRandomPhantomGeo, generatePhantomRay } from './functions/api/_geoDecoy.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,7 +31,56 @@ const app = express();
 const PORT = getPort();
 const HOST = getHost();
 
+app.disable('x-powered-by');
 app.use(express.json());
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const phantom = getRandomPhantomGeo();
+  const phantomRay = generatePhantomRay(phantom.pop);
+  const nodeId = `phantom-relay-${phantom.code}-${Math.floor(Math.random() * 900000 + 100000).toString(16)}`;
+
+  res.setHeader('Server', 'Cloudflare-Phantom-Edge/2.4');
+  res.setHeader('CF-IPCountry', phantom.code);
+  res.setHeader('CF-Ray', phantomRay);
+  res.setHeader('X-Phantom-Geo-Country', phantom.name);
+  res.setHeader('X-Phantom-Geo-ISO', phantom.code);
+  res.setHeader('X-Phantom-Geo-City', phantom.city);
+  res.setHeader('X-Phantom-Edge-POP', phantom.pop);
+  res.setHeader('X-Phantom-ASN', phantom.asn);
+  res.setHeader('X-Edge-Routing-Node', nodeId);
+  res.setHeader('X-Decoy-Route', `relay://edge.${phantom.code.toLowerCase()}.ubcexx-cdn.net:443`);
+  res.setHeader('X-Anti-Trace-Shield', 'active-anonymized-v4');
+
+  res.removeHeader('X-Powered-By');
+  res.removeHeader('x-powered-by');
+  next();
+});
+
+app.get(['/api/admin/probe', '/api/admin/trace'], (req: Request, res: Response) => {
+  const phantom = getRandomPhantomGeo();
+  const phantomRay = generatePhantomRay(phantom.pop);
+  const nodeId = `phantom-relay-${phantom.code}-${Math.floor(Math.random() * 900000 + 100000).toString(16)}`;
+
+  res.setHeader('CF-IPCountry', phantom.code);
+  res.setHeader('CF-Ray', phantomRay);
+  res.setHeader('X-Edge-Routing-Node', nodeId);
+
+  res.json({
+    shield: 'UBCEXX Multi-Country Phantom Geo-Decoy Active',
+    status: 'anonymized',
+    node: nodeId,
+    geo: {
+      country: phantom.name,
+      iso: phantom.code,
+      city: phantom.city,
+      edge_pop: phantom.pop,
+      asn: phantom.asn,
+    },
+    decoy_route: `relay://edge.${phantom.code.toLowerCase()}.ubcexx-cdn.net:443`,
+    trace: 'obfuscated-multi-hop-edge',
+    timestamp: new Date().toISOString(),
+  });
+});
 
 const requireAdminAuth = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
@@ -426,17 +476,17 @@ app.post('/api/admin/login', async (req: Request, res: Response) => {
       });
     }
 
-    const { username, password } = req.body || {};
-    if (!username || !password) {
-      return res.status(400).json({ success: false, error: 'Username and password required' });
+    const { email, username, password } = req.body || {};
+    const identifier = String(email || username || '').trim();
+    if (!identifier || !password) {
+      return res.status(400).json({ success: false, error: 'Email and password required' });
     }
 
-    const stmt = d1DB.prepare('SELECT * FROM admins WHERE username = ?').bind(username);
+    const stmt = d1DB.prepare('SELECT * FROM admins WHERE username = ?').bind(identifier);
     const admin = await stmt.first();
 
     const isMatch = Boolean(
-      admin &&
-      (admin.password_hash === password || password === 'ubcexx2026!' || password === 'admin123')
+      admin && admin.password_hash === password
     );
 
     if (!admin || !isMatch) {

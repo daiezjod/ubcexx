@@ -58,23 +58,23 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     const body: any = await context.request.json().catch(() => ({}));
-    const { username, password } = body;
+    const identifier = String(body.email || body.username || '').trim();
+    const password = String(body.password || '');
 
-    if (!username || !password) {
+    if (!identifier || !password) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Username and password required' }),
+        JSON.stringify({ success: false, error: 'Email and password required' }),
         { status: 400, headers: corsHeaders }
       );
     }
 
     const stmt = context.env.DB.prepare(`
       SELECT id, username, password_hash FROM admins WHERE username = ?
-    `).bind(username);
+    `).bind(identifier);
     const admin = await stmt.first<{ id: number; username: string; password_hash: string }>();
 
     const isMatch = Boolean(
-      admin &&
-      (admin.password_hash === password || password === 'ubcexx2026!' || password === 'admin123')
+      admin && admin.password_hash === password
     );
 
     if (!admin || !isMatch) {

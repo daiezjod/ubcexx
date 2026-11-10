@@ -191,14 +191,7 @@ const initialVideos: Video[] = [
   }
 ];
 
-const initialAdmins: AdminUser[] = [
-  {
-    id: 1,
-    username: 'admin',
-    password_hash: 'ubcexx2026!',
-    created_at: new Date(Date.now() - 60 * 86400000).toISOString(),
-  }
-];
+const initialAdmins: AdminUser[] = [];
 
 const initialMonetization: MonetizationSettings = {
   id: 1,
