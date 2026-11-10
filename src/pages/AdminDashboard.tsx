@@ -32,7 +32,7 @@ import {
 import { Video, Category, AdminStats, MonetizationSettings, VideoReport } from '../types.ts';
 import { DynamicAdContainer } from '../components/DynamicAdContainer.tsx';
 import { BannerAd } from '../components/BannerAd.tsx';
-import { formatDuration, formatViews, formatNumber, formatTimeAgo } from '../utils/formatters.ts';
+import { formatDuration, formatViews, formatNumber, formatTimeAgo, parseDurationToSeconds } from '../utils/formatters.ts';
 import { safeFetchJson } from '../utils/api.ts';
 
 interface AdminDashboardProps {
@@ -125,7 +125,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [videoUrl, setVideoUrl] = useState('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4');
   const [backupVideoUrl, setBackupVideoUrl] = useState('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4');
   const [thumbnailUrl, setThumbnailUrl] = useState('/src/assets/images/ubcexx_hero_cyberpunk_1793264277456.jpg');
-  const [duration, setDuration] = useState('734');
+  const [duration, setDuration] = useState('');
   const [categoryId, setCategoryId] = useState<number>(1);
   const [tags, setTags] = useState('action, 4k, stream, ubcexx');
   const [isFeatured, setIsFeatured] = useState(false);
@@ -299,7 +299,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           video_url: videoUrl,
           backup_video_url: backupVideoUrl,
           thumbnail_url: thumbnailUrl,
-          duration: parseInt(duration, 10) || 0,
+          duration: parseDurationToSeconds(duration),
           category_id: categoryId,
           tags,
           is_featured: isFeatured,
@@ -323,6 +323,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setTitle('');
       setSlug('');
       setDescription('');
+      setDuration('');
       setIsFeatured(false);
       setActiveTab('videos');
       fetchData();
@@ -1289,22 +1290,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-1.5">
-                    Duration (Seconds)
+                  <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                    <span>Duration (MM:SS or HH:MM:SS)</span>
+                    {parseDurationToSeconds(duration) > 0 && (
+                      <span className="text-[11px] text-[#F59E0B] font-mono font-semibold">
+                        = {formatDuration(parseDurationToSeconds(duration))}
+                      </span>
+                    )}
                   </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min={1}
-                      value={duration}
-                      onChange={(e) => setDuration(e.target.value)}
-                      placeholder="e.g. 734"
-                      className="w-full bg-[#131C2E] text-sm text-[#F8FAFC] px-3.5 py-2.5 rounded-xl border border-[#253349] font-mono focus:outline-none focus:border-[#F59E0B]"
-                    />
-                    <span className="absolute right-3 top-2.5 text-xs text-[#94A3B8] font-mono">
-                      = {formatDuration(parseInt(duration, 10) || 0)}
-                    </span>
-                  </div>
+                  <input
+                    type="text"
+                    value={duration}
+                    onChange={(e) => setDuration(e.target.value)}
+                    placeholder="e.g. 08:45, 14:20, or 01:05:30"
+                    className="w-full bg-[#131C2E] text-sm text-[#F8FAFC] px-3.5 py-2.5 rounded-xl border border-[#253349] font-mono focus:outline-none focus:border-[#F59E0B]"
+                  />
                 </div>
 
                 <div>

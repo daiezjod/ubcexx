@@ -11,6 +11,30 @@ export function formatDuration(seconds: number): string {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
+export function parseDurationToSeconds(input: string | number | undefined | null): number {
+  if (typeof input === 'number') {
+    return Math.max(0, Math.floor(input));
+  }
+  if (!input) return 0;
+  const str = String(input).trim();
+  if (!str) return 0;
+
+  if (str.includes(':')) {
+    const parts = str.split(':').map((p) => parseInt(p.trim(), 10) || 0);
+    if (parts.length === 2) {
+      const [mins, secs] = parts;
+      return Math.max(0, mins * 60 + secs);
+    }
+    if (parts.length === 3) {
+      const [hours, mins, secs] = parts;
+      return Math.max(0, hours * 3600 + mins * 60 + secs);
+    }
+  }
+
+  const raw = parseInt(str, 10);
+  return isNaN(raw) ? 0 : Math.max(0, raw);
+}
+
 export function formatViews(views: number): string {
   if (!views && views !== 0) return '0 views';
   if (views >= 1000000) {

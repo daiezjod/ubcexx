@@ -604,6 +604,20 @@ app.post(['/api/videos', '/api/admin/videos'], async (req: Request, res: Respons
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
+    let parsedDuration = 0;
+    if (typeof duration === 'number') {
+      parsedDuration = Math.max(0, Math.floor(duration));
+    } else if (typeof duration === 'string') {
+      const trimmed = duration.trim();
+      if (trimmed.includes(':')) {
+        const parts = trimmed.split(':').map((p) => parseInt(p.trim(), 10) || 0);
+        if (parts.length === 2) parsedDuration = parts[0] * 60 + parts[1];
+        else if (parts.length === 3) parsedDuration = parts[0] * 3600 + parts[1] * 60 + parts[2];
+      } else {
+        parsedDuration = parseInt(trimmed, 10) || 0;
+      }
+    }
+
     const stmt = d1DB.prepare(insertSql).bind(
       title,
       cleanSlug,
@@ -611,7 +625,7 @@ app.post(['/api/videos', '/api/admin/videos'], async (req: Request, res: Respons
       video_url,
       backup_video_url ? String(backup_video_url).trim() : '',
       thumbnail_url,
-      Number(duration) || 0,
+      parsedDuration,
       Number(category_id) || 1,
       tags || '',
       is_featured ? 1 : 0,
