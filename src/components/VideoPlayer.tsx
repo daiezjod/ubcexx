@@ -30,6 +30,15 @@ export function isAdminSession(): boolean {
   }
 }
 
+export function isValidPrerollAd(ad?: PreRollAdConfig): boolean {
+  if (!ad || !ad.enabled || !ad.videoUrl) return false;
+  const trimmed = String(ad.videoUrl).trim();
+  if (trimmed.length === 0) return false;
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) return false;
+  if (trimmed.includes('ForBiggerBlazes') || trimmed.includes('BrokenNonExistentStream')) return false;
+  return true;
+}
+
 export function shouldShowPreRoll(): boolean {
   return true;
 }
@@ -393,9 +402,10 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   const [iframeMountKey, setIframeMountKey] = useState<number>(0);
 
+  const hasValidPreroll = isValidPrerollAd(preRollAd);
   const [isAdActive, setIsAdActive] = useState<boolean>(false);
-  const [adFinished, setAdFinished] = useState<boolean>(false);
-  const [adCountdown, setAdCountdown] = useState<number>(preRollAd?.skipOffset || 5);
+  const [adFinished, setAdFinished] = useState<boolean>(!hasValidPreroll);
+  const [adCountdown, setAdCountdown] = useState<number>(hasValidPreroll ? (preRollAd?.skipOffset || 5) : 0);
   const [canSkipAd, setCanSkipAd] = useState<boolean>(false);
   const adClickThroughRef = useRef<string | undefined>(undefined);
   const adClickTrackingRef = useRef<string[]>([]);
@@ -537,6 +547,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, [videoUrl, backupVideoUrl, hasFailedOver, hasReportedView, onFirstPlay, isAdActive]);
 
   useEffect(() => {
+    if (!hasValidPreroll) {
+      setIsAdActive(false);
+      setAdFinished(true);
+      return;
+    }
+
     if (preRollAd?.enabled && preRollAd.videoUrl && isOkRuActive && !adFinished && !isAdActive) {
       if (shouldShowPreRoll()) {
         recordPreRollShown();
@@ -582,7 +598,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         setAdFinished(true);
       }
     }
-  }, [preRollAd, isOkRuActive, adFinished, isAdActive, handleSkipAd]);
+  }, [hasValidPreroll, preRollAd, isOkRuActive, adFinished, isAdActive, handleSkipAd]);
 
   const handleVideoError = useCallback(() => {
     if (document.visibilityState === 'hidden' || isPageHiddenRef.current) {
@@ -645,68 +661,53 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   const togglePlay = useCallback(async () => {
     if (!adFinished && !isAdActive) {
-      if (!shouldShowPreRoll()) {
+      if (!hasValidPreroll) {
         setAdFinished(true);
-      } else {
-        let adConfigToUse = preRollAd;
+      } else if (preRollAd?.enabled && preRollAd.videoUrl) {
+        recordPreRollShown();
+        setIsAdActive(true);
+        setHasStarted(true);
+        const timerSeconds = preRollAd.skipOffset || 5;
+        setAdCountdown(timerSeconds);
+
         try {
-          const d1Data = await safeFetchJson<{ success: boolean; monetization?: MonetizationSettings }>('/api/monetization');
-          if (d1Data?.success && d1Data.monetization) {
-            adConfigToUse = {
-              enabled: d1Data.monetization.preroll_enabled === 1,
-              videoUrl: d1Data.monetization.preroll_video_url,
-              skipOffset: Number(d1Data.monetization.preroll_skip_seconds ?? d1Data.monetization.preroll_skip_offset ?? 5) || 5,
-            };
-          }
-        } catch {
-        }
-
-        if (adConfigToUse?.enabled && adConfigToUse.videoUrl) {
-          recordPreRollShown();
-          setIsAdActive(true);
-          setHasStarted(true);
-          const timerSeconds = adConfigToUse.skipOffset || 5;
-          setAdCountdown(timerSeconds);
-
-          try {
-            const resolvedAd = await resolveAdStreamUrl(adConfigToUse.videoUrl);
-            if (!resolvedAd.streamUrl) {
-              handleSkipAd();
-              return;
-            }
-
-            const streamToPlay = resolvedAd.streamUrl;
-            setActiveSource(streamToPlay);
-
-            const finalSkip = resolvedAd.skipOffsetSeconds || timerSeconds;
-            setAdCountdown(finalSkip);
-
-            if (resolvedAd.impressionUrls && resolvedAd.impressionUrls.length > 0) {
-              resolvedAd.impressionUrls.forEach((impUrl) => fireBeacon(impUrl));
-            }
-
-            adClickThroughRef.current = resolvedAd.clickThroughUrl;
-            adClickTrackingRef.current = resolvedAd.clickTrackingUrls;
-            adSkipTrackingRef.current = resolvedAd.skipTrackingUrls;
-            adCompleteTrackingRef.current = resolvedAd.completeTrackingUrls;
-
-            setTimeout(() => {
-              if (videoRef.current) {
-                videoRef.current.play().then(() => {
-                  setIsPlaying(true);
-                }).catch(() => {
-                  handleSkipAd();
-                });
-              }
-            }, 60);
-            return;
-          } catch {
+          const resolvedAd = await resolveAdStreamUrl(preRollAd.videoUrl);
+          if (!resolvedAd.streamUrl) {
             handleSkipAd();
             return;
           }
-        } else {
-          setAdFinished(true);
+
+          const streamToPlay = resolvedAd.streamUrl;
+          setActiveSource(streamToPlay);
+
+          const finalSkip = resolvedAd.skipOffsetSeconds || timerSeconds;
+          setAdCountdown(finalSkip);
+
+          if (resolvedAd.impressionUrls && resolvedAd.impressionUrls.length > 0) {
+            resolvedAd.impressionUrls.forEach((impUrl) => fireBeacon(impUrl));
+          }
+
+          adClickThroughRef.current = resolvedAd.clickThroughUrl;
+          adClickTrackingRef.current = resolvedAd.clickTrackingUrls;
+          adSkipTrackingRef.current = resolvedAd.skipTrackingUrls;
+          adCompleteTrackingRef.current = resolvedAd.completeTrackingUrls;
+
+          setTimeout(() => {
+            if (videoRef.current) {
+              videoRef.current.play().then(() => {
+                setIsPlaying(true);
+              }).catch(() => {
+                handleSkipAd();
+              });
+            }
+          }, 60);
+          return;
+        } catch {
+          handleSkipAd();
+          return;
         }
+      } else {
+        setAdFinished(true);
       }
     }
 
@@ -736,7 +737,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       videoRef.current.pause();
       setIsPlaying(false);
     }
-  }, [preRollAd, adFinished, isAdActive, isOkRuActive, handleSkipAd, hasReportedView, onFirstPlay, handleVideoError]);
+  }, [hasValidPreroll, preRollAd, adFinished, isAdActive, isOkRuActive, handleSkipAd, hasReportedView, onFirstPlay, handleVideoError]);
 
   const toggleMute = () => {
     if (!videoRef.current) return;

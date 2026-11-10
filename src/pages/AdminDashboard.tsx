@@ -103,9 +103,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     };
   }, [onLogout]);
 
-  const [prerollEnabled, setPrerollEnabled] = useState(true);
-  const [prerollVideoUrl, setPrerollVideoUrl] = useState('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4');
-  const [prerollClickUrl, setPrerollClickUrl] = useState('https://ubcexx.com/vip-pass');
+  const [prerollEnabled, setPrerollEnabled] = useState(false);
+  const [prerollVideoUrl, setPrerollVideoUrl] = useState('');
+  const [prerollClickUrl, setPrerollClickUrl] = useState('');
   const [prerollSkipOffset, setPrerollSkipOffset] = useState('5');
   const [bannerEnabled, setBannerEnabled] = useState(true);
   const [bannerCode, setBannerCode] = useState('');
@@ -1638,31 +1638,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       className="w-full bg-[#131C2E] text-xs text-[#F8FAFC] px-3.5 py-2.5 rounded-xl border border-[#253349] font-mono focus:outline-none focus:border-[#F59E0B]"
                     />
                     
-                    {}
-                    <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                      <span className="text-[10px] text-[#94A3B8]">Tag &amp; Stream Presets:</span>
-                      <button
-                        type="button"
-                        onClick={() => setPrerollVideoUrl('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4')}
-                        className="text-[10px] bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] px-2 py-0.5 rounded text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer"
-                      >
-                        Blaze Promo MP4
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPrerollVideoUrl('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4')}
-                        className="text-[10px] bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] px-2 py-0.5 rounded text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer"
-                      >
-                        Escapes Teaser MP4
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPrerollVideoUrl('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4')}
-                        className="text-[10px] bg-[#182234] hover:bg-[#1E293B] border border-[#1E293B] px-2 py-0.5 rounded text-[#94A3B8] hover:text-[#F8FAFC] cursor-pointer"
-                      >
-                        Sci-Fi Promo MP4
-                      </button>
-                    </div>
+
                   </div>
 
                   <div className="max-w-xs">

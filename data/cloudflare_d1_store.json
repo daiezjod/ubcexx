@@ -186,9 +186,9 @@
   ],
   "monetization": {
     "id": 1,
-    "preroll_enabled": 1,
-    "preroll_video_url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-    "preroll_click_url": "https://ubcexx.com/vip",
+    "preroll_enabled": 0,
+    "preroll_video_url": "",
+    "preroll_click_url": "",
     "preroll_skip_seconds": 5,
     "preroll_skip_offset": 5,
     "native_ads_enabled": 1,

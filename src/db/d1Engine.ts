@@ -195,9 +195,9 @@ const initialAdmins: AdminUser[] = [];
 
 const initialMonetization: MonetizationSettings = {
   id: 1,
-  preroll_enabled: 1,
-  preroll_video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-  preroll_click_url: 'https://ubcexx.com/vip-pass',
+  preroll_enabled: 0,
+  preroll_video_url: '',
+  preroll_click_url: '',
   preroll_skip_offset: 5,
   native_enabled: 1,
   native_code: '<div style="width:300px;max-width:100%;height:250px;background:linear-gradient(135deg,#0d1526,#182234);border:1px solid #F59E0B;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;text-align:center;box-sizing:border-box;"><span style="color:#F59E0B;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;">⚡ SPONSORED PARTNER · 300x250</span><strong style="color:#FFFFFF;font-size:15px;line-height:1.3;margin-bottom:6px;">Ultra-Fast Edge Streaming & Video CDN</strong><p style="color:#94A3B8;font-size:11px;margin:0 0 12px 0;line-height:1.4;">Zero-buffering 4K playback with global edge nodes.</p><a href="https://ubcexx.com/vip-offer" target="_blank" rel="noopener noreferrer" style="background:#F59E0B;color:#000000;font-weight:800;font-size:12px;padding:8px 20px;border-radius:8px;text-decoration:none;display:inline-block;">Claim Offer ↗</a></div>',

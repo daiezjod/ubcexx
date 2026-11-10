@@ -370,11 +370,17 @@ export const WatchPage: React.FC<WatchPageProps> = ({
             isTheaterMode={isTheaterMode}
             onToggleTheater={() => setIsTheaterMode(!isTheaterMode)}
             preRollAd={
-              monetization && monetization.preroll_enabled === 1 && monetization.preroll_video_url
+              monetization &&
+              monetization.preroll_enabled === 1 &&
+              typeof monetization.preroll_video_url === 'string' &&
+              monetization.preroll_video_url.trim().length > 0 &&
+              (monetization.preroll_video_url.trim().startsWith('http://') ||
+               monetization.preroll_video_url.trim().startsWith('https://')) &&
+              !monetization.preroll_video_url.includes('ForBiggerBlazes')
                 ? {
                     enabled: true,
-                    videoUrl: monetization.preroll_video_url,
-                    skipOffset: Number(monetization.preroll_skip_seconds ?? monetization.preroll_skip_offset ?? 5) || 5,
+                    videoUrl: monetization.preroll_video_url.trim(),
+                    skipOffset: Math.max(1, Number(monetization.preroll_skip_seconds ?? monetization.preroll_skip_offset ?? 5) || 5),
                   }
                 : undefined
             }
