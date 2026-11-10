@@ -108,9 +108,6 @@ export const Home: React.FC<HomeProps> = ({
                   : 'Trending & Latest Streams'}
               </span>
             </h2>
-            <span className="text-[11px] sm:text-xs text-[#94A3B8] font-mono">
-              ({videos.length} available)
-            </span>
           </div>
 
           {(searchQuery || selectedCategoryId !== null) && (

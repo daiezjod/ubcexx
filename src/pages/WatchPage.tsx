@@ -467,16 +467,8 @@ export const WatchPage: React.FC<WatchPageProps> = ({
                 <span className="w-2 sm:w-2.5 h-5 sm:h-6 bg-[#F59E0B] rounded-sm inline-block" />
                 <h2 className="text-lg sm:text-xl font-black text-[#F8FAFC] font-display tracking-tight flex items-center gap-2">
                   <span>🔥 More Related Streams</span>
-                  {video.category_name && (
-                    <span className="text-xs sm:text-sm font-normal text-[#94A3B8] hidden sm:inline">
-                      in {video.category_name}
-                    </span>
-                  )}
                 </h2>
               </div>
-              <span className="text-xs text-[#94A3B8] font-mono">
-                ({relatedVideos.length} streams)
-              </span>
             </div>
 
             {relatedVideos.length === 0 ? (
