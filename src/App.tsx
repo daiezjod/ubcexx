@@ -252,8 +252,15 @@ export default function App() {
         <AdminDashboard
           token={adminToken || ''}
           onLogout={handleAdminLogout}
-          onNavigateHome={handleNavigateHome}
-          onSelectVideoForWatch={(video) => handleSelectVideo(video)}
+          onNavigateHome={() => {
+            loadData(true);
+            handleNavigateHome();
+          }}
+          onSelectVideoForWatch={(video) => {
+            loadData(true);
+            handleSelectVideo(video);
+          }}
+          onVideoUpdated={() => loadData(true)}
         />
       </Suspense>
     );

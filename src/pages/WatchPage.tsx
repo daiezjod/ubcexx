@@ -635,9 +635,22 @@ export const WatchPage: React.FC<WatchPageProps> = ({
               </button>
             </div>
 
-            <div className="p-2.5 bg-[#131C2E] rounded-xl border border-[#1E293B] mb-4">
-              <span className="text-[10px] font-mono uppercase text-[#F59E0B] tracking-wider block mb-0.5">Stream Title</span>
-              <p className="text-xs font-semibold text-[#F8FAFC] truncate">{video.title}</p>
+            <div className="p-2.5 bg-[#131C2E] rounded-xl border border-[#1E293B] mb-4 flex items-center gap-3">
+              {video.thumbnail_url && (
+                <div className="w-16 aspect-video rounded-lg overflow-hidden shrink-0 bg-slate-900 border border-[#253349]">
+                  <img
+                    src={video.thumbnail_url}
+                    alt={video.title}
+                    referrerPolicy="no-referrer"
+                    loading="lazy"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <span className="text-[10px] font-mono uppercase text-[#F59E0B] tracking-wider block mb-0.5">Stream Title</span>
+                <p className="text-xs font-semibold text-[#F8FAFC] truncate">{video.title}</p>
+              </div>
             </div>
 
             <form onSubmit={handleSubmitReport} className="space-y-3.5">

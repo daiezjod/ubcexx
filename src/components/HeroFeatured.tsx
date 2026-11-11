@@ -10,6 +10,7 @@ interface HeroFeaturedProps {
 
 export const HeroFeatured: React.FC<HeroFeaturedProps> = ({ videos, onSelectVideo }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     if (videos.length <= 1) return;
@@ -23,6 +24,10 @@ export const HeroFeatured: React.FC<HeroFeaturedProps> = ({ videos, onSelectVide
 
   const current = videos[currentIndex] || videos[0];
 
+  useEffect(() => {
+    setImageError(false);
+  }, [current.thumbnail_url]);
+
   const handleNext = (e: React.MouseEvent) => {
     e.stopPropagation();
     setCurrentIndex((prev) => (prev + 1) % videos.length);
@@ -35,13 +40,19 @@ export const HeroFeatured: React.FC<HeroFeaturedProps> = ({ videos, onSelectVide
 
   return (
     <div className="relative w-full rounded-2xl overflow-hidden border border-[#1E293B] bg-[#0F172A] shadow-2xl mb-8 group">
-      <div className="relative aspect-[21/9] min-h-[360px] md:min-h-[460px] w-full overflow-hidden">
-        <img
-          src={current.thumbnail_url}
-          alt={current.title}
-          referrerPolicy="no-referrer"
-          className="w-full h-full object-cover object-center transform scale-105 group-hover:scale-100 transition-transform duration-1000 ease-out"
-        />
+      <div className="relative aspect-[21/9] min-h-[360px] md:min-h-[460px] w-full overflow-hidden bg-slate-950">
+        {!imageError && current.thumbnail_url ? (
+          <img
+            src={current.thumbnail_url}
+            alt={current.title}
+            referrerPolicy="no-referrer"
+            loading="lazy"
+            onError={() => setImageError(true)}
+            className="w-full h-full object-cover object-center transform scale-105 group-hover:scale-100 transition-transform duration-1000 ease-out"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-[#0F172A] via-[#131C2E] to-[#0A0E17]" />
+        )}
 
         <div className="absolute inset-0 bg-gradient-to-t from-[#080C14] via-[#080C14]/80 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-[#080C14] via-[#080C14]/65 to-transparent" />

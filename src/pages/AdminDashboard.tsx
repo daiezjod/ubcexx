@@ -42,6 +42,7 @@ interface AdminDashboardProps {
   onLogout: () => void;
   onNavigateHome?: () => void;
   onSelectVideoForWatch: (video: Video) => void;
+  onVideoUpdated?: () => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -49,6 +50,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onLogout,
   onNavigateHome,
   onSelectVideoForWatch,
+  onVideoUpdated,
 }) => {
   const [activeTab, setActiveTab] = useState<'videos' | 'add_video' | 'categories' | 'monetization' | 'reports' | 'd1_sql' | 'deploy_guide'>('videos');
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -387,6 +389,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setIsFeatured(false);
       setActiveTab('videos');
       fetchData();
+      if (onVideoUpdated) onVideoUpdated();
     } catch (err: any) {
       showNotification('error', err.message);
     } finally {
@@ -434,6 +437,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
 
       showNotification('success', 'Video permanently purged from D1 and site');
+      if (onVideoUpdated) onVideoUpdated();
     } catch (err: any) {
       showNotification('error', err.message || 'Failed to delete video');
     }
@@ -511,6 +515,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       setEditingVideo(null);
       showNotification('success', 'Video details updated successfully in D1');
+      if (onVideoUpdated) onVideoUpdated();
     } catch (err: any) {
       showNotification('error', err.message || 'Failed to update video');
     } finally {
@@ -1084,6 +1089,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 src={v.thumbnail_url}
                                 alt={v.title}
                                 referrerPolicy="no-referrer"
+                                loading="lazy"
                                 className="w-full h-full object-cover"
                               />
                             </div>
@@ -1414,6 +1420,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       src={thumbnailUrl}
                       alt="Preview"
                       referrerPolicy="no-referrer"
+                      loading="lazy"
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -2192,6 +2199,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     '/src/assets/images/ubcexx_hero_cyberpunk_1793264277456.jpg'
                                   }
                                   alt={rep.video_title}
+                                  referrerPolicy="no-referrer"
+                                  loading="lazy"
                                   className="w-full h-full object-cover"
                                   onError={(e) => {
                                     (e.target as HTMLImageElement).src =
@@ -2556,6 +2565,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           alt="Thumbnail Preview"
                           className="w-full h-full object-cover"
                           referrerPolicy="no-referrer"
+                          loading="lazy"
                           onError={() => setEditThumbError(true)}
                         />
                       ) : (
