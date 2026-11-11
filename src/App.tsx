@@ -57,6 +57,8 @@ export default function App() {
       localStorage.removeItem('ubcexx_admin_user');
       sessionStorage.removeItem('ubcexx_admin_token');
       sessionStorage.removeItem('ubcexx_admin_user');
+      localStorage.removeItem('ubcexx_minimize_timestamp');
+      localStorage.removeItem('ubcexx_app_exit_time');
     } catch {
     }
   }, []);
@@ -129,13 +131,13 @@ export default function App() {
   };
 
   useEffect(() => {
-    const EXIT_KEY = 'ubcexx_app_exit_time';
-    const HARD_RELOAD_THRESHOLD_MS = 15000;
+    const MINIMIZE_KEY = 'ubcexx_minimize_timestamp';
+    const HARD_RELOAD_THRESHOLD_MS = 10000;
     let isReloading = false;
 
     const recordExitTime = () => {
       try {
-        localStorage.setItem(EXIT_KEY, Date.now().toString());
+        localStorage.setItem(MINIMIZE_KEY, Date.now().toString());
       } catch {
       }
     };
@@ -143,15 +145,20 @@ export default function App() {
     const checkAndReload = () => {
       if (isReloading) return;
       try {
-        const stored = localStorage.getItem(EXIT_KEY);
+        const stored = localStorage.getItem(MINIMIZE_KEY);
         if (!stored) return;
         const exitTime = Number(stored);
-        if (!exitTime || isNaN(exitTime)) return;
+        if (!exitTime || isNaN(exitTime)) {
+          localStorage.removeItem(MINIMIZE_KEY);
+          return;
+        }
         const elapsed = Date.now() - exitTime;
-        if (elapsed > HARD_RELOAD_THRESHOLD_MS) {
+        if (elapsed >= HARD_RELOAD_THRESHOLD_MS) {
           isReloading = true;
-          localStorage.setItem(EXIT_KEY, Date.now().toString());
+          localStorage.removeItem(MINIMIZE_KEY);
           window.location.reload();
+        } else {
+          localStorage.removeItem(MINIMIZE_KEY);
         }
       } catch {
       }
@@ -172,9 +179,7 @@ export default function App() {
     };
 
     const handlePageShow = (event: PageTransitionEvent) => {
-      if (event.persisted) {
-        checkAndReload();
-      } else if (document.visibilityState === 'visible') {
+      if (event.persisted || document.visibilityState === 'visible') {
         checkAndReload();
       }
     };
@@ -183,16 +188,22 @@ export default function App() {
       recordExitTime();
     };
 
+    const handleBlur = () => {
+      recordExitTime();
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
     window.addEventListener('pageshow', handlePageShow);
     window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('blur', handleBlur);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('pageshow', handlePageShow);
       window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('blur', handleBlur);
     };
   }, []);
 
