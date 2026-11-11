@@ -143,6 +143,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editVideoUrl, setEditVideoUrl] = useState('');
   const [editBackupVideoUrl, setEditBackupVideoUrl] = useState('');
   const [editThumbnailUrl, setEditThumbnailUrl] = useState('');
+  const [editThumbError, setEditThumbError] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
@@ -446,6 +447,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setEditVideoUrl(v.video_url || '');
     setEditBackupVideoUrl(v.backup_video_url || '');
     setEditThumbnailUrl(v.thumbnail_url || '');
+    setEditThumbError(false);
   };
 
   const handleSaveEdit = async (e: React.FormEvent) => {
@@ -460,7 +462,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const parsedDur = parseDurationToSeconds(editDuration);
 
     try {
-      const res = await fetch(`/api/videos/${editingVideo.id}`, {
+      const res = await fetch('/api/videos', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -507,8 +509,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )
       );
 
-      showNotification('success', `Video "${editTitle.trim()}" successfully updated in Cloudflare D1!`);
       setEditingVideo(null);
+      showNotification('success', 'Video details updated successfully in D1');
     } catch (err: any) {
       showNotification('error', err.message || 'Failed to update video');
     } finally {
@@ -2540,17 +2542,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     type="text"
                     required
                     value={editThumbnailUrl}
-                    onChange={(e) => setEditThumbnailUrl(e.target.value)}
+                    onChange={(e) => {
+                      setEditThumbnailUrl(e.target.value);
+                      setEditThumbError(false);
+                    }}
                     className="w-full bg-[#131C2E] text-sm text-[#F8FAFC] font-mono px-3.5 py-2.5 rounded-xl border border-[#253349] focus:outline-none focus:border-[#F59E0B]"
                   />
                   {editThumbnailUrl && (
-                    <div className="mt-2 w-32 aspect-video rounded-lg overflow-hidden border border-[#253349] bg-slate-900">
-                      <img
-                        src={editThumbnailUrl}
-                        alt="Preview"
-                        className="w-full h-full object-cover"
-                        referrerPolicy="no-referrer"
-                      />
+                    <div className="mt-2 w-36 aspect-video rounded-lg overflow-hidden border border-[#253349] bg-slate-900 relative shadow-sm">
+                      {!editThumbError ? (
+                        <img
+                          src={editThumbnailUrl}
+                          alt="Thumbnail Preview"
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                          onError={() => setEditThumbError(true)}
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-[#0F172A] to-[#1E293B] flex flex-col items-center justify-center p-2 text-center text-[#94A3B8]">
+                          <Film className="w-4 h-4 text-[#F59E0B] mb-1 opacity-70" />
+                          <span className="text-[10px] text-slate-400 font-medium">Invalid Image URL</span>
+                          <span className="text-[9px] text-slate-500 font-mono">Fallback active</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

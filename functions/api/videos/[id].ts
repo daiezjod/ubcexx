@@ -104,6 +104,70 @@ export const onRequestPatch: PagesFunction<Env> = async (context) => {
   }
 };
 
+export const onRequestPut: PagesFunction<Env> = async (context) => {
+  try {
+    const rawId = context.params.id;
+    const body: any = await context.request.json().catch(() => ({}));
+    const id = Number(rawId || body.id);
+
+    if (!id) {
+      return new Response(JSON.stringify({ success: false, error: 'Video ID required' }), {
+        status: 400,
+        headers: corsHeaders,
+      });
+    }
+
+    const {
+      title,
+      duration,
+      category_id,
+      video_url,
+      backup_video_url,
+      thumbnail_url,
+    } = body;
+
+    let parsedDuration = 0;
+    if (typeof duration === 'number') {
+      parsedDuration = Math.max(0, Math.floor(duration));
+    } else if (typeof duration === 'string') {
+      const trimmed = duration.trim();
+      if (trimmed.includes(':')) {
+        const parts = trimmed.split(':').map((p) => parseInt(p.trim(), 10) || 0);
+        if (parts.length === 2) parsedDuration = parts[0] * 60 + parts[1];
+        else if (parts.length === 3) parsedDuration = parts[0] * 3600 + parts[1] * 60 + parts[2];
+      } else {
+        parsedDuration = parseInt(trimmed, 10) || 0;
+      }
+    }
+
+    const stmt = context.env.DB.prepare(`
+      UPDATE videos 
+      SET title = ?, duration = ?, category_id = ?, video_url = ?, backup_video_url = ?, thumbnail_url = ? 
+      WHERE id = ?
+    `).bind(
+      String(title || '').trim(),
+      parsedDuration,
+      Number(category_id) || 1,
+      String(video_url || '').trim(),
+      backup_video_url ? String(backup_video_url).trim() : '',
+      String(thumbnail_url || '').trim(),
+      id
+    );
+
+    await stmt.run();
+
+    return new Response(
+      JSON.stringify({ success: true, message: 'Video updated successfully' }),
+      { status: 200, headers: corsHeaders }
+    );
+  } catch (err: any) {
+    return new Response(
+      JSON.stringify({ success: false, error: err.message || 'Failed to update video' }),
+      { status: 500, headers: corsHeaders }
+    );
+  }
+};
+
 export const onRequestDelete: PagesFunction<Env> = async (context) => {
   try {
     const url = new URL(context.request.url);

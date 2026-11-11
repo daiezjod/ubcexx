@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Play } from 'lucide-react';
 import { Video } from '../types.ts';
 import { formatDuration, formatViews, formatTimeAgo } from '../utils/formatters.ts';
@@ -12,6 +12,10 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, onSelect }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [imageError, setImageError] = useState(false);
 
+  useEffect(() => {
+    setImageError(false);
+  }, [video.thumbnail_url]);
+
   return (
     <div
       onClick={() => onSelect(video)}
@@ -20,7 +24,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, onSelect }) => {
       className="group cursor-pointer flex flex-col transition-all"
     >
       <div className="rounded-md overflow-hidden aspect-video relative bg-slate-900 border border-[#1E293B]/60 shadow-sm">
-        {!imageError ? (
+        {!imageError && video.thumbnail_url ? (
           <img
             src={video.thumbnail_url}
             alt={video.title}
@@ -30,9 +34,12 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, onSelect }) => {
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-[#0F172A] to-[#131C2E] flex flex-col items-center justify-center p-2 text-center">
-            <Play className="w-6 h-6 text-[#94A3B8] mb-1" />
-            <span className="text-[10px] text-[#94A3B8] font-medium line-clamp-1">{video.title}</span>
+          <div className="w-full h-full bg-gradient-to-br from-[#0F172A] via-[#131C2E] to-[#0A0E17] flex flex-col items-center justify-center p-3 text-center border border-[#1E293B]">
+            <div className="w-9 h-9 rounded-full bg-[#F59E0B]/10 border border-[#F59E0B]/30 flex items-center justify-center mb-1.5 shadow-sm">
+              <Play className="w-4 h-4 text-[#F59E0B] fill-[#F59E0B]/20 ml-0.5" />
+            </div>
+            <span className="text-[11px] text-[#F8FAFC] font-semibold line-clamp-1 max-w-[90%]">{video.title}</span>
+            <span className="text-[9px] text-[#64748B] font-mono mt-0.5">UBCEXX Stream</span>
           </div>
         )}
 

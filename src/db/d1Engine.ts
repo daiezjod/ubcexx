@@ -551,7 +551,10 @@ export class D1PreparedStatement {
         assignments.forEach((assignment: string, idx: number) => {
           const col = assignment.split('=')[0]?.trim().toLowerCase();
           const val = this.boundValues[idx];
-          if (col === 'title' && val !== undefined) v.title = String(val);
+          if (col === 'title' && val !== undefined) {
+            v.title = String(val);
+            v.slug = String(val).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+          }
           else if (col === 'slug' && val !== undefined) v.slug = String(val);
           else if (col === 'description' && val !== undefined) v.description = String(val);
           else if (col === 'duration' && val !== undefined) v.duration = Number(val) || 0;

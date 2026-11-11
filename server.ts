@@ -908,7 +908,7 @@ const handleVideoUpdate = async (req: Request, res: Response) => {
     const stmt = d1DB.prepare(sql).bind(...values);
     await stmt.run();
 
-    res.json({ success: true, message: `Video #${id} updated successfully` });
+    res.json({ success: true, message: 'Video updated successfully' });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
