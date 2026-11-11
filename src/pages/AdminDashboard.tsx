@@ -28,6 +28,8 @@ import {
   Link as LinkIcon,
   RotateCcw,
   Flag,
+  Pencil,
+  X,
 } from 'lucide-react';
 import { Video, Category, AdminStats, MonetizationSettings, VideoReport } from '../types.ts';
 import { DynamicAdContainer } from '../components/DynamicAdContainer.tsx';
@@ -133,6 +135,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDetectingMeta, setIsDetectingMeta] = useState(false);
   const lastDetectedUrlRef = useRef<string>('');
+
+  const [editingVideo, setEditingVideo] = useState<Video | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDuration, setEditDuration] = useState('');
+  const [editCategoryId, setEditCategoryId] = useState<number>(1);
+  const [editVideoUrl, setEditVideoUrl] = useState('');
+  const [editBackupVideoUrl, setEditBackupVideoUrl] = useState('');
+  const [editThumbnailUrl, setEditThumbnailUrl] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
     const trimmed = (videoUrl || '').trim();
@@ -424,6 +435,84 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       showNotification('success', 'Video permanently purged from D1 and site');
     } catch (err: any) {
       showNotification('error', err.message || 'Failed to delete video');
+    }
+  };
+
+  const handleStartEdit = (v: Video) => {
+    setEditingVideo(v);
+    setEditTitle(v.title);
+    setEditDuration(formatDuration(v.duration));
+    setEditCategoryId(v.category_id || 1);
+    setEditVideoUrl(v.video_url || '');
+    setEditBackupVideoUrl(v.backup_video_url || '');
+    setEditThumbnailUrl(v.thumbnail_url || '');
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingVideo) return;
+    if (!editTitle.trim()) {
+      showNotification('error', 'Title is required');
+      return;
+    }
+
+    setIsUpdating(true);
+    const parsedDur = parseDurationToSeconds(editDuration);
+
+    try {
+      const res = await fetch(`/api/videos/${editingVideo.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          id: editingVideo.id,
+          title: editTitle.trim(),
+          duration: parsedDur,
+          category_id: editCategoryId,
+          video_url: editVideoUrl.trim(),
+          backup_video_url: editBackupVideoUrl.trim(),
+          thumbnail_url: editThumbnailUrl.trim(),
+        }),
+      });
+
+      const contentType = res.headers.get('content-type');
+      if (!res.ok || !contentType || !contentType.includes('application/json')) {
+        showNotification('error', `Failed to update video (HTTP ${res.status})`);
+        return;
+      }
+
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to update video');
+      }
+
+      const updatedCategory = categories.find((c) => c.id === editCategoryId);
+
+      setVideos((prev) =>
+        prev.map((v) =>
+          v.id === editingVideo.id
+            ? {
+                ...v,
+                title: editTitle.trim(),
+                duration: parsedDur,
+                category_id: editCategoryId,
+                category_name: updatedCategory ? updatedCategory.name : v.category_name,
+                video_url: editVideoUrl.trim(),
+                backup_video_url: editBackupVideoUrl.trim(),
+                thumbnail_url: editThumbnailUrl.trim(),
+              }
+            : v
+        )
+      );
+
+      showNotification('success', `Video "${editTitle.trim()}" successfully updated in Cloudflare D1!`);
+      setEditingVideo(null);
+    } catch (err: any) {
+      showNotification('error', err.message || 'Failed to update video');
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -1073,6 +1162,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         {}
                         <td className="py-3 px-4 whitespace-nowrap text-right">
                           <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleStartEdit(v)}
+                              className="p-1.5 rounded bg-[#131C2E] hover:bg-[#1E293B] text-[#F59E0B] hover:text-[#FCD34D] transition-colors cursor-pointer border border-[#1E293B]"
+                              title="Edit Video Details & Duration"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
                             <button
                               onClick={() => onSelectVideoForWatch(v)}
                               className="p-1.5 rounded bg-[#131C2E] hover:bg-[#1E293B] text-[#94A3B8] hover:text-[#F8FAFC] transition-colors cursor-pointer border border-[#1E293B]"
@@ -2335,6 +2431,148 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </p>
               </div>
 
+            </div>
+          </div>
+        )}
+
+        {editingVideo && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+            <div className="bg-[#0F172A] border border-[#253349] rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-8">
+              <div className="flex items-center justify-between border-b border-[#1E293B] pb-4 mb-6">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-[#F59E0B]/20 border border-[#F59E0B]/30 text-[#F59E0B]">
+                    <Pencil className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-[#F8FAFC]">Edit Video Details</h3>
+                    <p className="text-xs text-[#94A3B8]">Update stream metadata and duration directly in Cloudflare D1</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setEditingVideo(null)}
+                  className="p-2 rounded-lg bg-[#182234] text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#1E293B] transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveEdit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-1.5">
+                    Stream Title *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="w-full bg-[#131C2E] text-sm text-[#F8FAFC] px-3.5 py-2.5 rounded-xl border border-[#253349] focus:outline-none focus:border-[#F59E0B]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-1.5">
+                      Duration (MM:SS or HH:MM:SS) *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editDuration}
+                      onChange={(e) => setEditDuration(e.target.value)}
+                      placeholder="e.g. 14:05, 08:30, 01:12:00"
+                      className="w-full bg-[#131C2E] text-sm text-[#F8FAFC] font-mono px-3.5 py-2.5 rounded-xl border border-[#253349] focus:outline-none focus:border-[#F59E0B]"
+                    />
+                    <p className="text-[11px] text-[#94A3B8] mt-1">
+                      Converts to {parseDurationToSeconds(editDuration)} seconds in D1
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-1.5">
+                      Category *
+                    </label>
+                    <select
+                      value={editCategoryId}
+                      onChange={(e) => setEditCategoryId(Number(e.target.value))}
+                      className="w-full bg-[#131C2E] text-sm text-[#F8FAFC] px-3.5 py-2.5 rounded-xl border border-[#253349] focus:outline-none focus:border-[#F59E0B]"
+                    >
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-1.5">
+                    Primary Stream URL (Direct MP4, HLS, or OK.ru embed) *
+                  </label>
+                  <input
+                    type="url"
+                    required
+                    value={editVideoUrl}
+                    onChange={(e) => setEditVideoUrl(e.target.value)}
+                    className="w-full bg-[#131C2E] text-sm text-[#F8FAFC] font-mono px-3.5 py-2.5 rounded-xl border border-[#253349] focus:outline-none focus:border-[#F59E0B]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-1.5">
+                    Failover Mirror / Backup Video URL
+                  </label>
+                  <input
+                    type="url"
+                    value={editBackupVideoUrl}
+                    onChange={(e) => setEditBackupVideoUrl(e.target.value)}
+                    placeholder="Auto-fallback stream URL if primary CDN fails"
+                    className="w-full bg-[#131C2E] text-sm text-[#F8FAFC] font-mono px-3.5 py-2.5 rounded-xl border border-[#253349] focus:outline-none focus:border-[#F59E0B]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-1.5">
+                    Thumbnail Image URL *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editThumbnailUrl}
+                    onChange={(e) => setEditThumbnailUrl(e.target.value)}
+                    className="w-full bg-[#131C2E] text-sm text-[#F8FAFC] font-mono px-3.5 py-2.5 rounded-xl border border-[#253349] focus:outline-none focus:border-[#F59E0B]"
+                  />
+                  {editThumbnailUrl && (
+                    <div className="mt-2 w-32 aspect-video rounded-lg overflow-hidden border border-[#253349] bg-slate-900">
+                      <img
+                        src={editThumbnailUrl}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#1E293B]">
+                  <button
+                    type="button"
+                    onClick={() => setEditingVideo(null)}
+                    disabled={isUpdating}
+                    className="px-4 py-2.5 rounded-xl bg-[#182234] hover:bg-[#1E293B] text-[#94A3B8] hover:text-[#F8FAFC] text-sm font-medium transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdating}
+                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#F59E0B] to-[#D97706] hover:from-[#D97706] hover:to-[#B45309] text-black font-bold text-sm shadow-lg shadow-[#F59E0B]/20 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {isUpdating ? 'Saving Changes to D1...' : 'Save Changes'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

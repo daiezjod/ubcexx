@@ -1,5 +1,20 @@
-export function formatDuration(seconds: number): string {
-  if (!seconds || isNaN(seconds)) return '00:00';
+export function formatDuration(val: number | string | undefined | null): string {
+  if (val === null || val === undefined || val === '') return '00:00';
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (trimmed.includes(':')) {
+      return trimmed;
+    }
+    const num = Number(trimmed);
+    if (!isNaN(num) && num > 0) {
+      val = num;
+    } else {
+      return '00:00';
+    }
+  }
+
+  const seconds = Number(val);
+  if (!seconds || isNaN(seconds) || seconds <= 0) return '00:00';
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   const hrs = Math.floor(mins / 60);

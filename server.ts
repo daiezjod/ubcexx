@@ -815,21 +815,107 @@ app.post(['/api/videos', '/api/admin/videos'], async (req: Request, res: Respons
   }
 });
 
-app.patch(['/api/videos/:id', '/api/admin/videos/:id'], async (req: Request, res: Response) => {
+const handleVideoUpdate = async (req: Request, res: Response) => {
   try {
-    const id = Number(req.params.id);
-    const { is_featured } = req.body;
+    const rawId = req.params.id || req.body?.id || req.query.id;
+    if (!rawId) {
+      return res.status(400).json({ success: false, error: 'Video ID required' });
+    }
+    const id = Number(rawId);
 
-    if (is_featured !== undefined) {
-      const stmt = d1DB.prepare('UPDATE videos SET is_featured = ? WHERE id = ?').bind(is_featured ? 1 : 0, id);
-      await stmt.run();
+    const {
+      title,
+      duration,
+      category_id,
+      video_url,
+      backup_video_url,
+      thumbnail_url,
+      description,
+      tags,
+      is_featured,
+      status,
+    } = req.body || {};
+
+    let parsedDuration: number | undefined = undefined;
+    if (duration !== undefined) {
+      if (typeof duration === 'number') {
+        parsedDuration = Math.max(0, Math.floor(duration));
+      } else if (typeof duration === 'string') {
+        const trimmed = duration.trim();
+        if (trimmed.includes(':')) {
+          const parts = trimmed.split(':').map((p) => parseInt(p.trim(), 10) || 0);
+          if (parts.length === 2) parsedDuration = parts[0] * 60 + parts[1];
+          else if (parts.length === 3) parsedDuration = parts[0] * 3600 + parts[1] * 60 + parts[2];
+        } else {
+          parsedDuration = parseInt(trimmed, 10) || 0;
+        }
+      }
     }
 
-    res.json({ success: true, message: 'Video updated successfully' });
+    const updates: string[] = [];
+    const values: any[] = [];
+
+    if (title !== undefined) {
+      updates.push('title = ?');
+      values.push(String(title).trim());
+      const cleanSlug = String(title).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      updates.push('slug = ?');
+      values.push(cleanSlug);
+    }
+    if (parsedDuration !== undefined) {
+      updates.push('duration = ?');
+      values.push(parsedDuration);
+    }
+    if (category_id !== undefined) {
+      updates.push('category_id = ?');
+      values.push(Number(category_id) || 1);
+    }
+    if (video_url !== undefined) {
+      updates.push('video_url = ?');
+      values.push(String(video_url).trim());
+    }
+    if (backup_video_url !== undefined) {
+      updates.push('backup_video_url = ?');
+      values.push(String(backup_video_url).trim());
+    }
+    if (thumbnail_url !== undefined) {
+      updates.push('thumbnail_url = ?');
+      values.push(String(thumbnail_url).trim());
+    }
+    if (description !== undefined) {
+      updates.push('description = ?');
+      values.push(String(description).trim());
+    }
+    if (tags !== undefined) {
+      updates.push('tags = ?');
+      values.push(String(tags).trim());
+    }
+    if (is_featured !== undefined) {
+      updates.push('is_featured = ?');
+      values.push(is_featured ? 1 : 0);
+    }
+    if (status !== undefined) {
+      updates.push('status = ?');
+      values.push(String(status).trim());
+    }
+
+    if (updates.length === 0) {
+      return res.json({ success: true, message: 'No fields to update' });
+    }
+
+    values.push(id);
+    const sql = `UPDATE videos SET ${updates.join(', ')} WHERE id = ?`;
+    const stmt = d1DB.prepare(sql).bind(...values);
+    await stmt.run();
+
+    res.json({ success: true, message: `Video #${id} updated successfully` });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
-});
+};
+
+app.patch(['/api/videos', '/api/videos/:id', '/api/admin/videos', '/api/admin/videos/:id'], handleVideoUpdate);
+app.put(['/api/videos', '/api/videos/:id', '/api/admin/videos', '/api/admin/videos/:id'], handleVideoUpdate);
 
 app.delete(['/api/videos', '/api/videos/:id', '/api/admin/videos', '/api/admin/videos/:id'], async (req: Request, res: Response) => {
   try {

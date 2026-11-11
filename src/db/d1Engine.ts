@@ -95,7 +95,7 @@ const initialVideos: Video[] = [
     video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
     backup_video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
     thumbnail_url: '/src/assets/images/ubcexx_hero_cyberpunk_1793264277456.jpg',
-    duration: 734,
+    duration: 845,
     views: 148290,
     likes: 8940,
     category_id: 1,
@@ -542,13 +542,27 @@ export class D1PreparedStatement {
       }
     }
 
-    else if (q.includes('UPDATE videos SET')) {
+    else if (q.includes('UPDATE videos SET') || q.includes('update videos set')) {
       const id = Number(this.boundValues[this.boundValues.length - 1]);
       const v = state.videos.find(item => item.id === id);
       if (v) {
-        if (q.includes('is_featured = ?')) {
-          v.is_featured = Number(this.boundValues[0]) === 1 ? 1 : 0;
-        }
+        const setPart = this.query.split(/SET/i)[1]?.split(/WHERE/i)[0] || '';
+        const assignments = setPart.split(',').map((s: string) => s.trim());
+        assignments.forEach((assignment: string, idx: number) => {
+          const col = assignment.split('=')[0]?.trim().toLowerCase();
+          const val = this.boundValues[idx];
+          if (col === 'title' && val !== undefined) v.title = String(val);
+          else if (col === 'slug' && val !== undefined) v.slug = String(val);
+          else if (col === 'description' && val !== undefined) v.description = String(val);
+          else if (col === 'duration' && val !== undefined) v.duration = Number(val) || 0;
+          else if (col === 'category_id' && val !== undefined) v.category_id = Number(val) || 1;
+          else if (col === 'video_url' && val !== undefined) v.video_url = String(val);
+          else if (col === 'backup_video_url' && val !== undefined) v.backup_video_url = String(val);
+          else if (col === 'thumbnail_url' && val !== undefined) v.thumbnail_url = String(val);
+          else if (col === 'tags' && val !== undefined) v.tags = String(val);
+          else if (col === 'is_featured' && val !== undefined) v.is_featured = Number(val) === 1 ? 1 : 0;
+          else if (col === 'status' && val !== undefined) v.status = String(val);
+        });
         changes = 1;
         this.db.commit();
       }
