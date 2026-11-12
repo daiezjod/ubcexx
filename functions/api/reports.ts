@@ -26,6 +26,7 @@ async function ensureReportsTable(db: D1Database) {
         video_id INTEGER NOT NULL,
         video_title TEXT NOT NULL,
         reason TEXT NOT NULL,
+        additional_details TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
     `);
@@ -37,20 +38,14 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   try {
     await ensureReportsTable(context.env.DB);
 
-    const { results } = await context.env.DB.prepare(`
-      SELECT 
-        r.id, r.video_id, r.video_title, r.reason, r.created_at,
-        v.thumbnail_url, v.video_url, v.backup_video_url, v.status as video_status
-      FROM reports r
-      LEFT JOIN videos v ON r.video_id = v.id
-      ORDER BY r.created_at DESC
-    `).all();
+    const { results } = await context.env.DB.prepare(
+      'SELECT * FROM reports ORDER BY created_at DESC'
+    ).all();
 
     return new Response(
       JSON.stringify({
         success: true,
         reports: results || [],
-        count: results?.length || 0,
       }),
       { status: 200, headers: corsHeaders }
     );
@@ -83,10 +78,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
     await ensureReportsTable(context.env.DB);
 
-    const body = (await context.request.json()) as {
+    const body = (await context.request.json().catch(() => ({}))) as {
       video_id: number | string;
       video_title?: string;
       reason?: string;
+      additional_details?: string;
     };
 
     if (!body || !body.video_id) {
@@ -99,19 +95,19 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const videoId = Number(body.video_id);
     const videoTitle = body.video_title ? String(body.video_title).trim() : `Video #${videoId}`;
     const reason = body.reason ? String(body.reason).trim() : 'Stream Broken / Not Playing';
+    const additionalDetails = body.additional_details ? String(body.additional_details).trim() : '';
 
     const stmt = context.env.DB.prepare(`
-      INSERT INTO reports (video_id, video_title, reason, created_at)
-      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-    `).bind(videoId, videoTitle, reason);
+      INSERT INTO reports (video_id, video_title, reason, additional_details)
+      VALUES (?, ?, ?, ?)
+    `).bind(videoId, videoTitle, reason, additionalDetails);
 
-    const info = await stmt.run();
+    await stmt.run();
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Report submitted to admin',
-        id: info.meta.last_row_id,
+        message: 'Report successfully saved to D1',
       }),
       { status: 201, headers: corsHeaders }
     );

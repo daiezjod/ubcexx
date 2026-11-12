@@ -567,6 +567,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
 
       showNotification('success', `Video "${report.video_title}" and all related reports permanently purged from D1!`);
+      if (onVideoUpdated) onVideoUpdated();
     } catch (err: any) {
       showNotification('error', err.message || 'Failed to purge reported video');
     } finally {
@@ -2176,7 +2177,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <thead className="bg-[#131C2E] text-[#94A3B8] uppercase tracking-wider font-semibold border-b border-[#1E293B]">
                     <tr>
                       <th className="py-3 px-4">Reported Video</th>
-                      <th className="py-3 px-4">Issue / Reason</th>
+                      <th className="py-3 px-4">Reason</th>
+                      <th className="py-3 px-4">Additional Details</th>
                       <th className="py-3 px-4">Date Reported</th>
                       <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
@@ -2235,13 +2237,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <td className="py-3.5 px-4">
                             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#2A1218] text-[#EF4444] border border-[#EF4444]/40">
                               <AlertCircle className="w-3 h-3 shrink-0" />
-                              <span className="truncate max-w-xs">{rep.reason}</span>
+                              <span className="truncate max-w-[200px]">{rep.reason}</span>
                             </div>
                           </td>
 
-                          {}
+                          <td className="py-3.5 px-4 text-[#CBD5E1]">
+                            {rep.additional_details ? (
+                              <div className="max-w-xs text-xs font-normal text-[#CBD5E1] bg-[#131C2E] p-2 rounded-lg border border-[#1E293B] break-words">
+                                {rep.additional_details}
+                              </div>
+                            ) : (
+                              <span className="text-[#64748B] italic text-[11px]">None provided</span>
+                            )}
+                          </td>
+
                           <td className="py-3.5 px-4 text-[#94A3B8] font-mono whitespace-nowrap">
-                            {formatTimeAgo(rep.created_at)}
+                            <div className="text-xs text-[#CBD5E1] font-semibold">{formatTimeAgo(rep.created_at)}</div>
+                            <div className="text-[10px] text-[#64748B] mt-0.5">
+                              {new Date(rep.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </div>
                           </td>
 
                           {}

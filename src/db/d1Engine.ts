@@ -63,6 +63,7 @@ export interface Report {
   video_id: number;
   video_title: string;
   reason: string;
+  additional_details?: string;
   created_at: string;
 }
 
@@ -695,12 +696,13 @@ export class D1PreparedStatement {
     else if (q.includes('INSERT INTO reports') || q.includes('insert into reports')) {
       if (!state.reports) state.reports = [];
       const newId = (state.reports.reduce((max, r) => Math.max(max, r.id), 0) || 0) + 1;
-      const [video_id, video_title, reason] = this.boundValues;
+      const [video_id, video_title, reason, additional_details] = this.boundValues;
       const newReport: Report = {
         id: newId,
         video_id: Number(video_id),
         video_title: String(video_title || `Video #${video_id}`),
         reason: String(reason || 'Stream Broken / Not Playing'),
+        additional_details: additional_details ? String(additional_details) : '',
         created_at: new Date().toISOString(),
       };
       state.reports.unshift(newReport);

@@ -86,3 +86,15 @@ VALUES (
 )
 ON CONFLICT (id) DO NOTHING;
 
+-- 5. Reports Table
+CREATE TABLE IF NOT EXISTS reports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  video_id INTEGER NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
+  video_title TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  additional_details TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_reports_video ON reports(video_id);
+

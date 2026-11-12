@@ -87,7 +87,7 @@ export const Home: React.FC<HomeProps> = ({
 
       {showTopBanner && (
         <div className="w-full flex justify-center my-2 px-2 overflow-hidden">
-          <BannerAd adHtml={topBannerCode} width={320} height={50} className="my-0" />
+          <BannerAd adHtml={topBannerCode} width={320} height={50} placement="top" className="my-0" />
         </div>
       )}
 
@@ -163,7 +163,7 @@ export const Home: React.FC<HomeProps> = ({
 
                   {(index + 1) % 9 === 0 && showInFeedBanner && (
                     <div className="col-span-2 min-[440px]:col-span-3 sm:col-span-3 md:col-span-4 lg:col-span-5 w-full flex justify-center my-3 px-2">
-                      <BannerAd adHtml={infeedBannerCode} width={300} height={250} className="my-0" />
+                      <BannerAd adHtml={infeedBannerCode} width={300} height={250} placement="infeed" className="my-0" />
                     </div>
                   )}
                 </React.Fragment>

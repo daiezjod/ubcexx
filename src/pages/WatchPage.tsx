@@ -281,29 +281,29 @@ export const WatchPage: React.FC<WatchPageProps> = ({
 
     setIsSubmittingReport(true);
     try {
-      const finalReason = customReportNote.trim()
-        ? `${reportReason}: ${customReportNote.trim()}`
-        : reportReason;
-
       await safeFetchJson('/api/reports', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           video_id: video.id,
           video_title: video.title,
-          reason: finalReason,
+          reason: reportReason,
+          additional_details: customReportNote.trim() || undefined,
         }),
       });
 
       setShowReportModal(false);
       setCustomReportNote('');
       setReportReason('Stream Broken / Not Playing');
-      setReportToast('Report submitted to admin');
+      setReportToast('Report received. Thank you!');
       setTimeout(() => {
         setReportToast(null);
       }, 3500);
     } catch {
       setShowReportModal(false);
-      setReportToast('Report submitted to admin');
+      setReportToast('Report received. Thank you!');
       setTimeout(() => {
         setReportToast(null);
       }, 3500);
@@ -460,9 +460,11 @@ export const WatchPage: React.FC<WatchPageProps> = ({
               })()
             ) && (
               <AdBanner
+                key={`watch-ad-${videoIdOrSlug}`}
                 adHtml={monetization?.banner_infeed_code || monetization?.native_ads_code || monetization?.native_code || ''}
                 width={300}
                 height={250}
+                placement="infeed"
               />
             )}
           </div>
@@ -724,11 +726,11 @@ export const WatchPage: React.FC<WatchPageProps> = ({
 
       {reportToast && (
         <div className="fixed top-5 right-5 z-[75] animate-in fade-in slide-in-from-top-3 duration-200">
-          <div className="flex items-center gap-2.5 px-4 py-3 bg-[#0F172A] border border-[#EF4444]/60 rounded-xl shadow-2xl text-[#F8FAFC]">
-            <div className="w-5 h-5 rounded-full bg-[#EF4444] flex items-center justify-center text-white shrink-0">
-              <Check className="w-3 h-3 text-white" />
+          <div className="flex items-center gap-2.5 px-4 py-3 bg-[#0F172A] border border-[#10B981]/60 rounded-xl shadow-2xl text-[#F8FAFC]">
+            <div className="w-5 h-5 rounded-full bg-[#10B981] flex items-center justify-center text-black shrink-0 font-bold">
+              <Check className="w-3 h-3 text-black stroke-[3]" />
             </div>
-            <span className="text-xs font-semibold">{reportToast}</span>
+            <span className="text-xs font-semibold text-[#10B981]">{reportToast}</span>
           </div>
         </div>
       )}

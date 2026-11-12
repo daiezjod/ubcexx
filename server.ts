@@ -943,12 +943,11 @@ app.delete(['/api/videos', '/api/videos/:id', '/api/admin/videos', '/api/admin/v
 
 app.get('/api/reports', async (req: Request, res: Response) => {
   try {
-    const stmt = d1DB.prepare('SELECT * FROM reports');
+    const stmt = d1DB.prepare('SELECT * FROM reports ORDER BY created_at DESC');
     const result = await stmt.all();
     res.json({
       success: true,
       reports: result.results || [],
-      count: result.results?.length || 0,
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
@@ -957,20 +956,24 @@ app.get('/api/reports', async (req: Request, res: Response) => {
 
 app.post('/api/reports', silentFloodProtection, async (req: Request, res: Response) => {
   try {
-    const { video_id, video_title, reason } = req.body;
+    const { video_id, video_title, reason, additional_details } = req.body || {};
     if (!video_id) {
       return res.status(400).json({ success: false, error: 'Video ID is required' });
     }
 
+    const videoId = Number(video_id);
+    const videoTitle = video_title ? String(video_title).trim() : `Video #${videoId}`;
+    const reportReason = reason ? String(reason).trim() : 'Stream Broken / Not Playing';
+    const additionalDetails = additional_details ? String(additional_details).trim() : '';
+
     const stmt = d1DB
-      .prepare('INSERT INTO reports (video_id, video_title, reason) VALUES (?, ?, ?)')
-      .bind(Number(video_id), video_title || `Video #${video_id}`, reason || 'Stream Broken / Not Playing');
-    const result = await stmt.run();
+      .prepare('INSERT INTO reports (video_id, video_title, reason, additional_details) VALUES (?, ?, ?, ?)')
+      .bind(videoId, videoTitle, reportReason, additionalDetails);
+    await stmt.run();
 
     res.status(201).json({
       success: true,
-      message: 'Report submitted to admin',
-      id: result.meta.last_row_id,
+      message: 'Report successfully saved to D1',
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });

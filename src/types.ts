@@ -79,7 +79,12 @@ export interface VideoReport {
   video_id: number;
   video_title: string;
   reason: string;
+  additional_details?: string;
   created_at: string;
+  thumbnail_url?: string;
+  video_url?: string;
+  backup_video_url?: string;
+  video_status?: string;
 }
 
 

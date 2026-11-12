@@ -205,6 +205,22 @@
   },
   "reports": [
     {
+      "id": 31,
+      "video_id": 1,
+      "video_title": "NEO-KYOTO 2099",
+      "reason": "Stream Broken / Not Playing",
+      "additional_details": "Test playback report",
+      "created_at": "2026-11-12T12:21:59.376Z"
+    },
+    {
+      "id": 30,
+      "video_id": 2,
+      "video_title": "TOKYO DRIFT APEX",
+      "reason": "Broken External Embed Mirror",
+      "additional_details": "Stream fails to load on mobile Safari after 5 seconds",
+      "created_at": "2026-11-11T13:59:27.900Z"
+    },
+    {
       "id": 29,
       "video_id": 1,
       "video_title": "Video #1",
@@ -266,13 +282,6 @@
       "video_title": "Video #1",
       "reason": "Stream Broken / Not Playing",
       "created_at": "2026-11-06T13:01:34.336Z"
-    },
-    {
-      "id": 20,
-      "video_id": 1,
-      "video_title": "Video #1",
-      "reason": "Stream Broken / Not Playing",
-      "created_at": "2026-11-06T13:01:34.319Z"
     },
     {
       "id": 19,
