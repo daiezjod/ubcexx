@@ -60,7 +60,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [reportLoadingId, setReportLoadingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [inactivityLeft, setInactivityLeft] = useState<number>(10);
+  const AUTO_LOCK_SECONDS = 120;
+  const [inactivityLeft, setInactivityLeft] = useState<number>(AUTO_LOCK_SECONDS);
 
   useEffect(() => {
     let timer: number | null = null;
@@ -69,7 +70,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     const triggerLogout = () => {
       try {
-        sessionStorage.setItem('ubcexx_admin_logout_reason', 'Logged out due to 10 seconds of inactivity');
+        sessionStorage.setItem('ubcexx_admin_logout_reason', 'Logged out due to 2 minutes of inactivity');
         localStorage.removeItem('ubcexx_admin_token');
         localStorage.removeItem('ubcexx_admin_user');
         sessionStorage.removeItem('ubcexx_admin_token');
@@ -81,14 +82,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     const resetTimer = () => {
       lastActivityTime = Date.now();
-      setInactivityLeft(10);
+      setInactivityLeft(AUTO_LOCK_SECONDS);
       if (timer) window.clearTimeout(timer);
-      timer = window.setTimeout(triggerLogout, 10000);
+      timer = window.setTimeout(triggerLogout, AUTO_LOCK_SECONDS * 1000);
     };
 
     interval = window.setInterval(() => {
       const elapsed = Math.floor((Date.now() - lastActivityTime) / 1000);
-      const remaining = Math.max(0, 10 - elapsed);
+      const remaining = Math.max(0, AUTO_LOCK_SECONDS - elapsed);
       setInactivityLeft(remaining);
       if (remaining <= 0) {
         triggerLogout();
@@ -832,7 +833,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#131C2E] border border-[#253349] text-[11px] font-mono text-[#F59E0B]">
               <Clock className="w-3.5 h-3.5 text-[#F59E0B]" />
-              <span>Auto-lock: {inactivityLeft}s</span>
+              <span>
+                Auto-lock: {Math.floor(inactivityLeft / 60).toString().padStart(2, '0')}:{(inactivityLeft % 60).toString().padStart(2, '0')}
+              </span>
             </div>
 
             <button
