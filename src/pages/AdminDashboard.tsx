@@ -554,9 +554,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         throw new Error(data.error || 'Purge failed');
       }
 
-      setVideos((prev) => prev.filter((v) => v.id !== report.video_id));
-
-      setReports((prev) => prev.filter((r) => r.video_id !== report.video_id));
+      const targetVideoId = Number(report.video_id);
+      setVideos((prev) => prev.filter((v) => Number(v.id) !== targetVideoId));
+      setReports((prev) => prev.filter((r) => Number(r.video_id) !== targetVideoId && Number(r.id) !== Number(report.id)));
 
       setStats((prev) => {
         if (!prev) return null;
@@ -661,6 +661,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       showNotification('success', `Category "${catName}" added to Cloudflare D1`);
       setCatName('');
       setCatSlug('');
+      if (onVideoUpdated) onVideoUpdated();
       fetchData();
     } catch (err: any) {
       showNotification('error', err.message);
@@ -687,7 +688,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
 
-      showNotification('success', `Category #${id} removed from D1`);
+      setCategories((prev) => prev.filter((c) => Number(c.id) !== Number(id)));
+      if (categoryId === id) {
+        const remaining = categories.filter((c) => Number(c.id) !== Number(id));
+        setCategoryId(remaining.length > 0 ? remaining[0].id : 1);
+      }
+      showNotification('success', `Category "${name}" (#${id}) removed from D1`);
+      if (onVideoUpdated) onVideoUpdated();
       fetchData();
     } catch (err: any) {
       showNotification('error', err.message);

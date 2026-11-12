@@ -146,7 +146,7 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
 
       await context.env.DB.batch([
         context.env.DB.prepare('DELETE FROM videos WHERE id = ?').bind(targetVideoId),
-        context.env.DB.prepare('DELETE FROM reports WHERE video_id = ?').bind(targetVideoId),
+        context.env.DB.prepare('DELETE FROM reports WHERE video_id = ? OR id = ?').bind(targetVideoId, Number(reportId || targetVideoId)),
       ]);
 
       return new Response(

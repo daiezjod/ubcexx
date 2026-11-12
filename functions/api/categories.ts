@@ -5,7 +5,7 @@ interface Env {
 const corsHeaders: Record<string, string> = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
 };
 
@@ -84,3 +84,42 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     );
   }
 };
+
+export const onRequestDelete: PagesFunction<Env> = async (context) => {
+  try {
+    const url = new URL(context.request.url);
+    let body: any = {};
+    try {
+      body = await context.request.json();
+    } catch {
+      body = {};
+    }
+
+    const rawId = url.searchParams.get('id') || body.id || (context.params ? (context.params as any).id : null);
+    if (!rawId) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Category ID required' }),
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    const id = Number(rawId);
+    const stmt = context.env.DB.prepare('DELETE FROM categories WHERE id = ?').bind(id);
+    const result = await stmt.run();
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: `Category #${id} removed from Cloudflare D1`,
+        deletedCount: result.meta?.changes ?? 1,
+      }),
+      { status: 200, headers: corsHeaders }
+    );
+  } catch (err: any) {
+    return new Response(
+      JSON.stringify({ success: false, error: err.message || 'Failed to delete category' }),
+      { status: 500, headers: corsHeaders }
+    );
+  }
+};
+

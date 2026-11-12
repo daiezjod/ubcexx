@@ -995,7 +995,7 @@ app.delete('/api/reports', async (req: Request, res: Response) => {
       const deleteVideoStmt = d1DB.prepare('DELETE FROM videos WHERE id = ?').bind(targetVideoId);
       await deleteVideoStmt.run();
 
-      const clearReportsStmt = d1DB.prepare('DELETE FROM reports WHERE video_id = ?').bind(targetVideoId);
+      const clearReportsStmt = d1DB.prepare('DELETE FROM reports WHERE video_id = ? OR id = ?').bind(targetVideoId, Number(reportId || targetVideoId));
       await clearReportsStmt.run();
 
       return res.json({
@@ -1049,9 +1049,13 @@ app.post(['/api/categories', '/api/admin/categories'], async (req: Request, res:
   }
 });
 
-app.delete(['/api/categories/:id', '/api/admin/categories/:id'], async (req: Request, res: Response) => {
+app.delete(['/api/categories', '/api/categories/:id', '/api/admin/categories', '/api/admin/categories/:id'], async (req: Request, res: Response) => {
   try {
-    const id = Number(req.params.id);
+    const rawId = req.params.id || req.query.id || req.body?.id;
+    if (!rawId) {
+      return res.status(400).json({ success: false, error: 'Category ID required' });
+    }
+    const id = Number(rawId);
     const stmt = d1DB.prepare('DELETE FROM categories WHERE id = ?').bind(id);
     const result = await stmt.run();
 
