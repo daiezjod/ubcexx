@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Heart,
   Share2,
@@ -25,6 +25,123 @@ import {
 } from '../utils/seo.ts';
 
 const LIKED_VIDEOS_STORAGE_KEY = 'ubcexx_liked_video_ids';
+const VIEWING_INTERESTS_STORAGE_KEY = 'ubcexx_viewing_interests';
+
+interface ViewingInterestsProfile {
+  categories: Record<string, number>;
+  tags: Record<string, number>;
+  updatedAt: number;
+}
+
+function parseVideoTags(tagsStr?: string): string[] {
+  if (!tagsStr || typeof tagsStr !== 'string') return [];
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const raw of tagsStr.split(',')) {
+    const clean = raw.trim().toLowerCase();
+    if (clean && !seen.has(clean)) {
+      seen.add(clean);
+      result.push(clean);
+    }
+  }
+  return result;
+}
+
+function getViewingInterestsProfile(): ViewingInterestsProfile {
+  if (typeof window === 'undefined') {
+    return { categories: {}, tags: {}, updatedAt: 0 };
+  }
+  try {
+    const raw = localStorage.getItem(VIEWING_INTERESTS_STORAGE_KEY);
+    if (!raw) return { categories: {}, tags: {}, updatedAt: 0 };
+    const parsed = JSON.parse(raw);
+    return {
+      categories: parsed && typeof parsed.categories === 'object' && parsed.categories ? parsed.categories : {},
+      tags: parsed && typeof parsed.tags === 'object' && parsed.tags ? parsed.tags : {},
+      updatedAt: typeof parsed?.updatedAt === 'number' ? parsed.updatedAt : 0,
+    };
+  } catch {
+    return { categories: {}, tags: {}, updatedAt: 0 };
+  }
+}
+
+function updateViewingInterestsProfile(videoItem: Video, weight = 1): ViewingInterestsProfile {
+  const profile = getViewingInterestsProfile();
+  if (typeof window === 'undefined' || !videoItem) return profile;
+
+  try {
+    if (videoItem.category_id) {
+      const catKey = String(videoItem.category_id);
+      profile.categories[catKey] = (profile.categories[catKey] || 0) + weight;
+    }
+
+    const videoTags = parseVideoTags(videoItem.tags);
+    for (const tag of videoTags) {
+      profile.tags[tag] = (profile.tags[tag] || 0) + weight;
+    }
+
+    const tagEntries = Object.entries(profile.tags);
+    if (tagEntries.length > 60) {
+      tagEntries.sort((a, b) => b[1] - a[1]);
+      profile.tags = Object.fromEntries(tagEntries.slice(0, 60));
+    }
+
+    profile.updatedAt = Date.now();
+    localStorage.setItem(VIEWING_INTERESTS_STORAGE_KEY, JSON.stringify(profile));
+  } catch {
+  }
+
+  return profile;
+}
+
+function rankRelatedVideos(
+  candidates: Video[],
+  currentVideo: Video,
+  profile: ViewingInterestsProfile
+): Video[] {
+  const currentTagSet = new Set(parseVideoTags(currentVideo.tags));
+  const uniqueMap = new Map<number, Video>();
+
+  for (const item of candidates) {
+    if (!item || Number(item.id) === Number(currentVideo.id)) continue;
+    const existing = uniqueMap.get(Number(item.id));
+    if (!existing || (!existing.tags && item.tags) || (!existing.category_id && item.category_id)) {
+      uniqueMap.set(Number(item.id), item);
+    }
+  }
+
+  const scored = Array.from(uniqueMap.values()).map((candidate) => {
+    const catKey = candidate.category_id ? String(candidate.category_id) : '';
+    const profileCategoryWeight = catKey ? profile.categories[catKey] || 0 : 0;
+
+    const candidateTags = parseVideoTags(candidate.tags);
+    let profileTagWeight = 0;
+    let sharedCurrentTags = 0;
+
+    for (const tag of candidateTags) {
+      profileTagWeight += profile.tags[tag] || 0;
+      if (currentTagSet.has(tag)) {
+        sharedCurrentTags += 1;
+      }
+    }
+
+    const profilePriorityScore = profileCategoryWeight * 120 + profileTagWeight * 50;
+    const sameCategoryScore =
+      candidate.category_id && currentVideo.category_id && Number(candidate.category_id) === Number(currentVideo.category_id)
+        ? 30
+        : 0;
+    const currentVideoSecondaryScore = sameCategoryScore + sharedCurrentTags * 15;
+    const popularityTieBreaker = Math.log10((candidate.views || 0) + 1);
+
+    return {
+      video: candidate,
+      score: profilePriorityScore + currentVideoSecondaryScore + popularityTieBreaker,
+    };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, 12).map((entry) => entry.video);
+}
 
 function getLikedVideoIds(): (string | number)[] {
   if (typeof window === 'undefined') return [];
@@ -83,6 +200,9 @@ export const WatchPage: React.FC<WatchPageProps> = ({
   const [reportToast, setReportToast] = useState<string | null>(null);
 
   const [playerMountKey, setPlayerMountKey] = useState<number>(0);
+  const candidatePoolRef = useRef<Video[]>([]);
+  const lastProfiledVideoIdRef = useRef<number | null>(null);
+  const lastPlayedVideoIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     const INACTIVITY_THRESHOLD_MS = 45000;
@@ -115,9 +235,9 @@ export const WatchPage: React.FC<WatchPageProps> = ({
           ).then((data) => {
             if (data?.success && data.video) {
               setVideo(data.video);
-              if (data.relatedVideos) {
-                setRelatedVideos(data.relatedVideos);
-              }
+              const merged = [...(data.relatedVideos || []), ...candidatePoolRef.current];
+              candidatePoolRef.current = merged;
+              setRelatedVideos(rankRelatedVideos(merged, data.video, getViewingInterestsProfile()));
             }
           }).catch(() => {});
         }
@@ -171,22 +291,41 @@ export const WatchPage: React.FC<WatchPageProps> = ({
     setLoading(true);
     setError(null);
 
-    safeFetchJson<{
-      success: boolean;
-      video?: Video;
-      relatedVideos?: Video[];
-      error?: string;
-    }>(`/api/videos/${videoIdOrSlug}`)
-      .then((data) => {
+    Promise.all([
+      safeFetchJson<{
+        success: boolean;
+        video?: Video;
+        relatedVideos?: Video[];
+        error?: string;
+      }>(`/api/videos/${videoIdOrSlug}`),
+      safeFetchJson<{
+        success: boolean;
+        videos?: Video[];
+      }>('/api/videos?limit=48').catch(() => ({ success: false, videos: [] as Video[] })),
+    ])
+      .then(([data, poolData]) => {
         if (!isMounted) return;
         if (data.success && data.video) {
-          setVideo(data.video);
-          setLikes(data.video.likes || 0);
-          setRelatedVideos(data.relatedVideos || []);
+          const loadedVideo = data.video;
+          const poolVideos = poolData?.success && Array.isArray(poolData.videos) ? poolData.videos : [];
+          const combinedCandidates = [...(data.relatedVideos || []), ...poolVideos];
+          candidatePoolRef.current = combinedCandidates;
+
+          const activeProfile = getViewingInterestsProfile();
+          const ranked = rankRelatedVideos(combinedCandidates, loadedVideo, activeProfile);
+
+          if (lastProfiledVideoIdRef.current !== Number(loadedVideo.id)) {
+            lastProfiledVideoIdRef.current = Number(loadedVideo.id);
+            updateViewingInterestsProfile(loadedVideo, 1);
+          }
+
+          setVideo(loadedVideo);
+          setLikes(loadedVideo.likes || 0);
+          setRelatedVideos(ranked);
 
           const likedIds = getLikedVideoIds();
           const isLiked = likedIds.some(
-            (id) => String(id) === String(data.video!.id) || (data.video!.slug && String(id) === String(data.video!.slug))
+            (id) => String(id) === String(loadedVideo.id) || (loadedVideo.slug && String(id) === String(loadedVideo.slug))
           );
           setHasLiked(isLiked);
         } else {
@@ -269,6 +408,13 @@ export const WatchPage: React.FC<WatchPageProps> = ({
 
   const handleFirstPlay = () => {
     if (!video) return;
+    if (lastPlayedVideoIdRef.current !== Number(video.id)) {
+      lastPlayedVideoIdRef.current = Number(video.id);
+      const updatedProfile = updateViewingInterestsProfile(video, 1);
+      if (candidatePoolRef.current.length > 0) {
+        setRelatedVideos(rankRelatedVideos(candidatePoolRef.current, video, updatedProfile));
+      }
+    }
     safeFetchJson<{ success: boolean; views?: number }>(`/api/videos/${video.id}/view`, { method: 'POST' })
       .then((data) => {
         if (data?.success && typeof data.views === 'number') {
@@ -292,6 +438,10 @@ export const WatchPage: React.FC<WatchPageProps> = ({
     }
 
     saveLikedVideoId(video.id);
+    const updatedProfile = updateViewingInterestsProfile(video, 2);
+    if (candidatePoolRef.current.length > 0) {
+      setRelatedVideos(rankRelatedVideos(candidatePoolRef.current, video, updatedProfile));
+    }
     setHasLiked(true);
     setLikes((prev) => prev + 1);
 
@@ -504,7 +654,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
 
             {Boolean(
               (monetization?.native_ads_enabled === 1 || monetization?.native_enabled === 1) &&
-              (monetization?.banner_infeed_code || monetization?.native_ads_code || monetization?.native_code) &&
+              (monetization?.banner_top_code || '').trim() &&
               (() => {
                 try {
                   const pz = typeof monetization?.placement_zones === 'string'
@@ -516,13 +666,16 @@ export const WatchPage: React.FC<WatchPageProps> = ({
                 }
               })()
             ) && (
-              <AdBanner
-                key={`watch-ad-${videoIdOrSlug}`}
-                adHtml={monetization?.banner_infeed_code || monetization?.native_ads_code || monetization?.native_code || ''}
-                width={300}
-                height={250}
-                placement="infeed"
-              />
+              <div className="w-[320px] h-[50px] max-w-full mx-auto my-2 flex items-center justify-center overflow-hidden">
+                <AdBanner
+                  key={`watch-ad-${videoIdOrSlug}`}
+                  adHtml={(monetization?.banner_top_code || '').trim()}
+                  width={320}
+                  height={50}
+                  placement="top"
+                  className="!my-0"
+                />
+              </div>
             )}
           </div>
 

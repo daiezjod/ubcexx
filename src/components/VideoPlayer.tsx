@@ -401,6 +401,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const [iframeMountKey, setIframeMountKey] = useState<number>(0);
+  const [isIframeLoaded, setIsIframeLoaded] = useState<boolean>(false);
+  const [isVideoReady, setIsVideoReady] = useState<boolean>(false);
 
   const hasValidPreroll = isValidPrerollAd(preRollAd);
   const [isAdActive, setIsAdActive] = useState<boolean>(false);
@@ -500,6 +502,14 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     adSkipTrackingRef.current = [];
     adCompleteTrackingRef.current = [];
   }, [videoUrl, backupVideoUrl, preRollAd?.videoUrl, preRollAd?.enabled]);
+
+  useEffect(() => {
+    setIsIframeLoaded(false);
+  }, [okRuId, iframeMountKey, isAdActive, videoUrl, backupVideoUrl]);
+
+  useEffect(() => {
+    setIsVideoReady(false);
+  }, [activeSource, isAdActive]);
 
   useEffect(() => {
     if (isOkRuActive && !isAdActive && !hasReportedView && onFirstPlay) {
@@ -876,25 +886,52 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       ref={containerRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => isPlaying && setShowControls(false)}
-      className={`relative w-full aspect-video bg-black rounded-2xl overflow-hidden border border-[#1E293B] shadow-2xl select-none group transition-all duration-300 ${
+      className={`relative w-full aspect-video bg-[#080C14] rounded-2xl overflow-hidden border border-[#1E293B] shadow-2xl select-none group transition-all duration-300 ${
         isFullscreen ? 'fixed inset-0 z-50 rounded-none w-screen h-screen' : ''
       } ${
         isTheaterMode ? 'rounded-none max-h-[85vh]' : 'rounded-2xl'
       }`}
     >
       {isOkRuActive && !isAdActive ? (
-        <div className="relative w-full h-full aspect-video bg-black overflow-hidden">
+        <div className="relative w-full h-full aspect-video bg-[#080C14] overflow-hidden">
           <iframe
             ref={iframeRef}
             key={`okru-${okRuId}-${iframeMountKey}`}
             src={`https://ok.ru/videoembed/${okRuId}?autoplay=1`}
             title={title}
             loading="eager"
+            onLoad={() => setIsIframeLoaded(true)}
             {...({ fetchpriority: 'high', fetchPriority: 'high' } as any)}
             className="absolute -top-[44px] left-0 w-full h-[calc(100%+44px)] border-0"
             allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
             allowFullScreen
           />
+
+          <div
+            className={`absolute inset-0 z-10 bg-[#080C14] transition-opacity duration-500 ${
+              isIframeLoaded ? 'opacity-0 pointer-events-none' : 'opacity-100'
+            }`}
+          >
+            {thumbnailUrl && (
+              <img
+                src={thumbnailUrl}
+                alt={title}
+                referrerPolicy="no-referrer"
+                loading="eager"
+                decoding="sync"
+                className="absolute inset-0 w-full h-full object-cover z-10"
+              />
+            )}
+            <div className="absolute inset-0 z-10 bg-gradient-to-t from-[#080C14]/70 via-[#080C14]/20 to-[#080C14]/35" />
+            <div className="absolute inset-0 z-10 flex items-center justify-center">
+              <div className="relative flex items-center justify-center">
+                <span className="absolute w-16 h-16 rounded-full bg-[#F59E0B]/30 animate-ping" />
+                <div className="relative w-14 h-14 rounded-full bg-[#080C14]/75 backdrop-blur-md border border-[#F59E0B]/60 flex items-center justify-center shadow-2xl">
+                  <div className="w-7 h-7 rounded-full border-2 border-[#F59E0B]/30 border-t-[#F59E0B] animate-spin" />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       ) : (
         <>
@@ -905,6 +942,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             onClick={togglePlay}
             onError={handleVideoError}
             onTimeUpdate={handleTimeUpdate}
+            onLoadedData={() => setIsVideoReady(true)}
+            onPlaying={() => setIsVideoReady(true)}
             onLoadedMetadata={() => {
               if (videoRef.current) {
                 setDuration(videoRef.current.duration);
@@ -918,6 +957,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               }
             }}
             onCanPlay={() => {
+              setIsVideoReady(true);
               if (videoRef.current) {
                 if (savedTimestampRef.current > 0) {
                   videoRef.current.currentTime = savedTimestampRef.current;
@@ -941,6 +981,34 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             className="w-full h-full object-contain cursor-pointer"
             playsInline
           />
+
+          <div
+            className={`absolute inset-0 z-10 bg-[#080C14] transition-opacity duration-500 ${
+              isVideoReady && hasStarted ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-none'
+            }`}
+          >
+            {thumbnailUrl && (
+              <img
+                src={thumbnailUrl}
+                alt={title}
+                referrerPolicy="no-referrer"
+                loading="eager"
+                decoding="sync"
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#080C14]/70 via-[#080C14]/20 to-[#080C14]/35" />
+            {(isAdActive || hasStarted) && !isVideoReady && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="relative flex items-center justify-center">
+                  <span className="absolute w-16 h-16 rounded-full bg-[#F59E0B]/30 animate-ping" />
+                  <div className="relative w-14 h-14 rounded-full bg-[#080C14]/75 backdrop-blur-md border border-[#F59E0B]/60 flex items-center justify-center shadow-2xl">
+                    <div className="w-7 h-7 rounded-full border-2 border-[#F59E0B]/30 border-t-[#F59E0B] animate-spin" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {isAdActive && (
             <>
@@ -996,7 +1064,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           {(!isPlaying || !hasStarted) && !isAdActive && (
             <div
               onClick={togglePlay}
-              className="absolute inset-0 bg-black/40 flex items-center justify-center cursor-pointer transition-opacity z-10"
+              className="absolute inset-0 bg-black/40 flex items-center justify-center cursor-pointer transition-opacity z-20"
             >
               <div className="w-16 sm:w-20 h-16 sm:h-20 rounded-full bg-[#F59E0B] text-black flex items-center justify-center shadow-2xl shadow-[#F59E0B]/50 transform hover:scale-110 active:scale-95 transition-all">
                 <Play className="w-8 sm:w-10 h-8 sm:h-10 fill-black text-black ml-1" />
