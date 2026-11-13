@@ -229,102 +229,129 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setTimeout(() => setNotification(null), 4000);
   };
 
+  const getNoCacheHeaders = (includeContentType = false): Record<string, string> => ({
+    ...(includeContentType ? { 'Content-Type': 'application/json' } : {}),
+    Authorization: `Bearer ${token}`,
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    Pragma: 'no-cache',
+  });
+
   const fetchData = async () => {
     setLoading(true);
     try {
-      const headers = { Authorization: `Bearer ${token}` };
+      const headers = getNoCacheHeaders();
+      const cacheBust = Date.now();
 
-      try {
-        const statsRes = await fetch('/api/stats', { headers });
-        const statsContentType = statsRes.headers.get("content-type");
-        if (!statsRes.ok || !statsContentType || !statsContentType.includes("application/json")) {
-        } else {
-          const statsData = await statsRes.json();
-          if (statsData?.success && statsData.stats) {
-            setStats(statsData.stats);
-          }
-        }
-      } catch (err) {
-      }
-
-      try {
-        const vidsRes = await fetch('/api/videos?limit=100', { headers });
-        const vidsContentType = vidsRes.headers.get("content-type");
-        if (!vidsRes.ok || !vidsContentType || !vidsContentType.includes("application/json")) {
-        } else {
-          const vidsData = await vidsRes.json();
-          if (vidsData?.success && vidsData.videos) {
-            setVideos(vidsData.videos);
-          }
-        }
-      } catch (err) {
-      }
-
-      try {
-        const catsRes = await fetch('/api/categories');
-        const catsContentType = catsRes.headers.get("content-type");
-        if (!catsRes.ok || !catsContentType || !catsContentType.includes("application/json")) {
-        } else {
-          const catsData = await catsRes.json();
-          if (catsData?.success && catsData.categories) {
-            setCategories(catsData.categories);
-            if (catsData.categories.length > 0 && !categoryId) {
-              setCategoryId(catsData.categories[0].id);
-            }
-          }
-        }
-      } catch (err) {
-      }
-
-      try {
-        const monetRes = await fetch('/api/monetization');
-        const monetContentType = monetRes.headers.get("content-type");
-        if (!monetRes.ok || !monetContentType || !monetContentType.includes("application/json")) {
-        } else {
-          const monetData = await monetRes.json();
-          if (monetData?.success && monetData.monetization) {
-            const m = monetData.monetization;
-            setPrerollEnabled(m.preroll_enabled === 1 || m.preroll_enabled === true);
-            setPrerollVideoUrl(m.preroll_video_url || '');
-            setPrerollClickUrl(m.preroll_click_url || '');
-            const skipSec = m.preroll_skip_seconds ?? m.preroll_skip_offset ?? 5;
-            setPrerollSkipOffset(String(skipSec));
-            const natEnabled = m.native_ads_enabled !== undefined ? m.native_ads_enabled : m.native_enabled;
-            setBannerEnabled(natEnabled === 1 || natEnabled === true);
-            const rawCode = m.native_ads_code ?? m.native_code ?? '';
-            setBannerCode(rawCode);
-            setBannerTopCode(m.banner_top_code || '');
-            setBannerInfeedCode(m.banner_infeed_code || rawCode || '');
-
-            if (m.placement_zones) {
-              try {
-                const pz = typeof m.placement_zones === 'string' ? JSON.parse(m.placement_zones) : m.placement_zones;
-                setShowBannerHome(pz.home !== false && pz.in_feed !== false);
-                setShowBannerWatch(pz.under_player !== false);
-              } catch {
-                setShowBannerHome(true);
-                setShowBannerWatch(true);
+      await Promise.all([
+        (async () => {
+          try {
+            const statsRes = await fetch(`/api/stats?_t=${cacheBust}`, {
+              headers,
+              cache: 'no-store',
+            });
+            const statsContentType = statsRes.headers.get("content-type");
+            if (statsRes.ok && statsContentType && statsContentType.includes("application/json")) {
+              const statsData = await statsRes.json();
+              if (statsData?.success && statsData.stats) {
+                setStats(statsData.stats);
               }
-            } else {
-              const placements = (m.native_placements || '').split(',');
-              setShowBannerHome(placements.includes('in_feed') || placements.includes('home') || !m.native_placements);
-              setShowBannerWatch(placements.includes('under_player') || !m.native_placements);
             }
+          } catch {
           }
-        }
-      } catch (err) {
-      }
+        })(),
+        (async () => {
+          try {
+            const vidsRes = await fetch(`/api/videos?limit=100&_t=${cacheBust}`, {
+              headers,
+              cache: 'no-store',
+            });
+            const vidsContentType = vidsRes.headers.get("content-type");
+            if (vidsRes.ok && vidsContentType && vidsContentType.includes("application/json")) {
+              const vidsData = await vidsRes.json();
+              if (vidsData?.success && vidsData.videos) {
+                setVideos(vidsData.videos);
+              }
+            }
+          } catch {
+          }
+        })(),
+        (async () => {
+          try {
+            const catsRes = await fetch(`/api/categories?_t=${cacheBust}`, {
+              headers,
+              cache: 'no-store',
+            });
+            const catsContentType = catsRes.headers.get("content-type");
+            if (catsRes.ok && catsContentType && catsContentType.includes("application/json")) {
+              const catsData = await catsRes.json();
+              if (catsData?.success && catsData.categories) {
+                setCategories(catsData.categories);
+                if (catsData.categories.length > 0 && !categoryId) {
+                  setCategoryId(catsData.categories[0].id);
+                }
+              }
+            }
+          } catch {
+          }
+        })(),
+        (async () => {
+          try {
+            const monetRes = await fetch(`/api/monetization?_t=${cacheBust}`, {
+              headers,
+              cache: 'no-store',
+            });
+            const monetContentType = monetRes.headers.get("content-type");
+            if (monetRes.ok && monetContentType && monetContentType.includes("application/json")) {
+              const monetData = await monetRes.json();
+              if (monetData?.success && monetData.monetization) {
+                const m = monetData.monetization;
+                setPrerollEnabled(m.preroll_enabled === 1 || m.preroll_enabled === true);
+                setPrerollVideoUrl(m.preroll_video_url || '');
+                setPrerollClickUrl(m.preroll_click_url || '');
+                const skipSec = m.preroll_skip_seconds ?? m.preroll_skip_offset ?? 5;
+                setPrerollSkipOffset(String(skipSec));
+                const natEnabled = m.native_ads_enabled !== undefined ? m.native_ads_enabled : m.native_enabled;
+                setBannerEnabled(natEnabled === 1 || natEnabled === true);
+                const rawCode = m.native_ads_code ?? m.native_code ?? '';
+                setBannerCode(rawCode);
+                setBannerTopCode(m.banner_top_code || '');
+                setBannerInfeedCode(m.banner_infeed_code || rawCode || '');
 
-      try {
-        const repsRes = await fetch('/api/reports', { headers });
-        if (repsRes.ok) {
-          const repsData = await repsRes.json();
-          if (repsData?.success && repsData.reports) {
-            setReports(repsData.reports);
+                if (m.placement_zones) {
+                  try {
+                    const pz = typeof m.placement_zones === 'string' ? JSON.parse(m.placement_zones) : m.placement_zones;
+                    setShowBannerHome(pz.home !== false && pz.in_feed !== false);
+                    setShowBannerWatch(pz.under_player !== false);
+                  } catch {
+                    setShowBannerHome(true);
+                    setShowBannerWatch(true);
+                  }
+                } else {
+                  const placements = (m.native_placements || '').split(',');
+                  setShowBannerHome(placements.includes('in_feed') || placements.includes('home') || !m.native_placements);
+                  setShowBannerWatch(placements.includes('under_player') || !m.native_placements);
+                }
+              }
+            }
+          } catch {
           }
-        }
-      } catch (err) {
-      }
+        })(),
+        (async () => {
+          try {
+            const repsRes = await fetch(`/api/reports?_t=${cacheBust}`, {
+              headers,
+              cache: 'no-store',
+            });
+            if (repsRes.ok) {
+              const repsData = await repsRes.json();
+              if (repsData?.success && repsData.reports) {
+                setReports(repsData.reports);
+              }
+            }
+          } catch {
+          }
+        })(),
+      ]);
     } catch (err: any) {
       if (err.status === 401) {
         onLogout();
@@ -348,22 +375,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
 
     setIsSubmitting(true);
+    const parsedDur = parseDurationToSeconds(duration);
+    const trimmedTitle = title.trim();
+    const trimmedVideoUrl = videoUrl.trim();
+    const trimmedBackupUrl = backupVideoUrl ? backupVideoUrl.trim() : '';
+    const trimmedThumbUrl = thumbnailUrl.trim();
+    const selectedCatId = Number(categoryId) || 1;
+    const matchedCat = categories.find((c) => Number(c.id) === selectedCatId);
+
     try {
-      const res = await fetch('/api/videos', {
+      const res = await fetch(`/api/videos?_t=${Date.now()}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        cache: 'no-store',
+        headers: getNoCacheHeaders(true),
         body: JSON.stringify({
-          title,
+          title: trimmedTitle,
           slug,
           description,
-          video_url: videoUrl,
-          backup_video_url: backupVideoUrl,
-          thumbnail_url: thumbnailUrl,
-          duration: parseDurationToSeconds(duration),
-          category_id: categoryId,
+          video_url: trimmedVideoUrl,
+          backup_video_url: trimmedBackupUrl,
+          thumbnail_url: trimmedThumbUrl,
+          duration: parsedDur,
+          category_id: selectedCatId,
           tags,
           is_featured: isFeatured,
           status,
@@ -381,7 +414,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         throw new Error(data.error || 'Failed to insert video into D1');
       }
 
-      showNotification('success', `Video "${title}" successfully inserted into Cloudflare D1 with failover mirror!`);
+      const createdVideo: Video = {
+        id: Number(data.id) || Date.now(),
+        title: trimmedTitle,
+        slug: data.slug || slug || trimmedTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+        description: description || '',
+        video_url: trimmedVideoUrl,
+        backup_video_url: trimmedBackupUrl,
+        thumbnail_url: trimmedThumbUrl,
+        duration: parsedDur,
+        views: 0,
+        likes: 0,
+        category_id: selectedCatId,
+        tags: tags || '',
+        is_featured: isFeatured ? 1 : 0,
+        status: status || 'published',
+        created_at: new Date().toISOString(),
+        category_name: matchedCat?.name,
+        category_slug: matchedCat?.slug,
+      };
+
+      setVideos((prev) => [createdVideo, ...prev.filter((v) => Number(v.id) !== Number(createdVideo.id))]);
+      setStats((prev) => {
+        const currentCount = prev?.total_videos ?? prev?.totalVideos ?? videos.length;
+        const nextCount = currentCount + 1;
+        return {
+          ...(prev || {}),
+          total_videos: nextCount,
+          totalVideos: nextCount,
+          featuredVideos: (prev?.featuredVideos ?? videos.filter((v) => v.is_featured === 1).length) + (isFeatured ? 1 : 0),
+        };
+      });
+
+      showNotification('success', `Video "${trimmedTitle}" successfully inserted into Cloudflare D1 with failover mirror!`);
 
       setTitle('');
       setSlug('');
@@ -389,8 +454,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setDuration('');
       setIsFeatured(false);
       setActiveTab('videos');
-      fetchData();
       if (onVideoUpdated) onVideoUpdated();
+      fetchData();
     } catch (err: any) {
       showNotification('error', err.message);
     } finally {
@@ -404,12 +469,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
 
     try {
-      const res = await fetch(`/api/videos?id=${id}`, {
+      const res = await fetch(`/api/videos?id=${id}&_t=${Date.now()}`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        cache: 'no-store',
+        headers: getNoCacheHeaders(true),
         body: JSON.stringify({ id }),
       });
 
@@ -467,12 +530,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const parsedDur = parseDurationToSeconds(editDuration);
 
     try {
-      const res = await fetch('/api/videos', {
+      const res = await fetch(`/api/videos?_t=${Date.now()}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        cache: 'no-store',
+        headers: getNoCacheHeaders(true),
         body: JSON.stringify({
           id: editingVideo.id,
           title: editTitle.trim(),
@@ -517,6 +578,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setEditingVideo(null);
       showNotification('success', 'Video details updated successfully in D1');
       if (onVideoUpdated) onVideoUpdated();
+      fetchData();
     } catch (err: any) {
       showNotification('error', err.message || 'Failed to update video');
     } finally {
@@ -535,12 +597,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     setReportLoadingId(report.id);
     try {
-      const res = await fetch('/api/reports', {
+      const res = await fetch(`/api/reports?_t=${Date.now()}`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        cache: 'no-store',
+        headers: getNoCacheHeaders(true),
         body: JSON.stringify({
           action: 'purge',
           purge: true,
@@ -579,12 +639,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleDismissReport = async (reportId: number) => {
     setReportLoadingId(reportId);
     try {
-      const res = await fetch(`/api/reports?id=${reportId}`, {
+      const res = await fetch(`/api/reports?id=${reportId}&_t=${Date.now()}`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        cache: 'no-store',
+        headers: getNoCacheHeaders(true),
         body: JSON.stringify({ id: reportId }),
       });
 
@@ -605,12 +663,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleToggleFeatured = async (v: Video) => {
     try {
       const newStatus = v.is_featured === 1 ? 0 : 1;
-      const res = await fetch(`/api/videos/${v.id}`, {
+      const res = await fetch(`/api/videos/${v.id}?_t=${Date.now()}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        cache: 'no-store',
+        headers: getNoCacheHeaders(true),
         body: JSON.stringify({ is_featured: newStatus }),
       });
 
@@ -621,7 +677,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       const data = await res.json();
       if (data.success) {
+        setVideos((prev) =>
+          prev.map((item) => (Number(item.id) === Number(v.id) ? { ...item, is_featured: newStatus } : item))
+        );
         showNotification('success', `Updated featured status for #${v.id}`);
+        if (onVideoUpdated) onVideoUpdated();
         fetchData();
       }
     } catch (err: any) {
@@ -637,14 +697,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
 
     setIsCatSubmitting(true);
+    const trimmedCatName = catName.trim();
+    const resolvedSlug = (catSlug || trimmedCatName)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+
     try {
-      const res = await fetch('/api/categories', {
+      const res = await fetch(`/api/categories?_t=${Date.now()}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ name: catName, slug: catSlug }),
+        cache: 'no-store',
+        headers: getNoCacheHeaders(true),
+        body: JSON.stringify({ name: trimmedCatName, slug: resolvedSlug }),
       });
 
       const contentType = res.headers.get("content-type");
@@ -658,9 +722,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         throw new Error(data.error || 'Failed to create category');
       }
 
-      showNotification('success', `Category "${catName}" added to Cloudflare D1`);
+      const createdCategory: Category = {
+        id: Number(data.id) || Date.now(),
+        name: trimmedCatName,
+        slug: data.slug || resolvedSlug,
+        created_at: new Date().toISOString(),
+        video_count: 0,
+      };
+
+      setCategories((prev) => [
+        ...prev.filter((c) => Number(c.id) !== Number(createdCategory.id)),
+        createdCategory,
+      ]);
+      setStats((prev) => {
+        const currentCount = prev?.total_categories ?? prev?.totalCategories ?? categories.length;
+        const nextCount = currentCount + 1;
+        return {
+          ...(prev || {}),
+          total_categories: nextCount,
+          totalCategories: nextCount,
+        };
+      });
+
+      showNotification('success', `Category "${trimmedCatName}" added to Cloudflare D1`);
       setCatName('');
       setCatSlug('');
+      setActiveTab('categories');
       if (onVideoUpdated) onVideoUpdated();
       fetchData();
     } catch (err: any) {
@@ -674,9 +761,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (!window.confirm(`Delete category "${name}"?`)) return;
 
     try {
-      const res = await fetch(`/api/categories/${id}`, {
+      const res = await fetch(`/api/categories/${id}?_t=${Date.now()}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+        headers: getNoCacheHeaders(),
       });
 
       const contentType = res.headers.get("content-type");
@@ -689,6 +777,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (!data.success) throw new Error(data.error);
 
       setCategories((prev) => prev.filter((c) => Number(c.id) !== Number(id)));
+      setStats((prev) => {
+        if (!prev) return null;
+        const currentCount = prev.total_categories ?? prev.totalCategories ?? 1;
+        const nextCount = Math.max(0, currentCount - 1);
+        return {
+          ...prev,
+          total_categories: nextCount,
+          totalCategories: nextCount,
+        };
+      });
       if (categoryId === id) {
         const remaining = categories.filter((c) => Number(c.id) !== Number(id));
         setCategoryId(remaining.length > 0 ? remaining[0].id : 1);

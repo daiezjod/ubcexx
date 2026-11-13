@@ -15,6 +15,14 @@ import { AdBanner } from '../components/AdBanner.tsx';
 import { Footer } from '../components/Footer.tsx';
 import { formatViews, formatTimeAgo, formatNumber } from '../utils/formatters.ts';
 import { safeFetchJson } from '../utils/api.ts';
+import {
+  formatDurationIso8601,
+  resolveAbsoluteAssetUrl,
+  setCanonicalUrl,
+  upsertMetaTag,
+  setJsonLdSchema,
+  clearJsonLdSchema,
+} from '../utils/seo.ts';
 
 const LIKED_VIDEOS_STORAGE_KEY = 'ubcexx_liked_video_ids';
 
@@ -209,6 +217,55 @@ export const WatchPage: React.FC<WatchPageProps> = ({
       setHasLiked(false);
     }
   }, [video?.id, video?.slug]);
+
+  useEffect(() => {
+    if (!video) return;
+
+    const watchTitle = `${video.title} - Free HD Porn Video | UBCEXX`;
+    const watchDesc =
+      (video.description && video.description.trim()) ||
+      `Watch ${video.title} - Free HD Porn Video on UBCEXX. Stream high quality uncensored XXX videos instantly.`;
+    const canonicalPath = `/watch/${video.slug || video.id}`;
+    const canonicalUrl = setCanonicalUrl(canonicalPath);
+    const absoluteThumb = resolveAbsoluteAssetUrl(video.thumbnail_url);
+    const isoDuration = formatDurationIso8601(video.duration);
+    const parsedUpload = video.created_at ? new Date(video.created_at) : new Date();
+    const uploadDateIso = isNaN(parsedUpload.getTime()) ? new Date().toISOString() : parsedUpload.toISOString();
+
+    document.title = watchTitle;
+    upsertMetaTag('name', 'description', watchDesc);
+    upsertMetaTag('property', 'og:type', 'video.other');
+    upsertMetaTag('property', 'og:title', watchTitle);
+    upsertMetaTag('property', 'og:description', watchDesc);
+    if (absoluteThumb) {
+      upsertMetaTag('property', 'og:image', absoluteThumb);
+      upsertMetaTag('name', 'twitter:image', absoluteThumb);
+    }
+    upsertMetaTag('name', 'twitter:title', watchTitle);
+    upsertMetaTag('name', 'twitter:description', watchDesc);
+
+    setJsonLdSchema({
+      '@context': 'https://schema.org',
+      '@type': 'VideoObject',
+      name: video.title,
+      description: watchDesc,
+      thumbnailUrl: absoluteThumb ? [absoluteThumb] : undefined,
+      uploadDate: uploadDateIso,
+      duration: isoDuration,
+      contentUrl: video.video_url,
+      embedUrl: video.video_url,
+      url: canonicalUrl,
+      interactionStatistic: {
+        '@type': 'InteractionCounter',
+        interactionType: { '@type': 'WatchAction' },
+        userInteractionCount: video.views || 0,
+      },
+    });
+
+    return () => {
+      clearJsonLdSchema();
+    };
+  }, [video]);
 
   const handleFirstPlay = () => {
     if (!video) return;

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navbar } from '../components/Navbar.tsx';
 import { HeroFeatured } from '../components/HeroFeatured.tsx';
 import { VideoCard } from '../components/VideoCard.tsx';
@@ -7,6 +7,7 @@ import { AdBanner } from '../components/AdBanner.tsx';
 import { Footer } from '../components/Footer.tsx';
 import { Video, Category, MonetizationSettings } from '../types.ts';
 import { Filter, RefreshCw } from 'lucide-react';
+import { setCanonicalUrl, upsertMetaTag, setJsonLdSchema } from '../utils/seo.ts';
 
 interface HomeProps {
   categories: Category[];
@@ -41,6 +42,43 @@ export const Home: React.FC<HomeProps> = ({
   onLoadMore,
   onNavigateHome,
 }) => {
+  useEffect(() => {
+    const activeCat = selectedCategoryId ? categories.find((c) => c.id === selectedCategoryId) : null;
+    const homeTitle = activeCat
+      ? `${activeCat.name} - Free Porn Videos, HD XXX Movies & Sex Tube | UBCEXX`
+      : 'UBCEXX - Free Porn Videos, HD XXX Movies & Sex Tube';
+    const homeDesc = activeCat
+      ? `Watch free ${activeCat.name} porn videos and HD XXX movies on UBCEXX. Stream high quality uncensored adult clips on mobile and desktop.`
+      : 'UBCEXX - Free Porn Videos, HD XXX Movies & Sex Tube. Stream thousands of uncensored hardcore adult clips, amateur porn, and 4K XXX videos instantly.';
+
+    document.title = homeTitle;
+    upsertMetaTag('name', 'description', homeDesc);
+    upsertMetaTag('property', 'og:type', 'website');
+    upsertMetaTag('property', 'og:title', homeTitle);
+    upsertMetaTag('property', 'og:description', homeDesc);
+    upsertMetaTag('name', 'twitter:title', homeTitle);
+    upsertMetaTag('name', 'twitter:description', homeDesc);
+
+    const canonicalUrl = setCanonicalUrl('/');
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+
+    if (origin) {
+      setJsonLdSchema({
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: 'UBCEXX',
+        alternateName: 'UBCEXX Adult Tube',
+        url: canonicalUrl || `${origin}/`,
+        description: homeDesc,
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: `${origin}/?search={search_term_string}`,
+          'query-input': 'required name=search_term_string',
+        },
+      });
+    }
+  }, [selectedCategoryId, categories]);
+
   const isBannerAdEnabled = Boolean(
     monetization &&
     (monetization.native_ads_enabled === 1 || monetization.native_enabled === 1)

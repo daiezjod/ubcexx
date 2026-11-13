@@ -1301,6 +1301,127 @@ const handleCronCleanup = async (req: Request, res: Response) => {
 app.post('/api/cron/cleanup', handleCronCleanup);
 app.get('/api/cron/cleanup', handleCronCleanup);
 
+app.get('/robots.txt', (req: Request, res: Response) => {
+  const protoHeader = (req.headers['x-forwarded-proto'] as string)?.split(',')[0]?.trim();
+  const hostHeader = (req.headers['x-forwarded-host'] as string)?.split(',')[0]?.trim() || req.get('host');
+  const origin = `${protoHeader || req.protocol}://${hostHeader}`;
+
+  const robotsTxt = [
+    'User-agent: *',
+    'Allow: /',
+    '',
+    `Sitemap: ${origin}/sitemap.xml`,
+    '',
+  ].join('\n');
+
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
+  res.send(robotsTxt);
+});
+
+app.get('/sitemap.xml', async (req: Request, res: Response) => {
+  const protoHeader = (req.headers['x-forwarded-proto'] as string)?.split(',')[0]?.trim();
+  const hostHeader = (req.headers['x-forwarded-host'] as string)?.split(',')[0]?.trim() || req.get('host');
+  const origin = `${protoHeader || req.protocol}://${hostHeader}`;
+
+  const escapeXml = (unsafe: string): string =>
+    String(unsafe || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+
+  const toIsoDate = (value?: string | null): string => {
+    if (!value) return new Date().toISOString();
+    const parsed = new Date(value);
+    return isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+  };
+
+  const resolveAbs = (urlPath?: string | null): string => {
+    if (!urlPath) return '';
+    const trimmed = String(urlPath).trim();
+    if (!trimmed) return '';
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+    return `${origin}${trimmed.startsWith('/') ? '' : '/'}${trimmed}`;
+  };
+
+  let videos: any[] = [];
+  let categories: any[] = [];
+  try {
+    const vRes = await d1DB.prepare("SELECT id, slug, title, description, thumbnail_url, duration, created_at FROM videos WHERE status = 'published' ORDER BY created_at DESC").all();
+    videos = vRes.results || [];
+  } catch {
+    videos = [];
+  }
+  try {
+    const cRes = await d1DB.prepare('SELECT id, slug, name, created_at FROM categories ORDER BY id ASC').all();
+    categories = cRes.results || [];
+  } catch {
+    categories = [];
+  }
+
+  const nowIso = new Date().toISOString();
+  const urlEntries: string[] = [];
+
+  urlEntries.push(`  <url>
+    <loc>${escapeXml(`${origin}/`)}</loc>
+    <lastmod>${nowIso}</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>1.0</priority>
+  </url>`);
+
+  for (const cat of categories) {
+    const catSlug = cat.slug ? encodeURIComponent(cat.slug) : String(cat.id);
+    urlEntries.push(`  <url>
+    <loc>${escapeXml(`${origin}/?category=${catSlug}`)}</loc>
+    <lastmod>${toIsoDate(cat.created_at)}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>`);
+  }
+
+  for (const video of videos) {
+    const slugOrId = video.slug ? encodeURIComponent(video.slug) : String(video.id);
+    const watchUrl = `${origin}/watch/${slugOrId}`;
+    const lastmod = toIsoDate(video.created_at);
+    const thumbUrl = resolveAbs(video.thumbnail_url);
+    const title = video.title || `Video ${video.id}`;
+    const description = video.description || `Watch ${title} free HD porn video on UBCEXX.`;
+    const durationSec = typeof video.duration === 'number' && video.duration > 0 ? Math.floor(video.duration) : 0;
+
+    let videoMetaBlock = '';
+    if (thumbUrl) {
+      videoMetaBlock = `
+    <video:video>
+      <video:thumbnail_loc>${escapeXml(thumbUrl)}</video:thumbnail_loc>
+      <video:title>${escapeXml(title)}</video:title>
+      <video:description>${escapeXml(description.slice(0, 2000))}</video:description>
+      <video:player_loc>${escapeXml(watchUrl)}</video:player_loc>${durationSec > 0 ? `\n      <video:duration>${durationSec}</video:duration>` : ''}
+      <video:publication_date>${lastmod}</video:publication_date>
+      <video:family_friendly>no</video:family_friendly>
+    </video:video>`;
+    }
+
+    urlEntries.push(`  <url>
+    <loc>${escapeXml(watchUrl)}</loc>
+    <lastmod>${lastmod}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>${videoMetaBlock}
+  </url>`);
+  }
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
+${urlEntries.join('\n')}
+</urlset>`;
+
+  res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=1800, s-maxage=3600, stale-while-revalidate=86400');
+  res.send(xml);
+});
+
 app.all('/api/*', (req: Request, res: Response) => {
   res.status(404).json({
     success: false,
