@@ -45,15 +45,16 @@ export const Home: React.FC<HomeProps> = ({
   useEffect(() => {
     const activeCat = selectedCategoryId ? categories.find((c) => c.id === selectedCategoryId) : null;
     const homeTitle = activeCat
-      ? `${activeCat.name} - Free Porn Videos, HD XXX Movies & Sex Tube | UBCEXX`
-      : 'UBCEXX - Free Porn Videos, HD XXX Movies & Sex Tube';
+      ? `${activeCat.name} - Free Porn Videos & XXX Movies - Sex Videos Tube | UBCEXX`
+      : 'UBCEXX - Free Porn Videos & XXX Movies - Sex Videos Tube';
     const homeDesc = activeCat
-      ? `Watch free ${activeCat.name} porn videos and HD XXX movies on UBCEXX. Stream high quality uncensored adult clips on mobile and desktop.`
-      : 'UBCEXX - Free Porn Videos, HD XXX Movies & Sex Tube. Stream thousands of uncensored hardcore adult clips, amateur porn, and 4K XXX videos instantly.';
+      ? `Free ${activeCat.name} porn videos and exclusive XXX movies are here at UBCEXX. Instantly stream hardcore sex videos from pros and amateurs on high quality porn tube!`
+      : 'Free porn videos and exclusive XXX movies are here at UBCEXX. Instantly stream hardcore sex videos from pros and amateurs on high quality porn tube!';
 
     document.title = homeTitle;
     upsertMetaTag('name', 'description', homeDesc);
     upsertMetaTag('property', 'og:type', 'website');
+    upsertMetaTag('property', 'og:site_name', 'UBCEXX');
     upsertMetaTag('property', 'og:title', homeTitle);
     upsertMetaTag('property', 'og:description', homeDesc);
     upsertMetaTag('name', 'twitter:title', homeTitle);
