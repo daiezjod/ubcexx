@@ -16,9 +16,17 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, onSelect }) => {
     setImageError(false);
   }, [video.thumbnail_url]);
 
+  const watchPath = '/watch/' + (video.slug || video.id);
+
   return (
-    <div
-      onClick={() => onSelect(video)}
+    <a
+      href={watchPath}
+      onClick={(e) => {
+        if (!e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          onSelect(video);
+        }
+      }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className="group cursor-pointer flex flex-col transition-all"
@@ -77,6 +85,6 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, onSelect }) => {
           <span className="shrink-0">{formatTimeAgo(video.created_at)}</span>
         </div>
       </div>
-    </div>
+    </a>
   );
 };

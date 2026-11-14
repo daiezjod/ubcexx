@@ -96,7 +96,7 @@ export default function App() {
       }
 
       if (path.startsWith('/watch/')) {
-        const idOrSlug = path.replace('/watch/', '');
+        const idOrSlug = path.replace(/^\/watch\//, '').replace(/\/+$/, '');
         if (idOrSlug) {
           setActiveVideoId(idOrSlug);
           setCurrentView('watch');
@@ -335,6 +335,7 @@ export default function App() {
           <WatchPage
             videoIdOrSlug={activeVideoId}
             initialVideo={selectedVideo}
+            videos={[...videos, ...featuredVideos]}
             onSelectVideo={handleSelectVideo}
             onBackToHome={handleNavigateHome}
             monetization={monetization}

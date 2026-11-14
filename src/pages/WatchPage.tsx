@@ -170,27 +170,42 @@ function saveLikedVideoId(id: string | number) {
 interface WatchPageProps {
   videoIdOrSlug: string | number;
   initialVideo?: Video | null;
+  videos?: Video[];
   onSelectVideo: (video: Video) => void;
   onBackToHome: () => void;
   monetization?: MonetizationSettings | null;
   navbar?: React.ReactNode;
 }
 
-function doesVideoMatchParam(candidate: Video | null | undefined, param: string | number): candidate is Video {
-  if (!candidate) return false;
-  const target = String(param);
-  return String(candidate.id) === target || (Boolean(candidate.slug) && String(candidate.slug) === target);
+function normalizeLookupParam(param: string | number): string {
+  const raw = String(param ?? '');
+  try {
+    return decodeURIComponent(raw).trim();
+  } catch {
+    return raw.trim();
+  }
+}
+
+function findMatchingVideo(candidates: Array<Video | null | undefined>, param: string | number): Video | null {
+  const target = normalizeLookupParam(param);
+  const targetLower = target.toLowerCase();
+  const match = candidates.find(
+    (v): v is Video =>
+      Boolean(v) && (String(v!.id) === target || v!.slug?.toLowerCase() === targetLower)
+  );
+  return match || null;
 }
 
 export const WatchPage: React.FC<WatchPageProps> = ({
   videoIdOrSlug,
   initialVideo,
+  videos = [],
   onSelectVideo,
   onBackToHome,
   monetization: initialMonetization,
   navbar,
 }) => {
-  const matchedInitial = doesVideoMatchParam(initialVideo, videoIdOrSlug) ? initialVideo : null;
+  const matchedInitial = findMatchingVideo([initialVideo, ...videos], videoIdOrSlug);
   const [monetization, setMonetization] = useState<MonetizationSettings | null>(initialMonetization || null);
   const [video, setVideo] = useState<Video | null>(matchedInitial);
   const [relatedVideos, setRelatedVideos] = useState<Video[]>([]);
@@ -297,7 +312,8 @@ export const WatchPage: React.FC<WatchPageProps> = ({
 
   useEffect(() => {
     let isMounted = true;
-    const instantMatch = doesVideoMatchParam(initialVideo, videoIdOrSlug) ? initialVideo : null;
+    const cleanParam = normalizeLookupParam(videoIdOrSlug);
+    const instantMatch = findMatchingVideo([initialVideo, ...videos, ...candidatePoolRef.current], cleanParam);
     if (instantMatch) {
       setVideo(instantMatch);
       setLikes(instantMatch.likes || 0);
@@ -316,35 +332,43 @@ export const WatchPage: React.FC<WatchPageProps> = ({
         video?: Video;
         relatedVideos?: Video[];
         error?: string;
-      }>(`/api/videos/${videoIdOrSlug}`),
+      }>(`/api/videos/${encodeURIComponent(cleanParam)}`).catch((err) => ({
+        success: false,
+        video: undefined as Video | undefined,
+        relatedVideos: [] as Video[],
+        error: err?.message as string | undefined,
+      })),
       safeFetchJson<{
         success: boolean;
         videos?: Video[];
-      }>('/api/videos?limit=48').catch(() => ({ success: false, videos: [] as Video[] })),
+      }>('/api/videos?limit=100').catch(() => ({ success: false, videos: [] as Video[] })),
     ])
       .then(([data, poolData]) => {
         if (!isMounted) return;
-        if (data.success && data.video) {
-          const loadedVideo = data.video;
-          const poolVideos = poolData?.success && Array.isArray(poolData.videos) ? poolData.videos : [];
+        const poolVideos = poolData?.success && Array.isArray(poolData.videos) ? poolData.videos : [];
+        const resolvedVideo =
+          (data.success && data.video ? data.video : null) ||
+          findMatchingVideo([...videos, ...poolVideos, initialVideo], cleanParam);
+
+        if (resolvedVideo) {
           const combinedCandidates = [...(data.relatedVideos || []), ...poolVideos];
           candidatePoolRef.current = combinedCandidates;
 
           const activeProfile = getViewingInterestsProfile();
-          const ranked = rankRelatedVideos(combinedCandidates, loadedVideo, activeProfile);
+          const ranked = rankRelatedVideos(combinedCandidates, resolvedVideo, activeProfile);
 
-          if (lastProfiledVideoIdRef.current !== Number(loadedVideo.id)) {
-            lastProfiledVideoIdRef.current = Number(loadedVideo.id);
-            updateViewingInterestsProfile(loadedVideo, 1);
+          if (lastProfiledVideoIdRef.current !== Number(resolvedVideo.id)) {
+            lastProfiledVideoIdRef.current = Number(resolvedVideo.id);
+            updateViewingInterestsProfile(resolvedVideo, 1);
           }
 
-          setVideo(loadedVideo);
-          setLikes(loadedVideo.likes || 0);
+          setVideo(resolvedVideo);
+          setLikes(resolvedVideo.likes || 0);
           setRelatedVideos(ranked);
 
           const likedIds = getLikedVideoIds();
           const isLiked = likedIds.some(
-            (id) => String(id) === String(loadedVideo.id) || (loadedVideo.slug && String(id) === String(loadedVideo.slug))
+            (id) => String(id) === String(resolvedVideo.id) || (resolvedVideo.slug && String(id).toLowerCase() === String(resolvedVideo.slug).toLowerCase())
           );
           setHasLiked(isLiked);
         } else {
@@ -353,7 +377,9 @@ export const WatchPage: React.FC<WatchPageProps> = ({
       })
       .catch((err) => {
         if (!isMounted) return;
-        setError(err.message || 'Failed to load video');
+        if (!instantMatch) {
+          setError(err.message || 'Failed to load video');
+        }
       })
       .finally(() => {
         if (isMounted) setLoading(false);

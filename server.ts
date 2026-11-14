@@ -243,17 +243,19 @@ app.get('/api/search/suggest', silentFloodProtection, async (req: Request, res: 
 app.get('/api/videos/:id', async (req: Request, res: Response) => {
   try {
     res.setHeader('Cache-Control', 'public, s-maxage=60, max-age=60, stale-while-revalidate=300');
-    const idOrSlug = req.params.id;
-    const isNum = !isNaN(Number(idOrSlug));
-
-    let video;
-    if (isNum) {
-      const stmt = d1DB.prepare('SELECT * FROM videos WHERE id = ?').bind(Number(idOrSlug));
-      video = await stmt.first();
-    } else {
-      const stmt = d1DB.prepare('SELECT * FROM videos WHERE slug = ?').bind(idOrSlug);
-      video = await stmt.first();
+    const rawParam = String(req.params.id || '');
+    let idOrSlug = rawParam;
+    try {
+      idOrSlug = decodeURIComponent(rawParam).trim();
+    } catch {
+      idOrSlug = rawParam.trim();
     }
+    const numericId = /^\d+$/.test(idOrSlug) ? Number(idOrSlug) : -1;
+
+    const stmt = d1DB
+      .prepare('SELECT * FROM videos WHERE id = ? OR LOWER(slug) = LOWER(?) LIMIT 1')
+      .bind(numericId, idOrSlug);
+    const video = await stmt.first();
 
     if (!video) {
       return res.status(404).json({ success: false, error: 'Video not found' });

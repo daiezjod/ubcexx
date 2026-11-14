@@ -355,14 +355,26 @@ export class D1PreparedStatement {
         filtered = filtered.filter(v => v.is_featured === 1);
       }
 
-      if (q.includes('videos.id = ?') || q.includes('id = ?')) {
+      if (
+        (q.includes('id = ?') || q.includes('v.id = ?')) &&
+        q.toLowerCase().includes('lower(') &&
+        q.toLowerCase().includes('slug')
+      ) {
         const targetId = Number(this.boundValues[0]);
-        filtered = filtered.filter(v => v.id === targetId);
-      }
+        const targetSlugLower = String(this.boundValues[1] ?? '').trim().toLowerCase();
+        filtered = filtered.filter(
+          (v) => v.id === targetId || (Boolean(v.slug) && v.slug.toLowerCase() === targetSlugLower)
+        );
+      } else {
+        if (q.includes('videos.id = ?') || q.includes('id = ?')) {
+          const targetId = Number(this.boundValues[0]);
+          filtered = filtered.filter(v => v.id === targetId);
+        }
 
-      if (q.includes('slug = ?')) {
-        const targetSlug = String(this.boundValues[0]);
-        filtered = filtered.filter(v => v.slug === targetSlug);
+        if (q.includes('slug = ?')) {
+          const targetSlug = String(this.boundValues[0]).toLowerCase();
+          filtered = filtered.filter(v => Boolean(v.slug) && v.slug.toLowerCase() === targetSlug);
+        }
       }
 
       const searchVal = this.boundValues.find((v) => typeof v === 'string' && v.startsWith('%'));

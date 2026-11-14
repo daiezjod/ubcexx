@@ -17,28 +17,24 @@ export const onRequestOptions: PagesFunction<Env> = async () => {
 };
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
-  const idOrSlug = context.params.id as string;
-  const isNum = !isNaN(Number(idOrSlug));
+  const rawParam = String(context.params.id || '');
+  let idOrSlug = rawParam;
+  try {
+    idOrSlug = decodeURIComponent(rawParam).trim();
+  } catch {
+    idOrSlug = rawParam.trim();
+  }
+  const numericId = /^\d+$/.test(idOrSlug) ? Number(idOrSlug) : -1;
 
   try {
-    let video;
-    if (isNum) {
-      const stmt = context.env.DB.prepare(`
-        SELECT v.*, c.name as category_name, c.slug as category_slug
-        FROM videos v
-        LEFT JOIN categories c ON v.category_id = c.id
-        WHERE v.id = ?
-      `).bind(Number(idOrSlug));
-      video = await stmt.first();
-    } else {
-      const stmt = context.env.DB.prepare(`
-        SELECT v.*, c.name as category_name, c.slug as category_slug
-        FROM videos v
-        LEFT JOIN categories c ON v.category_id = c.id
-        WHERE v.slug = ?
-      `).bind(idOrSlug);
-      video = await stmt.first();
-    }
+    const stmt = context.env.DB.prepare(`
+      SELECT v.*, c.name as category_name, c.slug as category_slug
+      FROM videos v
+      LEFT JOIN categories c ON v.category_id = c.id
+      WHERE v.id = ? OR LOWER(v.slug) = LOWER(?)
+      LIMIT 1
+    `).bind(numericId, idOrSlug);
+    const video = await stmt.first();
 
     if (!video) {
       return new Response(
