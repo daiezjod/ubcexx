@@ -25,6 +25,7 @@ interface HomeProps {
   onSelectVideo: (video: Video) => void;
   onLoadMore: () => void;
   onNavigateHome: () => void;
+  onRevalidate?: () => void;
 }
 
 export const Home: React.FC<HomeProps> = ({
@@ -43,8 +44,30 @@ export const Home: React.FC<HomeProps> = ({
   onSelectVideo,
   onLoadMore,
   onNavigateHome,
+  onRevalidate,
 }) => {
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!onRevalidate) return;
+    onRevalidate();
+
+    const handleWindowFocus = () => {
+      onRevalidate();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        onRevalidate();
+      }
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('focus', handleWindowFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [onRevalidate]);
 
   useEffect(() => {
     if (loading || loadingMore || !hasMoreVideos) return;

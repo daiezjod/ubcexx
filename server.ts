@@ -132,7 +132,7 @@ function silentFloodProtection(req: Request, res: Response, next: NextFunction) 
 
 app.get('/api/videos', async (req: Request, res: Response) => {
   try {
-    res.setHeader('Cache-Control', 'public, s-maxage=60, max-age=60, stale-while-revalidate=300');
+    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=5, must-revalidate');
     const categoryId = req.query.category_id ? Number(req.query.category_id) : undefined;
     const featured = req.query.featured === '1' || req.query.featured === 'true';
     const search = req.query.search ? String(req.query.search).trim() : undefined;
@@ -177,7 +177,7 @@ app.get('/api/videos', async (req: Request, res: Response) => {
 
 app.get('/api/search/suggest', silentFloodProtection, async (req: Request, res: Response) => {
   try {
-    res.setHeader('Cache-Control', 'public, s-maxage=60, max-age=60, stale-while-revalidate=300');
+    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=5, must-revalidate');
     const q = String(req.query.q || '').trim();
     if (!q) {
       return res.json({ success: true, suggestions: [] });
@@ -242,7 +242,7 @@ app.get('/api/search/suggest', silentFloodProtection, async (req: Request, res: 
 
 app.get('/api/videos/:id', async (req: Request, res: Response) => {
   try {
-    res.setHeader('Cache-Control', 'public, s-maxage=60, max-age=60, stale-while-revalidate=300');
+    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=5, must-revalidate');
     const rawParam = String(req.params.id || '');
     let idOrSlug = rawParam;
     try {
@@ -314,7 +314,7 @@ app.post('/api/videos/:id/like', silentFloodProtection, async (req: Request, res
 
 app.get('/api/categories', async (req: Request, res: Response) => {
   try {
-    res.setHeader('Cache-Control', 'public, s-maxage=60, max-age=60, stale-while-revalidate=300');
+    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=5, must-revalidate');
     const stmt = d1DB.prepare('SELECT * FROM categories');
     const result = await stmt.all();
     res.json({ success: true, categories: result.results });
@@ -325,7 +325,7 @@ app.get('/api/categories', async (req: Request, res: Response) => {
 
 app.get(['/api/monetization', '/api/admin/monetization'], async (req: Request, res: Response) => {
   try {
-    res.setHeader('Cache-Control', 'public, s-maxage=60, max-age=60, stale-while-revalidate=300');
+    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=5, must-revalidate');
     const rawMonetization: any = d1DB.getState().monetization || {};
     const monetization = { ...rawMonetization };
 

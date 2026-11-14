@@ -56,7 +56,10 @@ export default function App() {
 
   const isFetchingMoreRef = useRef(false);
   const filterKeyRef = useRef('');
+  const videosCountRef = useRef(0);
+  const lastSyncAtRef = useRef(0);
   filterKeyRef.current = `${selectedCategoryId ?? 'all'}::${searchQuery}`;
+  videosCountRef.current = videos.length;
 
   useEffect(() => {
     try {
@@ -114,17 +117,22 @@ export default function App() {
 
   const loadData = useCallback(async (isSilent = false) => {
     const activeFilterKey = `${selectedCategoryId ?? 'all'}::${searchQuery}`;
+    lastSyncAtRef.current = Date.now();
     if (!isSilent) setLoading(true);
     isFetchingMoreRef.current = false;
     setLoadingMore(false);
+    const requestLimit = isSilent
+      ? Math.max(VIDEO_BATCH_SIZE, videosCountRef.current)
+      : VIDEO_BATCH_SIZE;
     try {
       const [catsData, vidsData, featData, monetData] = await Promise.all([
-        safeFetchJson<{ success: boolean; categories?: Category[] }>('/api/categories').catch(() => ({ success: false, categories: [] })),
+        safeFetchJson<{ success: boolean; categories?: Category[] }>('/api/categories', { cache: 'no-cache' }).catch(() => ({ success: false, categories: [] })),
         safeFetchJson<{ success: boolean; videos?: Video[] }>(
-          `/api/videos?limit=${VIDEO_BATCH_SIZE}&offset=0${selectedCategoryId ? `&category_id=${selectedCategoryId}` : ''}${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`
+          `/api/videos?limit=${requestLimit}&offset=0${selectedCategoryId ? `&category_id=${selectedCategoryId}` : ''}${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`,
+          { cache: 'no-cache' }
         ).catch(() => ({ success: false, videos: [] })),
-        safeFetchJson<{ success: boolean; videos?: Video[] }>('/api/videos?featured=1').catch(() => ({ success: false, videos: [] })),
-        safeFetchJson<{ success: boolean; monetization?: MonetizationSettings }>('/api/monetization').catch(() => ({ success: false, monetization: null })),
+        safeFetchJson<{ success: boolean; videos?: Video[] }>('/api/videos?featured=1', { cache: 'no-cache' }).catch(() => ({ success: false, videos: [] })),
+        safeFetchJson<{ success: boolean; monetization?: MonetizationSettings }>('/api/monetization', { cache: 'no-cache' }).catch(() => ({ success: false, monetization: null })),
       ]);
 
       if (filterKeyRef.current !== activeFilterKey) return;
@@ -132,9 +140,11 @@ export default function App() {
       if (catsData?.success && catsData.categories) setCategories(catsData.categories);
       if (vidsData?.success && Array.isArray(vidsData.videos)) {
         setVideos(vidsData.videos);
-        setHasMoreVideos(vidsData.videos.length >= VIDEO_BATCH_SIZE);
-        setFeedSyncKey((prev) => prev + 1);
-      } else {
+        setHasMoreVideos(vidsData.videos.length >= requestLimit);
+        if (!isSilent) {
+          setFeedSyncKey((prev) => prev + 1);
+        }
+      } else if (!isSilent) {
         setHasMoreVideos(false);
       }
       if (featData?.success && featData.videos) setFeaturedVideos(featData.videos);
@@ -145,6 +155,12 @@ export default function App() {
     }
   }, [selectedCategoryId, searchQuery]);
 
+  const revalidateHomeFeed = useCallback(() => {
+    const now = Date.now();
+    if (now - lastSyncAtRef.current < 1000) return;
+    loadData(true);
+  }, [loadData]);
+
   const loadMoreVideos = useCallback(async () => {
     if (loading || loadingMore || !hasMoreVideos || isFetchingMoreRef.current) return;
     const activeFilterKey = `${selectedCategoryId ?? 'all'}::${searchQuery}`;
@@ -154,7 +170,8 @@ export default function App() {
     try {
       const nextOffset = videos.length;
       const vidsData = await safeFetchJson<{ success: boolean; videos?: Video[] }>(
-        `/api/videos?limit=${VIDEO_BATCH_SIZE}&offset=${nextOffset}${selectedCategoryId ? `&category_id=${selectedCategoryId}` : ''}${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`
+        `/api/videos?limit=${VIDEO_BATCH_SIZE}&offset=${nextOffset}${selectedCategoryId ? `&category_id=${selectedCategoryId}` : ''}${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`,
+        { cache: 'no-cache' }
       );
 
       if (filterKeyRef.current !== activeFilterKey) return;
@@ -182,83 +199,6 @@ export default function App() {
   }, [loading, loadingMore, hasMoreVideos, videos.length, selectedCategoryId, searchQuery]);
 
   useEffect(() => {
-    const MINIMIZE_KEY = 'ubcexx_minimize_timestamp';
-    const HARD_RELOAD_THRESHOLD_MS = 10000;
-    let isReloading = false;
-
-    const recordExitTime = () => {
-      try {
-        localStorage.setItem(MINIMIZE_KEY, Date.now().toString());
-      } catch {
-      }
-    };
-
-    const checkAndReload = () => {
-      if (isReloading) return;
-      try {
-        const stored = localStorage.getItem(MINIMIZE_KEY);
-        if (!stored) return;
-        const exitTime = Number(stored);
-        if (!exitTime || isNaN(exitTime)) {
-          localStorage.removeItem(MINIMIZE_KEY);
-          return;
-        }
-        const elapsed = Date.now() - exitTime;
-        if (elapsed >= HARD_RELOAD_THRESHOLD_MS) {
-          isReloading = true;
-          localStorage.removeItem(MINIMIZE_KEY);
-          window.location.reload();
-        } else {
-          localStorage.removeItem(MINIMIZE_KEY);
-        }
-      } catch {
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        recordExitTime();
-      } else if (document.visibilityState === 'visible') {
-        checkAndReload();
-      }
-    };
-
-    const handleFocus = () => {
-      if (document.visibilityState === 'visible') {
-        checkAndReload();
-      }
-    };
-
-    const handlePageShow = (event: PageTransitionEvent) => {
-      if (event.persisted || document.visibilityState === 'visible') {
-        checkAndReload();
-      }
-    };
-
-    const handlePageHide = () => {
-      recordExitTime();
-    };
-
-    const handleBlur = () => {
-      recordExitTime();
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-    window.addEventListener('pageshow', handlePageShow);
-    window.addEventListener('pagehide', handlePageHide);
-    window.addEventListener('blur', handleBlur);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-      window.removeEventListener('pageshow', handlePageShow);
-      window.removeEventListener('pagehide', handlePageHide);
-      window.removeEventListener('blur', handleBlur);
-    };
-  }, []);
-
-  useEffect(() => {
     loadData();
   }, [loadData]);
 
@@ -271,6 +211,7 @@ export default function App() {
   };
 
   const handleNavigateHome = () => {
+    lastSyncAtRef.current = 0;
     setCurrentView('home');
     setSelectedVideo(null);
     setActiveVideoId(null);
@@ -379,6 +320,7 @@ export default function App() {
       onSelectVideo={handleSelectVideo}
       onLoadMore={loadMoreVideos}
       onNavigateHome={handleNavigateHome}
+      onRevalidate={revalidateHomeFeed}
     />
   );
 }
