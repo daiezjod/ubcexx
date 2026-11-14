@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { Navbar } from './components/Navbar.tsx';
 import { WatchPage } from './pages/WatchPage.tsx';
 import { Home } from './pages/Home.tsx';
@@ -35,6 +35,8 @@ const AdminSuspenseLoader = (
   </div>
 );
 
+const VIDEO_BATCH_SIZE = 8;
+
 export default function App() {
   const [currentView, setCurrentView] = useState<'home' | 'watch' | 'admin-login' | 'admin-dashboard'>('home');
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
@@ -48,8 +50,13 @@ export default function App() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
-  const [pageLimit, setPageLimit] = useState(12);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMoreVideos, setHasMoreVideos] = useState(false);
   const [feedSyncKey, setFeedSyncKey] = useState(0);
+
+  const isFetchingMoreRef = useRef(false);
+  const filterKeyRef = useRef('');
+  filterKeyRef.current = `${selectedCategoryId ?? 'all'}::${searchQuery}`;
 
   useEffect(() => {
     try {
@@ -105,22 +112,30 @@ export default function App() {
     return () => window.removeEventListener('popstate', handleUrlRoute);
   }, [adminToken]);
 
-  const loadData = async (isSilent = false) => {
+  const loadData = useCallback(async (isSilent = false) => {
+    const activeFilterKey = `${selectedCategoryId ?? 'all'}::${searchQuery}`;
     if (!isSilent) setLoading(true);
+    isFetchingMoreRef.current = false;
+    setLoadingMore(false);
     try {
       const [catsData, vidsData, featData, monetData] = await Promise.all([
         safeFetchJson<{ success: boolean; categories?: Category[] }>('/api/categories').catch(() => ({ success: false, categories: [] })),
         safeFetchJson<{ success: boolean; videos?: Video[] }>(
-          `/api/videos?limit=${pageLimit}${selectedCategoryId ? `&category_id=${selectedCategoryId}` : ''}${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`
+          `/api/videos?limit=${VIDEO_BATCH_SIZE}&offset=0${selectedCategoryId ? `&category_id=${selectedCategoryId}` : ''}${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`
         ).catch(() => ({ success: false, videos: [] })),
         safeFetchJson<{ success: boolean; videos?: Video[] }>('/api/videos?featured=1').catch(() => ({ success: false, videos: [] })),
         safeFetchJson<{ success: boolean; monetization?: MonetizationSettings }>('/api/monetization').catch(() => ({ success: false, monetization: null })),
       ]);
 
+      if (filterKeyRef.current !== activeFilterKey) return;
+
       if (catsData?.success && catsData.categories) setCategories(catsData.categories);
-      if (vidsData?.success && vidsData.videos) {
+      if (vidsData?.success && Array.isArray(vidsData.videos)) {
         setVideos(vidsData.videos);
+        setHasMoreVideos(vidsData.videos.length >= VIDEO_BATCH_SIZE);
         setFeedSyncKey((prev) => prev + 1);
+      } else {
+        setHasMoreVideos(false);
       }
       if (featData?.success && featData.videos) setFeaturedVideos(featData.videos);
       if (monetData?.success && monetData.monetization) setMonetization(monetData.monetization);
@@ -128,7 +143,43 @@ export default function App() {
     } finally {
       if (!isSilent) setLoading(false);
     }
-  };
+  }, [selectedCategoryId, searchQuery]);
+
+  const loadMoreVideos = useCallback(async () => {
+    if (loading || loadingMore || !hasMoreVideos || isFetchingMoreRef.current) return;
+    const activeFilterKey = `${selectedCategoryId ?? 'all'}::${searchQuery}`;
+    isFetchingMoreRef.current = true;
+    setLoadingMore(true);
+
+    try {
+      const nextOffset = videos.length;
+      const vidsData = await safeFetchJson<{ success: boolean; videos?: Video[] }>(
+        `/api/videos?limit=${VIDEO_BATCH_SIZE}&offset=${nextOffset}${selectedCategoryId ? `&category_id=${selectedCategoryId}` : ''}${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`
+      );
+
+      if (filterKeyRef.current !== activeFilterKey) return;
+
+      const batch = vidsData?.success && Array.isArray(vidsData.videos) ? vidsData.videos : [];
+      if (batch.length === 0) {
+        setHasMoreVideos(false);
+        return;
+      }
+
+      setVideos((prev) => {
+        const existingIds = new Set(prev.map((v) => v.id));
+        const uniqueNew = batch.filter((v) => !existingIds.has(v.id));
+        return uniqueNew.length > 0 ? [...prev, ...uniqueNew] : prev;
+      });
+
+      if (batch.length < VIDEO_BATCH_SIZE) {
+        setHasMoreVideos(false);
+      }
+    } catch {
+    } finally {
+      isFetchingMoreRef.current = false;
+      setLoadingMore(false);
+    }
+  }, [loading, loadingMore, hasMoreVideos, videos.length, selectedCategoryId, searchQuery]);
 
   useEffect(() => {
     const MINIMIZE_KEY = 'ubcexx_minimize_timestamp';
@@ -209,7 +260,7 @@ export default function App() {
 
   useEffect(() => {
     loadData();
-  }, [currentView, selectedCategoryId, searchQuery, pageLimit]);
+  }, [loadData]);
 
   const handleSelectVideo = (video: Video) => {
     setSelectedVideo(video);
@@ -279,10 +330,11 @@ export default function App() {
 
   if (currentView === 'watch' && activeVideoId) {
     return (
-      <div className="min-h-screen bg-[#080C14] text-[#F8FAFC] flex flex-col selection:bg-[#F59E0B] selection:text-black">
-        <main className="flex-1">
+      <div className="min-h-screen bg-[#080C14] text-[#F8FAFC] flex flex-col justify-between selection:bg-[#F59E0B] selection:text-black">
+        <main className="flex-1 flex flex-col">
           <WatchPage
             videoIdOrSlug={activeVideoId}
+            initialVideo={selectedVideo}
             onSelectVideo={handleSelectVideo}
             onBackToHome={handleNavigateHome}
             monetization={monetization}
@@ -318,12 +370,13 @@ export default function App() {
       selectedCategoryId={selectedCategoryId}
       searchQuery={searchQuery}
       loading={loading}
-      pageLimit={pageLimit}
+      loadingMore={loadingMore}
+      hasMoreVideos={hasMoreVideos}
       feedSyncKey={feedSyncKey}
       onSelectCategory={setSelectedCategoryId}
       onSearch={setSearchQuery}
       onSelectVideo={handleSelectVideo}
-      onLoadMore={() => setPageLimit((prev) => prev + 12)}
+      onLoadMore={loadMoreVideos}
       onNavigateHome={handleNavigateHome}
     />
   );

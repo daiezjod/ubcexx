@@ -401,7 +401,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const [iframeMountKey, setIframeMountKey] = useState<number>(0);
-  const [isIframeLoaded, setIsIframeLoaded] = useState<boolean>(false);
+  const [isLoaded, setIsLoaded] = useState<boolean>(false);
   const [isVideoReady, setIsVideoReady] = useState<boolean>(false);
 
   const hasValidPreroll = isValidPrerollAd(preRollAd);
@@ -504,7 +504,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, [videoUrl, backupVideoUrl, preRollAd?.videoUrl, preRollAd?.enabled]);
 
   useEffect(() => {
-    setIsIframeLoaded(false);
+    setIsLoaded(false);
   }, [okRuId, iframeMountKey, isAdActive, videoUrl, backupVideoUrl]);
 
   useEffect(() => {
@@ -900,7 +900,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             src={`https://ok.ru/videoembed/${okRuId}?autoplay=1`}
             title={title}
             loading="eager"
-            onLoad={() => setIsIframeLoaded(true)}
+            onLoad={() => setIsLoaded(true)}
             {...({ fetchpriority: 'high', fetchPriority: 'high' } as any)}
             className="absolute -top-[44px] left-0 w-full h-[calc(100%+44px)] border-0"
             allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
@@ -908,22 +908,24 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           />
 
           <div
-            className={`absolute inset-0 z-10 bg-[#080C14] transition-opacity duration-500 ${
-              isIframeLoaded ? 'opacity-0 pointer-events-none' : 'opacity-100'
+            className={`absolute inset-0 z-20 transition-opacity duration-500 ${
+              isLoaded ? 'opacity-0 pointer-events-none' : 'opacity-100'
             }`}
           >
-            {thumbnailUrl && (
+            {thumbnailUrl ? (
               <img
+                key={thumbnailUrl}
                 src={thumbnailUrl}
                 alt={title}
                 referrerPolicy="no-referrer"
                 loading="eager"
-                decoding="sync"
-                className="absolute inset-0 w-full h-full object-cover z-10"
+                className="absolute inset-0 w-full h-full object-cover z-20"
               />
+            ) : (
+              <div className="absolute inset-0 bg-[#0F172A] z-20" />
             )}
-            <div className="absolute inset-0 z-10 bg-gradient-to-t from-[#080C14]/70 via-[#080C14]/20 to-[#080C14]/35" />
-            <div className="absolute inset-0 z-10 flex items-center justify-center">
+            <div className="absolute inset-0 z-20 bg-black/25 pointer-events-none" />
+            <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
               <div className="relative flex items-center justify-center">
                 <span className="absolute w-16 h-16 rounded-full bg-[#F59E0B]/30 animate-ping" />
                 <div className="relative w-14 h-14 rounded-full bg-[#080C14]/75 backdrop-blur-md border border-[#F59E0B]/60 flex items-center justify-center shadow-2xl">
@@ -983,23 +985,25 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           />
 
           <div
-            className={`absolute inset-0 z-10 bg-[#080C14] transition-opacity duration-500 ${
+            className={`absolute inset-0 z-20 transition-opacity duration-500 ${
               isVideoReady && hasStarted ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-none'
             }`}
           >
-            {thumbnailUrl && (
+            {thumbnailUrl ? (
               <img
+                key={thumbnailUrl}
                 src={thumbnailUrl}
                 alt={title}
                 referrerPolicy="no-referrer"
                 loading="eager"
-                decoding="sync"
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-cover z-20"
               />
+            ) : (
+              <div className="absolute inset-0 bg-[#0F172A] z-20" />
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#080C14]/70 via-[#080C14]/20 to-[#080C14]/35" />
+            <div className="absolute inset-0 z-20 bg-black/25 pointer-events-none" />
             {(isAdActive || hasStarted) && !isVideoReady && (
-              <div className="absolute inset-0 flex items-center justify-center">
+              <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
                 <div className="relative flex items-center justify-center">
                   <span className="absolute w-16 h-16 rounded-full bg-[#F59E0B]/30 animate-ping" />
                   <div className="relative w-14 h-14 rounded-full bg-[#080C14]/75 backdrop-blur-md border border-[#F59E0B]/60 flex items-center justify-center shadow-2xl">
@@ -1024,7 +1028,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                     window.open(adClickThroughRef.current, '_blank', 'noopener,noreferrer');
                   }
                 }}
-                className={`absolute top-4 left-4 z-30 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/85 backdrop-blur-md border border-[#F59E0B]/40 text-xs font-semibold text-[#F8FAFC] shadow-xl select-none transition-colors ${
+                className={`absolute top-4 left-4 z-40 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/85 backdrop-blur-md border border-[#F59E0B]/40 text-xs font-semibold text-[#F8FAFC] shadow-xl select-none transition-colors ${
                   adClickThroughRef.current ? 'cursor-pointer hover:border-[#F59E0B]' : 'pointer-events-none'
                 }`}
                 title={adClickThroughRef.current ? 'Visit Sponsor' : 'Sponsored In-Stream'}
@@ -1038,7 +1042,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 </span>
               </div>
 
-              <div className="absolute bottom-16 right-4 sm:right-6 z-30 flex items-center gap-2">
+              <div className="absolute bottom-16 right-4 sm:right-6 z-40 flex items-center gap-2">
                 {canSkipAd ? (
                   <button
                     type="button"
@@ -1064,7 +1068,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           {(!isPlaying || !hasStarted) && !isAdActive && (
             <div
               onClick={togglePlay}
-              className="absolute inset-0 bg-black/40 flex items-center justify-center cursor-pointer transition-opacity z-20"
+              className="absolute inset-0 bg-black/40 flex items-center justify-center cursor-pointer transition-opacity z-30"
             >
               <div className="w-16 sm:w-20 h-16 sm:h-20 rounded-full bg-[#F59E0B] text-black flex items-center justify-center shadow-2xl shadow-[#F59E0B]/50 transform hover:scale-110 active:scale-95 transition-all">
                 <Play className="w-8 sm:w-10 h-8 sm:h-10 fill-black text-black ml-1" />
@@ -1073,7 +1077,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           )}
 
           <div
-            className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#080C14]/95 via-[#080C14]/70 to-transparent px-4 sm:px-6 pt-10 pb-3 transition-opacity duration-200 z-20 ${
+            className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#080C14]/95 via-[#080C14]/70 to-transparent px-4 sm:px-6 pt-10 pb-3 transition-opacity duration-200 z-30 ${
               showControls || !isPlaying ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
             }`}
           >

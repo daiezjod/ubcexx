@@ -169,26 +169,35 @@ function saveLikedVideoId(id: string | number) {
 
 interface WatchPageProps {
   videoIdOrSlug: string | number;
+  initialVideo?: Video | null;
   onSelectVideo: (video: Video) => void;
   onBackToHome: () => void;
   monetization?: MonetizationSettings | null;
   navbar?: React.ReactNode;
 }
 
+function doesVideoMatchParam(candidate: Video | null | undefined, param: string | number): candidate is Video {
+  if (!candidate) return false;
+  const target = String(param);
+  return String(candidate.id) === target || (Boolean(candidate.slug) && String(candidate.slug) === target);
+}
+
 export const WatchPage: React.FC<WatchPageProps> = ({
   videoIdOrSlug,
+  initialVideo,
   onSelectVideo,
   onBackToHome,
   monetization: initialMonetization,
   navbar,
 }) => {
+  const matchedInitial = doesVideoMatchParam(initialVideo, videoIdOrSlug) ? initialVideo : null;
   const [monetization, setMonetization] = useState<MonetizationSettings | null>(initialMonetization || null);
-  const [video, setVideo] = useState<Video | null>(null);
+  const [video, setVideo] = useState<Video | null>(matchedInitial);
   const [relatedVideos, setRelatedVideos] = useState<Video[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!matchedInitial);
   const [error, setError] = useState<string | null>(null);
   const [isTheaterMode, setIsTheaterMode] = useState(false);
-  const [likes, setLikes] = useState(0);
+  const [likes, setLikes] = useState(matchedInitial?.likes || 0);
   const [hasLiked, setHasLiked] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -288,7 +297,17 @@ export const WatchPage: React.FC<WatchPageProps> = ({
 
   useEffect(() => {
     let isMounted = true;
-    setLoading(true);
+    const instantMatch = doesVideoMatchParam(initialVideo, videoIdOrSlug) ? initialVideo : null;
+    if (instantMatch) {
+      setVideo(instantMatch);
+      setLikes(instantMatch.likes || 0);
+      setLoading(false);
+      if (candidatePoolRef.current.length > 0) {
+        setRelatedVideos(rankRelatedVideos(candidatePoolRef.current, instantMatch, getViewingInterestsProfile()));
+      }
+    } else {
+      setLoading(true);
+    }
     setError(null);
 
     Promise.all([
@@ -521,21 +540,22 @@ export const WatchPage: React.FC<WatchPageProps> = ({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#080C14] text-[#F8FAFC]">
+      <div className="min-h-screen bg-[#080C14] text-[#F8FAFC] flex flex-col justify-between">
         {navbar}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col items-center justify-center min-h-[50vh]">
+        <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col items-center justify-center min-h-[50vh]">
           <div className="w-10 h-10 border-2 border-[#253349] border-t-[#F59E0B] rounded-full animate-spin" />
         </div>
+        <Footer />
       </div>
     );
   }
 
   if (error || !video) {
     return (
-      <div className="min-h-screen bg-[#080C14] text-[#F8FAFC]">
+      <div className="min-h-screen bg-[#080C14] text-[#F8FAFC] flex flex-col justify-between">
         {navbar}
-        <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-          <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl p-8 shadow-xl">
+        <div className="flex-1 max-w-4xl w-full mx-auto px-4 py-16 text-center flex items-center justify-center">
+          <div className="w-full bg-[#0F172A] border border-[#1E293B] rounded-2xl p-8 shadow-xl">
             <h2 className="text-xl font-bold text-[#F8FAFC] mb-2">Video Unavailable</h2>
             <p className="text-[#94A3B8] text-sm mb-6">{error || 'The requested stream could not be found in the database.'}</p>
             <button
@@ -547,12 +567,14 @@ export const WatchPage: React.FC<WatchPageProps> = ({
             </button>
           </div>
         </div>
+        <Footer />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen pb-16">
+    <div className="min-h-screen flex flex-col justify-between">
+      <div className="flex-1 w-full pb-8 sm:pb-12">
       <div className="sticky top-0 z-50 bg-[#080C14] shadow-2xl shadow-black/90 border-b border-[#1E293B]/60">
         {navbar}
 
@@ -709,6 +731,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
             )}
           </div>
         </div>
+      </div>
       </div>
 
       <Footer />

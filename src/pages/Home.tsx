@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Navbar } from '../components/Navbar.tsx';
 import { HeroFeatured } from '../components/HeroFeatured.tsx';
 import { VideoCard } from '../components/VideoCard.tsx';
@@ -6,7 +6,7 @@ import { BannerAd } from '../components/BannerAd.tsx';
 import { AdBanner } from '../components/AdBanner.tsx';
 import { Footer } from '../components/Footer.tsx';
 import { Video, Category, MonetizationSettings } from '../types.ts';
-import { Filter, RefreshCw } from 'lucide-react';
+import { Filter } from 'lucide-react';
 import { setCanonicalUrl, upsertMetaTag, setJsonLdSchema } from '../utils/seo.ts';
 
 interface HomeProps {
@@ -17,7 +17,8 @@ interface HomeProps {
   selectedCategoryId: number | null;
   searchQuery: string;
   loading: boolean;
-  pageLimit: number;
+  loadingMore: boolean;
+  hasMoreVideos: boolean;
   feedSyncKey?: number;
   onSelectCategory: (id: number | null) => void;
   onSearch: (q: string) => void;
@@ -34,7 +35,8 @@ export const Home: React.FC<HomeProps> = ({
   selectedCategoryId,
   searchQuery,
   loading,
-  pageLimit,
+  loadingMore,
+  hasMoreVideos,
   feedSyncKey = 0,
   onSelectCategory,
   onSearch,
@@ -42,6 +44,25 @@ export const Home: React.FC<HomeProps> = ({
   onLoadMore,
   onNavigateHome,
 }) => {
+  const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (loading || loadingMore || !hasMoreVideos) return;
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          onLoadMore();
+        }
+      },
+      { rootMargin: '320px 0px', threshold: 0.01 }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loading, loadingMore, hasMoreVideos, onLoadMore, videos.length]);
   useEffect(() => {
     const activeCat = selectedCategoryId ? categories.find((c) => c.id === selectedCategoryId) : null;
     const homeTitle = activeCat
@@ -114,7 +135,7 @@ export const Home: React.FC<HomeProps> = ({
     placementZones.in_feed !== false;
 
   return (
-    <div className="min-h-screen bg-[#080C14] text-[#F8FAFC] flex flex-col selection:bg-[#F59E0B] selection:text-black">
+    <div className="min-h-screen bg-[#080C14] text-[#F8FAFC] flex flex-col justify-between selection:bg-[#F59E0B] selection:text-black">
       <Navbar
         categories={categories}
         selectedCategoryId={selectedCategoryId}
@@ -130,7 +151,7 @@ export const Home: React.FC<HomeProps> = ({
         </div>
       )}
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-2 sm:px-4 md:px-6 lg:px-8 pt-3 sm:pt-6 pb-8 sm:pb-12">
         {!searchQuery && selectedCategoryId === null && featuredVideos.length > 0 && (
           <HeroFeatured videos={featuredVideos} onSelectVideo={onSelectVideo} />
         )}
@@ -189,12 +210,11 @@ export const Home: React.FC<HomeProps> = ({
           <>
             <div className="grid grid-cols-2 min-[440px]:grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
               {videos.map((video, index) => (
-                <React.Fragment key={video.id}>
+                <React.Fragment key={`${feedSyncKey}-${video.id}`}>
                   <div
-                    key={`feed-item-${feedSyncKey}-${video.id}`}
                     className="feed-stagger-item flex flex-col"
                     style={{
-                      animationDelay: `${Math.min(index * 35, 500)}ms`,
+                      animationDelay: `${(index % 8) * 45}ms`,
                     }}
                   >
                     <VideoCard video={video} onSelect={onSelectVideo} />
@@ -209,15 +229,19 @@ export const Home: React.FC<HomeProps> = ({
               ))}
             </div>
 
-            {videos.length >= pageLimit && (
-              <div className="mt-12 text-center">
-                <button
-                  onClick={onLoadMore}
-                  className="px-6 py-2.5 rounded-full bg-[#182234] hover:bg-[#1E293B] text-[#94A3B8] hover:text-[#F8FAFC] text-xs font-semibold border border-[#1E293B] transition-all cursor-pointer inline-flex items-center gap-2"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Load More Streams</span>
-                </button>
+            {hasMoreVideos && (
+              <div ref={loadMoreSentinelRef} className="w-full h-4" aria-hidden="true" />
+            )}
+
+            {loadingMore && (
+              <div className="mt-8 mb-2 flex items-center justify-center gap-3 py-3 animate-in fade-in duration-300">
+                <div className="relative flex items-center justify-center">
+                  <span className="absolute w-7 h-7 rounded-full bg-[#F59E0B]/25 blur-sm animate-pulse" />
+                  <div className="w-5 h-5 rounded-full border-2 border-[#1E293B] border-t-[#F59E0B] shadow-[0_0_12px_rgba(245,158,11,0.45)] animate-spin" />
+                </div>
+                <span className="text-xs font-medium tracking-wide text-[#94A3B8]">
+                  Loading more streams...
+                </span>
               </div>
             )}
           </>

@@ -365,8 +365,9 @@ export class D1PreparedStatement {
         filtered = filtered.filter(v => v.slug === targetSlug);
       }
 
-      if (this.boundValues.length > 0 && typeof this.boundValues[0] === 'string' && this.boundValues[0].startsWith('%')) {
-        const kw = this.boundValues[0].replace(/%/g, '').toLowerCase();
+      const searchVal = this.boundValues.find((v) => typeof v === 'string' && v.startsWith('%'));
+      if (typeof searchVal === 'string') {
+        const kw = searchVal.replace(/%/g, '').toLowerCase();
         filtered = filtered.filter(v =>
           v.title.toLowerCase().includes(kw) ||
           v.description.toLowerCase().includes(kw) ||
@@ -380,15 +381,37 @@ export class D1PreparedStatement {
         filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       }
 
-      const limitMatch = q.match(/LIMIT\s+(\d+|\?)/i);
-      if (limitMatch) {
+      const limitOffsetMatch = q.match(/LIMIT\s+(\d+|\?)\s+OFFSET\s+(\d+|\?)/i);
+      if (limitOffsetMatch) {
         let limit = 20;
-        if (limitMatch[1] === '?') {
+        let offset = 0;
+        const limitToken = limitOffsetMatch[1];
+        const offsetToken = limitOffsetMatch[2];
+        if (limitToken === '?' && offsetToken === '?') {
+          limit = Number(this.boundValues[this.boundValues.length - 2]) || 20;
+          offset = Math.max(0, Number(this.boundValues[this.boundValues.length - 1]) || 0);
+        } else if (limitToken === '?') {
           limit = Number(this.boundValues[this.boundValues.length - 1]) || 20;
+          offset = Math.max(0, parseInt(offsetToken, 10) || 0);
+        } else if (offsetToken === '?') {
+          limit = parseInt(limitToken, 10) || 20;
+          offset = Math.max(0, Number(this.boundValues[this.boundValues.length - 1]) || 0);
         } else {
-          limit = parseInt(limitMatch[1], 10);
+          limit = parseInt(limitToken, 10) || 20;
+          offset = Math.max(0, parseInt(offsetToken, 10) || 0);
         }
-        filtered = filtered.slice(0, limit);
+        filtered = filtered.slice(offset, offset + limit);
+      } else {
+        const limitMatch = q.match(/LIMIT\s+(\d+|\?)/i);
+        if (limitMatch) {
+          let limit = 20;
+          if (limitMatch[1] === '?') {
+            limit = Number(this.boundValues[this.boundValues.length - 1]) || 20;
+          } else {
+            limit = parseInt(limitMatch[1], 10);
+          }
+          filtered = filtered.slice(0, limit);
+        }
       }
 
       return { results: filtered as unknown as T[], success: true, meta: { count: filtered.length } };

@@ -137,6 +137,7 @@ app.get('/api/videos', async (req: Request, res: Response) => {
     const featured = req.query.featured === '1' || req.query.featured === 'true';
     const search = req.query.search ? String(req.query.search).trim() : undefined;
     const limit = req.query.limit ? Number(req.query.limit) : 24;
+    const offset = req.query.offset ? Math.max(0, Number(req.query.offset) || 0) : 0;
 
     let sql = `SELECT * FROM videos WHERE status = 'published'`;
     const params: any[] = [];
@@ -151,12 +152,12 @@ app.get('/api/videos', async (req: Request, res: Response) => {
     }
 
     if (search) {
-      sql += ` AND title LIKE ?`;
-      params.push(`%${search}%`);
+      sql += ` AND (title LIKE ? OR description LIKE ? OR tags LIKE ?)`;
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
 
-    sql += ` ORDER BY created_at DESC LIMIT ?`;
-    params.push(limit);
+    sql += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+    params.push(limit, offset);
 
     const stmt = d1DB.prepare(sql).bind(...params);
     const result = await stmt.all();
