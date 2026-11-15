@@ -314,7 +314,7 @@ app.post('/api/videos/:id/like', silentFloodProtection, async (req: Request, res
 
 app.get('/api/categories', async (req: Request, res: Response) => {
   try {
-    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=5, must-revalidate');
+    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=1, must-revalidate');
     const stmt = d1DB.prepare('SELECT * FROM categories');
     const result = await stmt.all();
     res.json({ success: true, categories: result.results });
@@ -1046,6 +1046,45 @@ app.post(['/api/categories', '/api/admin/categories'], async (req: Request, res:
       message: 'Category created in Cloudflare D1',
       id: result.meta.last_row_id,
       slug: cleanSlug,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put(['/api/categories', '/api/categories/:id', '/api/admin/categories', '/api/admin/categories/:id'], async (req: Request, res: Response) => {
+  try {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    const rawId = req.body?.id || req.params.id || req.query.id;
+    const id = Number(rawId);
+    const trimmedName = String(req.body?.name || '').trim();
+
+    if (!id || !trimmedName) {
+      return res.status(400).json({ success: false, error: 'Category ID and name are required' });
+    }
+
+    const rawSlug = String(req.body?.slug || trimmedName);
+    const cleanSlug =
+      rawSlug
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '') || `category-${id}`;
+
+    const stmt = d1DB.prepare('UPDATE categories SET name = ?, slug = ? WHERE id = ?').bind(
+      trimmedName,
+      cleanSlug,
+      id
+    );
+    await stmt.run();
+
+    res.json({
+      success: true,
+      message: 'Category updated successfully',
+      category: {
+        id,
+        name: trimmedName,
+        slug: cleanSlug,
+      },
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });

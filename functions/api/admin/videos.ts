@@ -33,7 +33,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         v.tags, v.is_featured, v.status, v.created_at,
         c.name as category_name, c.slug as category_slug
       FROM videos v
-      LEFT JOIN categories c ON v.category_id = c.id
+      LEFT JOIN categories c ON (
+        CAST(v.category_id AS TEXT) = CAST(c.id AS TEXT)
+        OR LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(c.slug))
+        OR LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(c.name))
+      )
       ORDER BY v.created_at DESC
     `);
     const { results } = await stmt.all();

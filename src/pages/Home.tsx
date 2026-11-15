@@ -86,8 +86,33 @@ export const Home: React.FC<HomeProps> = ({
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [loading, loadingMore, hasMoreVideos, onLoadMore, videos.length]);
+  const activeCategory =
+    selectedCategoryId !== null
+      ? categories.find((c) => Number(c.id) === Number(selectedCategoryId)) || null
+      : null;
+
+  const displayedVideos =
+    selectedCategoryId === null
+      ? videos
+      : videos.filter((v) => {
+          const rawVal = String(v.category_id ?? '').trim().toLowerCase();
+          if (activeCategory) {
+            const targetId = String(activeCategory.id);
+            const targetSlug = String(activeCategory.slug || '').trim().toLowerCase();
+            const targetName = String(activeCategory.name || '').trim().toLowerCase();
+            const vCatSlug = String(v.category_slug || '').trim().toLowerCase();
+            const vCatName = String(v.category_name || '').trim().toLowerCase();
+            return (
+              rawVal === targetId ||
+              (Boolean(targetSlug) && (rawVal === targetSlug || vCatSlug === targetSlug)) ||
+              (Boolean(targetName) && (rawVal === targetName || vCatName === targetName))
+            );
+          }
+          return Number(v.category_id) === Number(selectedCategoryId);
+        });
+
   useEffect(() => {
-    const activeCat = selectedCategoryId ? categories.find((c) => c.id === selectedCategoryId) : null;
+    const activeCat = activeCategory;
     const homeTitle = activeCat
       ? `${activeCat.name} - Free Porn Videos & XXX Movies - Sex Videos Tube | UBCEXX`
       : 'UBCEXX - Free Porn Videos & XXX Movies - Sex Videos Tube';
@@ -122,7 +147,7 @@ export const Home: React.FC<HomeProps> = ({
         },
       });
     }
-  }, [selectedCategoryId, categories]);
+  }, [activeCategory]);
 
   const isBannerAdEnabled = Boolean(
     monetization &&
@@ -187,7 +212,7 @@ export const Home: React.FC<HomeProps> = ({
                 {searchQuery
                   ? `Search Results for "${searchQuery}"`
                   : selectedCategoryId
-                  ? categories.find((c) => c.id === selectedCategoryId)?.name || 'Filtered Streams'
+                  ? activeCategory?.name || 'Filtered Streams'
                   : 'Trending & Latest Streams'}
               </span>
             </h2>
@@ -210,7 +235,7 @@ export const Home: React.FC<HomeProps> = ({
           <div className="py-24 flex flex-col items-center justify-center">
             <div className="w-10 h-10 border-2 border-[#1E293B] border-t-[#F59E0B] rounded-full animate-spin" />
           </div>
-        ) : videos.length === 0 ? (
+        ) : displayedVideos.length === 0 ? (
           <div className="py-20 text-center bg-[#0F172A] rounded-2xl border border-[#1E293B] p-8 max-w-md mx-auto">
             <Filter className="w-10 h-10 text-[#94A3B8] mx-auto mb-3" />
             <h3 className="text-base font-bold text-[#F8FAFC] mb-1">No Streams Found</h3>
@@ -232,7 +257,7 @@ export const Home: React.FC<HomeProps> = ({
         ) : (
           <>
             <div className="grid grid-cols-2 min-[440px]:grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
-              {videos.map((video, index) => (
+              {displayedVideos.map((video, index) => (
                 <React.Fragment key={`${feedSyncKey}-${video.id}`}>
                   <div
                     className="feed-stagger-item flex flex-col"

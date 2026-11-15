@@ -37,6 +37,36 @@ import { BannerAd } from '../components/BannerAd.tsx';
 import { formatDuration, formatViews, formatNumber, formatTimeAgo, parseDurationToSeconds } from '../utils/formatters.ts';
 import { safeFetchJson } from '../utils/api.ts';
 
+function doesVideoBelongToCategory(v: Video, cat: Category): boolean {
+  const rawVal = String(v.category_id ?? '').trim().toLowerCase();
+  const catIdStr = String(cat.id);
+  const catSlugLower = String(cat.slug || '').trim().toLowerCase();
+  const catNameLower = String(cat.name || '').trim().toLowerCase();
+  if (
+    rawVal &&
+    (rawVal === catIdStr ||
+      (Boolean(catSlugLower) && rawVal === catSlugLower) ||
+      (Boolean(catNameLower) && rawVal === catNameLower))
+  ) {
+    return true;
+  }
+  const vCatSlug = String(v.category_slug || '').trim().toLowerCase();
+  const vCatName = String(v.category_name || '').trim().toLowerCase();
+  return Boolean(
+    (catSlugLower && vCatSlug === catSlugLower) ||
+    (catNameLower && vCatName === catNameLower)
+  );
+}
+
+function resolveVideoCategoryId(v: Video, cats: Category[]): number {
+  if (!cats || cats.length === 0) return Number(v.category_id) || 1;
+  const matched = cats.find((c) => doesVideoBelongToCategory(v, c));
+  if (matched) return Number(matched.id);
+  const numeric = Number(v.category_id);
+  if (!Number.isNaN(numeric) && numeric > 0) return numeric;
+  return Number(cats[0].id) || 1;
+}
+
 interface AdminDashboardProps {
   token: string;
   onLogout: () => void;
@@ -148,6 +178,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editThumbnailUrl, setEditThumbnailUrl] = useState('');
   const [editThumbError, setEditThumbError] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editCatName, setEditCatName] = useState('');
+  const [editCatSlug, setEditCatSlug] = useState('');
+  const [isUpdatingCategory, setIsUpdatingCategory] = useState(false);
 
   useEffect(() => {
     const trimmed = (videoUrl || '').trim();
@@ -287,7 +322,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               if (catsData?.success && catsData.categories) {
                 setCategories(catsData.categories);
                 if (catsData.categories.length > 0 && !categoryId) {
-                  setCategoryId(catsData.categories[0].id);
+                  setCategoryId(Number(catsData.categories[0].id));
                 }
               }
             }
@@ -380,7 +415,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const trimmedVideoUrl = videoUrl.trim();
     const trimmedBackupUrl = backupVideoUrl ? backupVideoUrl.trim() : '';
     const trimmedThumbUrl = thumbnailUrl.trim();
-    const selectedCatId = Number(categoryId) || 1;
+    const selectedCatId = Number(categoryId) || (categories[0] ? Number(categories[0].id) : 1);
     const matchedCat = categories.find((c) => Number(c.id) === selectedCatId);
 
     try {
@@ -435,6 +470,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       };
 
       setVideos((prev) => [createdVideo, ...prev.filter((v) => Number(v.id) !== Number(createdVideo.id))]);
+      setCategories((prev) =>
+        prev.map((c) =>
+          Number(c.id) === selectedCatId && c.video_count !== undefined
+            ? { ...c, video_count: Number(c.video_count) + 1 }
+            : c
+        )
+      );
       setStats((prev) => {
         const currentCount = prev?.total_videos ?? prev?.totalVideos ?? videos.length;
         const nextCount = currentCount + 1;
@@ -487,7 +529,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         throw new Error(data.error || 'Delete failed');
       }
 
-      setVideos((prev) => prev.filter((v) => v.id !== id));
+      const removedVideo = videos.find((v) => Number(v.id) === Number(id));
+      setVideos((prev) => prev.filter((v) => Number(v.id) !== Number(id)));
+      if (removedVideo) {
+        const removedCatId = resolveVideoCategoryId(removedVideo, categories);
+        setCategories((prev) =>
+          prev.map((c) =>
+            Number(c.id) === removedCatId && c.video_count !== undefined
+              ? { ...c, video_count: Math.max(0, Number(c.video_count) - 1) }
+              : c
+          )
+        );
+      }
 
       setStats((prev) => {
         if (!prev) return null;
@@ -511,7 +564,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setEditingVideo(v);
     setEditTitle(v.title);
     setEditDuration(formatDuration(v.duration));
-    setEditCategoryId(v.category_id || 1);
+    setEditCategoryId(resolveVideoCategoryId(v, categories));
     setEditVideoUrl(v.video_url || '');
     setEditBackupVideoUrl(v.backup_video_url || '');
     setEditThumbnailUrl(v.thumbnail_url || '');
@@ -528,6 +581,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     setIsUpdating(true);
     const parsedDur = parseDurationToSeconds(editDuration);
+    const targetCategoryId = Number(editCategoryId) || (categories[0] ? Number(categories[0].id) : 1);
+    const prevCategoryId = resolveVideoCategoryId(editingVideo, categories);
 
     try {
       const res = await fetch(`/api/videos?_t=${Date.now()}`, {
@@ -538,7 +593,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           id: editingVideo.id,
           title: editTitle.trim(),
           duration: parsedDur,
-          category_id: editCategoryId,
+          category_id: targetCategoryId,
           video_url: editVideoUrl.trim(),
           backup_video_url: editBackupVideoUrl.trim(),
           thumbnail_url: editThumbnailUrl.trim(),
@@ -556,7 +611,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         throw new Error(data.error || 'Failed to update video');
       }
 
-      const updatedCategory = categories.find((c) => c.id === editCategoryId);
+      const updatedCategory = categories.find((c) => Number(c.id) === targetCategoryId);
 
       setVideos((prev) =>
         prev.map((v) =>
@@ -565,8 +620,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 ...v,
                 title: editTitle.trim(),
                 duration: parsedDur,
-                category_id: editCategoryId,
+                category_id: targetCategoryId,
                 category_name: updatedCategory ? updatedCategory.name : v.category_name,
+                category_slug: updatedCategory ? updatedCategory.slug : v.category_slug,
                 video_url: editVideoUrl.trim(),
                 backup_video_url: editBackupVideoUrl.trim(),
                 thumbnail_url: editThumbnailUrl.trim(),
@@ -574,6 +630,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             : v
         )
       );
+
+      if (prevCategoryId !== targetCategoryId) {
+        setCategories((prev) =>
+          prev.map((c) => {
+            const cId = Number(c.id);
+            if (cId === prevCategoryId && c.video_count !== undefined) {
+              return { ...c, video_count: Math.max(0, Number(c.video_count) - 1) };
+            }
+            if (cId === targetCategoryId && c.video_count !== undefined) {
+              return { ...c, video_count: Number(c.video_count) + 1 };
+            }
+            return c;
+          })
+        );
+      }
 
       setEditingVideo(null);
       showNotification('success', 'Video details updated successfully in D1');
@@ -799,6 +870,96 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const openEditCategoryModal = (cat: Category) => {
+    setEditingCategory(cat);
+    setEditCatName(cat.name);
+    setEditCatSlug(cat.slug);
+  };
+
+  const handleEditCatNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nextName = e.target.value;
+    const prevAutoSlug = editCatName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+    setEditCatName(nextName);
+    if (!editCatSlug || editCatSlug === prevAutoSlug) {
+      setEditCatSlug(
+        nextName
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '')
+      );
+    }
+  };
+
+  const handleSaveCategoryEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCategory) return;
+
+    const trimmedName = editCatName.trim();
+    if (!trimmedName) {
+      showNotification('error', 'Category name is required');
+      return;
+    }
+
+    const resolvedSlug =
+      (editCatSlug || trimmedName)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '') || `category-${editingCategory.id}`;
+
+    setIsUpdatingCategory(true);
+    try {
+      const res = await fetch(`/api/categories?_t=${Date.now()}`, {
+        method: 'PUT',
+        cache: 'no-store',
+        headers: getNoCacheHeaders(true),
+        body: JSON.stringify({
+          id: editingCategory.id,
+          name: trimmedName,
+          slug: resolvedSlug,
+        }),
+      });
+
+      const contentType = res.headers.get('content-type');
+      if (!res.ok || !contentType || !contentType.includes('application/json')) {
+        showNotification('error', `Failed to update category (HTTP ${res.status})`);
+        return;
+      }
+
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to update category');
+      }
+
+      const targetId = Number(editingCategory.id);
+      setCategories((prev) =>
+        prev.map((c) =>
+          Number(c.id) === targetId
+            ? { ...c, name: trimmedName, slug: resolvedSlug }
+            : c
+        )
+      );
+      setVideos((prev) =>
+        prev.map((v) =>
+          Number(v.category_id) === targetId
+            ? { ...v, category_name: trimmedName, category_slug: resolvedSlug }
+            : v
+        )
+      );
+
+      setEditingCategory(null);
+      showNotification('success', `Category "${trimmedName}" updated in Cloudflare D1`);
+      if (onVideoUpdated) onVideoUpdated();
+      fetchData();
+    } catch (err: any) {
+      showNotification('error', err.message || 'Failed to update category');
+    } finally {
+      setIsUpdatingCategory(false);
+    }
+  };
+
   const handleSaveMonetization = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingMonetization(true);
@@ -900,12 +1061,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const selectedTableCatObj =
+    tableCategory === 'all'
+      ? null
+      : categories.find((c) => Number(c.id) === Number(tableCategory)) || null;
+
   const filteredVideos = videos.filter((v) => {
     const matchesSearch =
       tableSearch === '' ||
       v.title.toLowerCase().includes(tableSearch.toLowerCase()) ||
       (v.tags && v.tags.toLowerCase().includes(tableSearch.toLowerCase()));
-    const matchesCat = tableCategory === 'all' || v.category_id === tableCategory;
+    const matchesCat =
+      tableCategory === 'all' ||
+      (selectedTableCatObj
+        ? doesVideoBelongToCategory(v, selectedTableCatObj)
+        : Number(v.category_id) === Number(tableCategory));
     return matchesSearch && matchesCat;
   });
 
@@ -1152,7 +1322,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 >
                   <option value="all">All Categories</option>
                   {categories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                    <option key={c.id} value={Number(c.id)}>{c.name}</option>
                   ))}
                 </select>
               </div>
@@ -1238,7 +1408,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                         {}
                         <td className="py-3 px-4 whitespace-nowrap text-[#94A3B8]">
-                          {v.category_name || categories.find(c => c.id === v.category_id)?.name || 'General'}
+                          {categories.find((c) => doesVideoBelongToCategory(v, c))?.name || v.category_name || 'General'}
                         </td>
 
                         {}
@@ -1547,12 +1717,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     Category (from D1)
                   </label>
                   <select
-                    value={categoryId}
+                    value={Number(categoryId)}
                     onChange={(e) => setCategoryId(Number(e.target.value))}
                     className="w-full bg-[#131C2E] text-sm text-[#F8FAFC] px-3.5 py-2.5 rounded-xl border border-[#253349] focus:outline-none focus:border-[#F59E0B] cursor-pointer"
                   >
                     {categories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                      <option key={c.id} value={Number(c.id)}>{c.name}</option>
                     ))}
                   </select>
                 </div>
@@ -1746,16 +1916,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <td className="py-3 px-4 font-semibold text-[#F8FAFC]">{c.name}</td>
                         <td className="py-3 px-4 font-mono text-[#94A3B8]">{c.slug}</td>
                         <td className="py-3 px-4 font-mono text-[#94A3B8]">
-                          {c.video_count ?? videos.filter(v => v.category_id === c.id).length}
+                          {c.video_count ?? videos.filter((v) => doesVideoBelongToCategory(v, c)).length}
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <button
-                            onClick={() => handleDeleteCategory(c.id, c.name)}
-                            className="p-1.5 rounded-lg bg-[#3B0713] hover:bg-[#4C0D1A] text-[#FB7185] border border-[#4C0D1A] hover:border-[#FB7185]/40 transition-colors cursor-pointer"
-                            title="Delete Category"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openEditCategoryModal(c)}
+                              className="p-1.5 rounded-lg bg-[#131C2E] hover:bg-[#1E293B] text-[#F59E0B] border border-[#253349] hover:border-[#F59E0B]/40 transition-colors cursor-pointer"
+                              title="Edit Category"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCategory(c.id, c.name)}
+                              className="p-1.5 rounded-lg bg-[#3B0713] hover:bg-[#4C0D1A] text-[#FB7185] border border-[#4C0D1A] hover:border-[#FB7185]/40 transition-colors cursor-pointer"
+                              title="Delete Category"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -2626,12 +2807,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       Category *
                     </label>
                     <select
-                      value={editCategoryId}
+                      value={Number(editCategoryId)}
                       onChange={(e) => setEditCategoryId(Number(e.target.value))}
                       className="w-full bg-[#131C2E] text-sm text-[#F8FAFC] px-3.5 py-2.5 rounded-xl border border-[#253349] focus:outline-none focus:border-[#F59E0B]"
                     >
                       {categories.map((c) => (
-                        <option key={c.id} value={c.id}>
+                        <option key={c.id} value={Number(c.id)}>
                           {c.name}
                         </option>
                       ))}
@@ -2716,6 +2897,77 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#F59E0B] to-[#D97706] hover:from-[#D97706] hover:to-[#B45309] text-black font-bold text-sm shadow-lg shadow-[#F59E0B]/20 transition-all cursor-pointer disabled:opacity-50"
                   >
                     {isUpdating ? 'Saving Changes to D1...' : 'Save Changes'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {editingCategory && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+            <div className="bg-[#0F172A] border border-[#253349] rounded-2xl w-full max-w-md shadow-2xl p-6 sm:p-7">
+              <div className="flex items-center justify-between border-b border-[#1E293B] pb-4 mb-5">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-[#F59E0B]/20 border border-[#F59E0B]/30 text-[#F59E0B]">
+                    <Pencil className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-[#F8FAFC]">Edit Category</h3>
+                    <p className="text-xs text-[#94A3B8]">Update category name &amp; slug in Cloudflare D1</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingCategory(null)}
+                  className="p-2 rounded-lg bg-[#182234] text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#1E293B] transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveCategoryEdit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-1.5">
+                    Category Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editCatName}
+                    onChange={handleEditCatNameChange}
+                    className="w-full bg-[#131C2E] text-sm text-[#F8FAFC] px-3.5 py-2.5 rounded-xl border border-[#253349] focus:outline-none focus:border-[#F59E0B]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-1.5">
+                    Slug *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editCatSlug}
+                    onChange={(e) => setEditCatSlug(e.target.value)}
+                    className="w-full bg-[#131C2E] text-xs font-mono text-[#F8FAFC] px-3.5 py-2.5 rounded-xl border border-[#253349] focus:outline-none focus:border-[#F59E0B]"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#1E293B]">
+                  <button
+                    type="button"
+                    onClick={() => setEditingCategory(null)}
+                    disabled={isUpdatingCategory}
+                    className="px-4 py-2 rounded-xl bg-[#182234] hover:bg-[#1E293B] text-[#94A3B8] hover:text-[#F8FAFC] text-xs font-medium transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdatingCategory}
+                    className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#F59E0B] to-[#D97706] hover:from-[#D97706] hover:to-[#B45309] text-black font-bold text-xs shadow-lg shadow-[#F59E0B]/20 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {isUpdatingCategory ? 'Saving to D1...' : 'Save Changes'}
                   </button>
                 </div>
               </form>

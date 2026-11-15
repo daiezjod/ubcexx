@@ -323,8 +323,18 @@ export class D1PreparedStatement {
     const q = this.query;
     const state = this.db.getState();
 
+    const matchesCategory = (v: Video, cat: Category): boolean => {
+      const rawCat = String(v.category_id ?? '').trim().toLowerCase();
+      if (!rawCat) return false;
+      return (
+        rawCat === String(cat.id) ||
+        (Boolean(cat.slug) && rawCat === String(cat.slug).trim().toLowerCase()) ||
+        (Boolean(cat.name) && rawCat === String(cat.name).trim().toLowerCase())
+      );
+    };
+
     const enrichVideo = (v: Video): Video => {
-      const cat = state.categories.find(c => c.id === v.category_id);
+      const cat = state.categories.find(c => matchesCategory(v, c));
       return {
         ...v,
         category_name: cat ? cat.name : 'General',
@@ -347,7 +357,10 @@ export class D1PreparedStatement {
           return typeof v === 'number' || (!isNaN(Number(v)) && Number(v) > 0);
         }));
         if (catId) {
-          filtered = filtered.filter(v => v.category_id === catId);
+          const targetCat = state.categories.find(c => c.id === catId);
+          filtered = filtered.filter(v =>
+            targetCat ? matchesCategory(v, targetCat) : Number(v.category_id) === catId
+          );
         }
       }
 
@@ -443,7 +456,7 @@ export class D1PreparedStatement {
 
       const enriched = cats.map(c => ({
         ...c,
-        video_count: state.videos.filter(v => v.category_id === c.id).length,
+        video_count: state.videos.filter(v => matchesCategory(v, c)).length,
       }));
 
       return { results: enriched as unknown as T[], success: true, meta: { count: enriched.length } };
@@ -628,6 +641,18 @@ export class D1PreparedStatement {
       changes = 1;
       lastRowId = newId;
       this.db.commit();
+    }
+
+    else if (q.includes('UPDATE categories SET') || q.includes('update categories set')) {
+      const id = Number(this.boundValues[this.boundValues.length - 1]);
+      const cat = state.categories.find((c) => c.id === id);
+      if (cat) {
+        const [name, slug] = this.boundValues;
+        if (name !== undefined) cat.name = String(name).trim();
+        if (slug !== undefined) cat.slug = String(slug).trim();
+        changes = 1;
+        this.db.commit();
+      }
     }
 
     else if (q.includes('DELETE FROM categories') || q.includes('delete from categories')) {

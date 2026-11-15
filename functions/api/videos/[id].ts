@@ -30,7 +30,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const stmt = context.env.DB.prepare(`
       SELECT v.*, c.name as category_name, c.slug as category_slug
       FROM videos v
-      LEFT JOIN categories c ON v.category_id = c.id
+      LEFT JOIN categories c ON (
+        CAST(v.category_id AS TEXT) = CAST(c.id AS TEXT)
+        OR LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(c.slug))
+        OR LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(c.name))
+      )
       WHERE v.id = ? OR LOWER(v.slug) = LOWER(?)
       LIMIT 1
     `).bind(numericId, idOrSlug);

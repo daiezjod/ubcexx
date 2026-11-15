@@ -32,14 +32,30 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         v.status, v.created_at,
         c.name as category_name, c.slug as category_slug
       FROM videos v
-      LEFT JOIN categories c ON v.category_id = c.id
+      LEFT JOIN categories c ON (
+        CAST(v.category_id AS TEXT) = CAST(c.id AS TEXT)
+        OR LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(c.slug))
+        OR LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(c.name))
+      )
       WHERE v.status = 'published'
     `;
     const params: any[] = [];
 
     if (categoryId && parseInt(categoryId, 10) > 0) {
-      sql += ' AND v.category_id = ?';
-      params.push(parseInt(categoryId, 10));
+      const targetCatId = parseInt(categoryId, 10);
+      sql += ` AND (
+        CAST(v.category_id AS TEXT) = CAST(? AS TEXT)
+        OR EXISTS (
+          SELECT 1 FROM categories cat_filter
+          WHERE cat_filter.id = ?
+            AND (
+              CAST(v.category_id AS TEXT) = CAST(cat_filter.id AS TEXT)
+              OR LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(cat_filter.slug))
+              OR LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(cat_filter.name))
+            )
+        )
+      )`;
+      params.push(targetCatId, targetCatId);
     }
 
     if (featured === '1' || featured === 'true') {

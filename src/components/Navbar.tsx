@@ -306,11 +306,11 @@ export const Navbar: React.FC<NavbarProps> = ({
               All Streams
             </button>
             {categories.map((cat) => {
-              const isSelected = selectedCategoryId === cat.id;
+              const isSelected = selectedCategoryId !== null && Number(selectedCategoryId) === Number(cat.id);
               return (
                 <button
                   key={cat.id}
-                  onClick={() => handleNavCategory(isSelected ? null : cat.id)}
+                  onClick={() => handleNavCategory(isSelected ? null : Number(cat.id))}
                   className={`px-3.5 py-1.5 rounded-full text-xs whitespace-nowrap transition-all cursor-pointer shrink-0 border ${
                     isSelected
                       ? 'bg-[#F59E0B] text-black font-bold border-[#F59E0B] shadow-sm shadow-[#F59E0B]/30'
@@ -425,11 +425,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                   All Genres
                 </button>
                 {categories.map((cat) => {
-                  const isCatSelected = selectedCategoryId === cat.id;
+                  const isCatSelected = selectedCategoryId !== null && Number(selectedCategoryId) === Number(cat.id);
                   return (
                     <button
                       key={cat.id}
-                      onClick={() => handleNavCategory(cat.id)}
+                      onClick={() => handleNavCategory(Number(cat.id))}
                       className={`text-xs px-2.5 py-1 rounded-lg transition-all cursor-pointer border ${
                         isCatSelected
                           ? 'bg-[#F59E0B] text-black font-bold border-[#F59E0B]'

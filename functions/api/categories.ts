@@ -5,7 +5,7 @@ interface Env {
 const corsHeaders: Record<string, string> = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
 };
 
@@ -21,7 +21,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const stmt = context.env.DB.prepare(`
       SELECT c.*, COUNT(v.id) as video_count
       FROM categories c
-      LEFT JOIN videos v ON v.category_id = c.id
+      LEFT JOIN videos v ON (
+        CAST(v.category_id AS TEXT) = CAST(c.id AS TEXT)
+        OR LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(c.slug))
+        OR LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(c.name))
+      )
       GROUP BY c.id
       ORDER BY c.id ASC
     `);
@@ -33,7 +37,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         status: 200,
         headers: {
           ...corsHeaders,
-          'Cache-Control': 'public, max-age=0, s-maxage=5, must-revalidate',
+          'Cache-Control': 'public, max-age=0, s-maxage=1, must-revalidate',
         },
       }
     );
@@ -75,12 +79,85 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         id: result.meta?.last_row_id,
         slug: cleanSlug,
       }),
-      { status: 201, headers: corsHeaders }
+      {
+        status: 201,
+        headers: {
+          ...corsHeaders,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+        },
+      }
     );
   } catch (err: any) {
     return new Response(
       JSON.stringify({ success: false, error: err.message || 'Failed to create category' }),
       { status: 500, headers: corsHeaders }
+    );
+  }
+};
+
+export const onRequestPut: PagesFunction<Env> = async (context) => {
+  try {
+    const url = new URL(context.request.url);
+    const body: any = await context.request.json().catch(() => ({}));
+    const rawId = body.id || url.searchParams.get('id') || (context.params ? (context.params as any).id : null);
+    const id = Number(rawId);
+    const trimmedName = String(body.name || '').trim();
+
+    if (!id || !trimmedName) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Category ID and name are required' }),
+        {
+          status: 400,
+          headers: {
+            ...corsHeaders,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+          },
+        }
+      );
+    }
+
+    const rawSlug = String(body.slug || trimmedName);
+    const cleanSlug =
+      rawSlug
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '') || `category-${id}`;
+
+    const stmt = context.env.DB.prepare('UPDATE categories SET name = ?, slug = ? WHERE id = ?').bind(
+      trimmedName,
+      cleanSlug,
+      id
+    );
+    await stmt.run();
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: 'Category updated successfully',
+        category: {
+          id,
+          name: trimmedName,
+          slug: cleanSlug,
+        },
+      }),
+      {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+        },
+      }
+    );
+  } catch (err: any) {
+    return new Response(
+      JSON.stringify({ success: false, error: err.message || 'Failed to update category' }),
+      {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+        },
+      }
     );
   }
 };
