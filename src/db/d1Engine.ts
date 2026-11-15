@@ -547,13 +547,21 @@ export class D1PreparedStatement {
         ] = this.boundValues;
       }
 
+      const baseSlug = String(slug || title || `video-${newId}`).trim() || `video-${newId}`;
+      const hasCollision = state.videos.some(
+        (existing) => existing.slug && existing.slug.toLowerCase() === baseSlug.toLowerCase()
+      );
+      const uniqueSlug = hasCollision
+        ? `${baseSlug}-${Date.now().toString(36).slice(-4)}${Math.random().toString(36).slice(2, 5)}`
+        : baseSlug;
+
       const newVideo: Video = {
         id: newId,
         title: title || 'Untitled Stream',
-        slug: slug || `video-${newId}`,
+        slug: uniqueSlug,
         description: description || '',
         video_url: video_url || '',
-        backup_video_url: backup_video_url || '',
+        backup_video_url: backup_video_url ? String(backup_video_url).trim() : '',
         thumbnail_url: thumbnail_url || '/src/assets/images/ubcexx_hero_cyberpunk_1793264277456.jpg',
         duration: Number(duration) || 120,
         views: 0,

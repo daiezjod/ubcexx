@@ -101,6 +101,14 @@ export default function App() {
       if (path.startsWith('/watch/')) {
         const idOrSlug = path.replace(/^\/watch\//, '').replace(/\/+$/, '');
         if (idOrSlug) {
+          setSelectedVideo((prev) => {
+            if (!prev) return null;
+            const cleanTarget = decodeURIComponent(idOrSlug).trim().toLowerCase();
+            const matchesPrev =
+              String(prev.id) === cleanTarget ||
+              (Boolean(prev.slug) && prev.slug.trim().toLowerCase() === cleanTarget);
+            return matchesPrev ? prev : null;
+          });
           setActiveVideoId(idOrSlug);
           setCurrentView('watch');
           return;
@@ -274,6 +282,7 @@ export default function App() {
       <div className="min-h-screen bg-[#080C14] text-[#F8FAFC] flex flex-col justify-between selection:bg-[#F59E0B] selection:text-black">
         <main className="flex-1 flex flex-col">
           <WatchPage
+            key={String(activeVideoId)}
             videoIdOrSlug={activeVideoId}
             initialVideo={selectedVideo}
             videos={[...videos, ...featuredVideos]}

@@ -384,25 +384,18 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const controlsTimeoutRef = useRef<number | null>(null);
 
-  const [activeSource, setActiveSource] = useState<string>(videoUrl);
+  const cleanVideoUrl = (videoUrl || '').trim();
+  const cleanBackupUrl =
+    typeof backupVideoUrl === 'string' &&
+    backupVideoUrl.trim().length > 0 &&
+    backupVideoUrl.trim() !== cleanVideoUrl
+      ? backupVideoUrl.trim()
+      : '';
+
+  const [activeSource, setActiveSource] = useState<string>(cleanVideoUrl);
   const [hasFailedOver, setHasFailedOver] = useState<boolean>(false);
   const savedTimestampRef = useRef<number>(0);
   const wasPlayingRef = useRef<boolean>(false);
-
-  const primaryOkRuId = parseOkRuVideoId(videoUrl);
-  const activeOkRuId = parseOkRuVideoId(activeSource);
-  const backupOkRuId = parseOkRuVideoId(backupVideoUrl);
-  const okRuId = activeOkRuId || primaryOkRuId;
-  const isOkRuActive = Boolean(okRuId);
-
-  const isPageHiddenRef = useRef<boolean>(false);
-  const lastVisibilityChangeTimeRef = useRef<number>(Date.now());
-  const hiddenTimestampRef = useRef<number>(0);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  const [iframeMountKey, setIframeMountKey] = useState<number>(0);
-  const [isLoaded, setIsLoaded] = useState<boolean>(false);
-  const [isVideoReady, setIsVideoReady] = useState<boolean>(false);
 
   const hasValidPreroll = isValidPrerollAd(preRollAd);
   const [isAdActive, setIsAdActive] = useState<boolean>(false);
@@ -413,6 +406,21 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const adClickTrackingRef = useRef<string[]>([]);
   const adSkipTrackingRef = useRef<string[]>([]);
   const adCompleteTrackingRef = useRef<string[]>([]);
+
+  const primaryOkRuId = parseOkRuVideoId(cleanVideoUrl);
+  const activeOkRuId = isAdActive ? null : parseOkRuVideoId(activeSource);
+  const backupOkRuId = cleanBackupUrl ? parseOkRuVideoId(cleanBackupUrl) : null;
+  const okRuId = (hasFailedOver && cleanBackupUrl ? backupOkRuId : primaryOkRuId) || activeOkRuId;
+  const isOkRuActive = Boolean(okRuId);
+
+  const isPageHiddenRef = useRef<boolean>(false);
+  const lastVisibilityChangeTimeRef = useRef<number>(Date.now());
+  const hiddenTimestampRef = useRef<number>(0);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  const [iframeMountKey, setIframeMountKey] = useState<number>(0);
+  const [isLoaded, setIsLoaded] = useState<boolean>(false);
+  const [isVideoReady, setIsVideoReady] = useState<boolean>(false);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -485,7 +493,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, [isOkRuActive, hasStarted]);
 
   useEffect(() => {
-    setActiveSource(videoUrl);
+    setActiveSource(cleanVideoUrl);
     setHasFailedOver(false);
     setIsAdActive(false);
     setAdFinished(!shouldShowPreRoll());
@@ -494,18 +502,22 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     savedTimestampRef.current = 0;
     wasPlayingRef.current = false;
     setCurrentTime(0);
+    setDuration(0);
     setIsPlaying(false);
+    setIsVideoReady(false);
+    setIsLoaded(false);
     setHasStarted(false);
     setHasReportedView(false);
+    setIframeMountKey(0);
     adClickThroughRef.current = undefined;
     adClickTrackingRef.current = [];
     adSkipTrackingRef.current = [];
     adCompleteTrackingRef.current = [];
-  }, [videoUrl, backupVideoUrl, preRollAd?.videoUrl, preRollAd?.enabled]);
+  }, [cleanVideoUrl, cleanBackupUrl, preRollAd?.videoUrl, preRollAd?.enabled]);
 
   useEffect(() => {
     setIsLoaded(false);
-  }, [okRuId, iframeMountKey, isAdActive, videoUrl, backupVideoUrl]);
+  }, [okRuId, iframeMountKey, isAdActive, cleanVideoUrl, cleanBackupUrl]);
 
   useEffect(() => {
     setIsVideoReady(false);
@@ -524,7 +536,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
     setIsAdActive(false);
     setAdFinished(true);
-    const mainStreamUrl = hasFailedOver && backupVideoUrl ? backupVideoUrl : (videoUrl || backupVideoUrl || '');
+    const mainStreamUrl = hasFailedOver && cleanBackupUrl ? cleanBackupUrl : cleanVideoUrl;
     setActiveSource(mainStreamUrl);
     setCurrentTime(0);
     setDuration(0);
@@ -547,14 +559,14 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             onFirstPlay();
           }
         }).catch(() => {
-          if (backupVideoUrl && !hasFailedOver) {
+          if (cleanBackupUrl && !hasFailedOver) {
             setHasFailedOver(true);
-            setActiveSource(backupVideoUrl);
+            setActiveSource(cleanBackupUrl);
           }
         });
       }
     }, 60);
-  }, [videoUrl, backupVideoUrl, hasFailedOver, hasReportedView, onFirstPlay, isAdActive]);
+  }, [cleanVideoUrl, cleanBackupUrl, hasFailedOver, hasReportedView, onFirstPlay, isAdActive]);
 
   useEffect(() => {
     if (!hasValidPreroll) {
@@ -625,22 +637,22 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
 
     if (isOkRuActive) {
-      if (backupOkRuId && backupVideoUrl && !hasFailedOver && activeSource !== backupVideoUrl) {
+      if (backupOkRuId && cleanBackupUrl && !hasFailedOver && activeSource !== cleanBackupUrl) {
         setHasFailedOver(true);
-        setActiveSource(backupVideoUrl);
+        setActiveSource(cleanBackupUrl);
       }
       return;
     }
 
-    if (backupVideoUrl && !hasFailedOver && activeSource !== backupVideoUrl) {
+    if (cleanBackupUrl && !hasFailedOver && activeSource !== cleanBackupUrl) {
       const resumePos = videoRef.current ? videoRef.current.currentTime : currentTime;
       savedTimestampRef.current = resumePos;
       wasPlayingRef.current = isPlaying || hasStarted || true;
 
       setHasFailedOver(true);
-      setActiveSource(backupVideoUrl);
+      setActiveSource(cleanBackupUrl);
     }
-  }, [isAdActive, handleSkipAd, isOkRuActive, backupOkRuId, backupVideoUrl, hasFailedOver, activeSource, currentTime, isPlaying, hasStarted]);
+  }, [isAdActive, handleSkipAd, isOkRuActive, backupOkRuId, cleanBackupUrl, hasFailedOver, activeSource, currentTime, isPlaying, hasStarted]);
 
   useEffect(() => {
     const videoEl = videoRef.current;
@@ -939,7 +951,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         <>
           <video
             ref={videoRef}
-            src={activeSource}
+            src={activeSource || cleanVideoUrl || undefined}
             poster={thumbnailUrl}
             onClick={togglePlay}
             onError={handleVideoError}

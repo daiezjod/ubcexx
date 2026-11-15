@@ -86,10 +86,20 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    const cleanSlug = (slug || title)
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
+    const baseSlug =
+      (slug || title)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '') || 'stream';
+
+    const existingSlug = await context.env.DB.prepare(
+      'SELECT id FROM videos WHERE LOWER(TRIM(slug)) = LOWER(TRIM(?)) LIMIT 1'
+    )
+      .bind(baseSlug)
+      .first();
+
+    const uniqueSuffix = `${Date.now().toString(36).slice(-4)}${Math.random().toString(36).slice(2, 5)}`;
+    const cleanSlug = existingSlug ? `${baseSlug}-${uniqueSuffix}` : baseSlug;
 
     let parsedDuration = 0;
     if (typeof duration === 'number') {

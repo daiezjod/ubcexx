@@ -18,6 +18,7 @@ export const onRequestOptions: PagesFunction<Env> = async () => {
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const url = new URL(context.request.url);
+  const lookup = url.searchParams.get('lookup');
   const categoryId = url.searchParams.get('category_id');
   const featured = url.searchParams.get('featured');
   const search = url.searchParams.get('search');
@@ -25,6 +26,71 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const offset = parseInt(url.searchParams.get('offset') || '0', 10);
 
   try {
+    if (lookup && lookup.trim() !== '') {
+      let cleanLookup = lookup.trim();
+      try {
+        cleanLookup = decodeURIComponent(cleanLookup).trim();
+      } catch {
+      }
+      const numericLookupId = /^\d+$/.test(cleanLookup) ? Number(cleanLookup) : -1;
+
+      const lookupStmt = context.env.DB.prepare(`
+        SELECT 
+          v.id, v.title, v.slug, v.description, v.video_url, v.backup_video_url, v.thumbnail_url,
+          v.duration, v.views, v.likes, v.category_id, v.tags, v.is_featured,
+          v.status, v.created_at,
+          c.name as category_name, c.slug as category_slug
+        FROM videos v
+        LEFT JOIN categories c ON (
+          CAST(v.category_id AS TEXT) = CAST(c.id AS TEXT)
+          OR LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(c.slug))
+          OR LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(c.name))
+        )
+        WHERE v.id = ? OR LOWER(TRIM(v.slug)) = LOWER(TRIM(?))
+        ORDER BY v.id DESC
+        LIMIT 1
+      `).bind(numericLookupId, cleanLookup);
+
+      const matchedVideo = await lookupStmt.first();
+      if (!matchedVideo) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Video not found', videos: [] }),
+          {
+            status: 404,
+            headers: {
+              ...corsHeaders,
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+            },
+          }
+        );
+      }
+
+      const relatedStmt = context.env.DB.prepare(`
+        SELECT id, title, slug, thumbnail_url, duration, views, category_id, tags, created_at
+        FROM videos
+        WHERE category_id = ? AND id != ?
+        ORDER BY views DESC
+        LIMIT 8
+      `).bind((matchedVideo as any).category_id, (matchedVideo as any).id);
+      const { results: related } = await relatedStmt.all();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          video: matchedVideo,
+          videos: [matchedVideo],
+          relatedVideos: related || [],
+        }),
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+          },
+        }
+      );
+    }
+
     let sql = `
       SELECT 
         v.id, v.title, v.slug, v.description, v.video_url, v.backup_video_url, v.thumbnail_url,
@@ -122,10 +188,20 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    const cleanSlug = (slug || title)
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
+    const baseSlug =
+      (slug || title)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '') || 'stream';
+
+    const existingSlug = await context.env.DB.prepare(
+      'SELECT id FROM videos WHERE LOWER(TRIM(slug)) = LOWER(TRIM(?)) LIMIT 1'
+    )
+      .bind(baseSlug)
+      .first();
+
+    const uniqueSuffix = `${Date.now().toString(36).slice(-4)}${Math.random().toString(36).slice(2, 5)}`;
+    const cleanSlug = existingSlug ? `${baseSlug}-${uniqueSuffix}` : baseSlug;
 
     let parsedDuration = 0;
     if (typeof duration === 'number') {

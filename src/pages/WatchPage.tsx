@@ -188,12 +188,19 @@ function normalizeLookupParam(param: string | number): string {
 
 function findMatchingVideo(candidates: Array<Video | null | undefined>, param: string | number): Video | null {
   const target = normalizeLookupParam(param);
+  if (!target) return null;
   const targetLower = target.toLowerCase();
-  const match = candidates.find(
-    (v): v is Video =>
-      Boolean(v) && (String(v!.id) === target || v!.slug?.toLowerCase() === targetLower)
+  const byId = candidates.find(
+    (v): v is Video => Boolean(v) && String(v!.id) === target
   );
-  return match || null;
+  if (byId) return byId;
+  const bySlug = candidates.find(
+    (v): v is Video =>
+      Boolean(v) &&
+      Boolean(v!.slug && v!.slug.trim()) &&
+      v!.slug!.trim().toLowerCase() === targetLower
+  );
+  return bySlug || null;
 }
 
 export const WatchPage: React.FC<WatchPageProps> = ({
@@ -253,15 +260,20 @@ export const WatchPage: React.FC<WatchPageProps> = ({
         const elapsed = effectiveHidden > 0 ? now - effectiveHidden : 0;
 
         if (elapsed >= INACTIVITY_THRESHOLD_MS) {
+          const cleanLookupParam = normalizeLookupParam(videoIdOrSlug);
           setPlayerMountKey((prev) => prev + 1);
-          safeFetchJson<{ success: boolean; video?: Video; relatedVideos?: Video[] }>(
-            `/api/videos/${videoIdOrSlug}`
+          safeFetchJson<{ success: boolean; video?: Video; videos?: Video[]; relatedVideos?: Video[] }>(
+            `/api/videos?lookup=${encodeURIComponent(cleanLookupParam)}&_t=${Date.now()}`,
+            { cache: 'no-store' }
           ).then((data) => {
-            if (data?.success && data.video) {
-              setVideo(data.video);
-              const merged = [...(data.relatedVideos || []), ...candidatePoolRef.current];
+            const refreshedVideo =
+              (data?.success && data.video ? data.video : null) ||
+              (Array.isArray(data?.videos) ? findMatchingVideo(data.videos, cleanLookupParam) : null);
+            if (refreshedVideo) {
+              setVideo(refreshedVideo);
+              const merged = [...(data?.relatedVideos || []), ...candidatePoolRef.current];
               candidatePoolRef.current = merged;
-              setRelatedVideos(rankRelatedVideos(merged, data.video, getViewingInterestsProfile()));
+              setRelatedVideos(rankRelatedVideos(merged, refreshedVideo, getViewingInterestsProfile()));
             }
           }).catch(() => {});
         }
@@ -313,7 +325,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
   useEffect(() => {
     let isMounted = true;
     const cleanParam = normalizeLookupParam(videoIdOrSlug);
-    const instantMatch = findMatchingVideo([initialVideo, ...videos, ...candidatePoolRef.current], cleanParam);
+    const instantMatch = findMatchingVideo([initialVideo, ...videos], cleanParam);
     if (instantMatch) {
       setVideo(instantMatch);
       setLikes(instantMatch.likes || 0);
@@ -322,33 +334,47 @@ export const WatchPage: React.FC<WatchPageProps> = ({
         setRelatedVideos(rankRelatedVideos(candidatePoolRef.current, instantMatch, getViewingInterestsProfile()));
       }
     } else {
+      setVideo(null);
+      setRelatedVideos([]);
+      setLikes(0);
       setLoading(true);
     }
     setError(null);
+
+    const cacheBust = Date.now();
 
     Promise.all([
       safeFetchJson<{
         success: boolean;
         video?: Video;
+        videos?: Video[];
         relatedVideos?: Video[];
         error?: string;
-      }>(`/api/videos/${encodeURIComponent(cleanParam)}`).catch((err) => ({
+      }>(`/api/videos?lookup=${encodeURIComponent(cleanParam)}&_t=${cacheBust}`, {
+        cache: 'no-store',
+      }).catch((err) => ({
         success: false,
         video: undefined as Video | undefined,
+        videos: [] as Video[],
         relatedVideos: [] as Video[],
         error: err?.message as string | undefined,
       })),
       safeFetchJson<{
         success: boolean;
         videos?: Video[];
-      }>('/api/videos?limit=100').catch(() => ({ success: false, videos: [] as Video[] })),
+      }>(`/api/videos?limit=100&_t=${cacheBust}`, {
+        cache: 'no-store',
+      }).catch(() => ({ success: false, videos: [] as Video[] })),
     ])
       .then(([data, poolData]) => {
         if (!isMounted) return;
         const poolVideos = poolData?.success && Array.isArray(poolData.videos) ? poolData.videos : [];
-        const resolvedVideo =
+        const directMatchedVideo =
           (data.success && data.video ? data.video : null) ||
-          findMatchingVideo([...videos, ...poolVideos, initialVideo], cleanParam);
+          (data.success && Array.isArray(data.videos) ? findMatchingVideo(data.videos, cleanParam) : null);
+        const resolvedVideo =
+          directMatchedVideo ||
+          findMatchingVideo([initialVideo, ...videos, ...poolVideos], cleanParam);
 
         if (resolvedVideo) {
           const combinedCandidates = [...(data.relatedVideos || []), ...poolVideos];
@@ -372,12 +398,14 @@ export const WatchPage: React.FC<WatchPageProps> = ({
           );
           setHasLiked(isLiked);
         } else {
+          setVideo(null);
           setError(data.error || 'Video not found');
         }
       })
       .catch((err) => {
         if (!isMounted) return;
         if (!instantMatch) {
+          setVideo(null);
           setError(err.message || 'Failed to load video');
         }
       })
@@ -616,7 +644,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
 
         <div className={`w-full mx-auto px-0 sm:px-6 lg:px-8 pb-1 sm:pb-2 ${isTheaterMode ? 'max-w-full' : 'max-w-7xl'}`}>
           <VideoPlayer
-            key={`watch-player-${playerMountKey}-${video.id}`}
+            key={`watch-player-${playerMountKey}-${video.id}-${encodeURIComponent(video.video_url || '')}`}
             videoUrl={video.video_url}
             backupVideoUrl={video.backup_video_url}
             thumbnailUrl={video.thumbnail_url}

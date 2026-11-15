@@ -35,7 +35,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         OR LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(c.slug))
         OR LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(c.name))
       )
-      WHERE v.id = ? OR LOWER(v.slug) = LOWER(?)
+      WHERE v.id = ? OR LOWER(TRIM(v.slug)) = LOWER(TRIM(?))
+      ORDER BY v.id DESC
       LIMIT 1
     `).bind(numericId, idOrSlug);
     const video = await stmt.first();

@@ -157,9 +157,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
-  const [videoUrl, setVideoUrl] = useState('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4');
-  const [backupVideoUrl, setBackupVideoUrl] = useState('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4');
-  const [thumbnailUrl, setThumbnailUrl] = useState('/src/assets/images/ubcexx_hero_cyberpunk_1793264277456.jpg');
+  const [videoUrl, setVideoUrl] = useState('');
+  const [backupVideoUrl, setBackupVideoUrl] = useState('');
+  const [thumbnailUrl, setThumbnailUrl] = useState('');
   const [duration, setDuration] = useState('');
   const [categoryId, setCategoryId] = useState<number>(1);
   const [tags, setTags] = useState('action, 4k, stream, ubcexx');
@@ -168,6 +168,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDetectingMeta, setIsDetectingMeta] = useState(false);
   const lastDetectedUrlRef = useRef<string>('');
+
+  const openAddVideoForm = () => {
+    setTitle('');
+    setSlug('');
+    setDescription('');
+    setVideoUrl('');
+    setBackupVideoUrl('');
+    setThumbnailUrl('');
+    setDuration('');
+    setIsFeatured(false);
+    lastDetectedUrlRef.current = '';
+    setActiveTab('add_video');
+  };
 
   const [editingVideo, setEditingVideo] = useState<Video | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -418,6 +431,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const selectedCatId = Number(categoryId) || (categories[0] ? Number(categories[0].id) : 1);
     const matchedCat = categories.find((c) => Number(c.id) === selectedCatId);
 
+    const baseSubmissionSlug =
+      (slug || trimmedTitle)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '') || 'stream';
+    const hasLocalSlugCollision = videos.some(
+      (v) => v.slug && v.slug.trim().toLowerCase() === baseSubmissionSlug.toLowerCase()
+    );
+    const submissionSlug = hasLocalSlugCollision
+      ? `${baseSubmissionSlug}-${Date.now().toString(36).slice(-4)}`
+      : baseSubmissionSlug;
+
     try {
       const res = await fetch(`/api/videos?_t=${Date.now()}`, {
         method: 'POST',
@@ -425,7 +450,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         headers: getNoCacheHeaders(true),
         body: JSON.stringify({
           title: trimmedTitle,
-          slug,
+          slug: submissionSlug,
           description,
           video_url: trimmedVideoUrl,
           backup_video_url: trimmedBackupUrl,
@@ -452,7 +477,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const createdVideo: Video = {
         id: Number(data.id) || Date.now(),
         title: trimmedTitle,
-        slug: data.slug || slug || trimmedTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+        slug: data.slug || submissionSlug,
         description: description || '',
         video_url: trimmedVideoUrl,
         backup_video_url: trimmedBackupUrl,
@@ -493,8 +518,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setTitle('');
       setSlug('');
       setDescription('');
+      setVideoUrl('');
+      setBackupVideoUrl('');
+      setThumbnailUrl('');
       setDuration('');
       setIsFeatured(false);
+      lastDetectedUrlRef.current = '';
       setActiveTab('videos');
       if (onVideoUpdated) onVideoUpdated();
       fetchData();
@@ -1217,7 +1246,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </button>
 
           <button
-            onClick={() => setActiveTab('add_video')}
+            onClick={openAddVideoForm}
             className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors cursor-pointer flex items-center gap-2 ${
               activeTab === 'add_video'
                 ? 'bg-[#F59E0B] text-black shadow-sm shadow-[#F59E0B]/20'
@@ -1328,7 +1357,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               <button
-                onClick={() => setActiveTab('add_video')}
+                onClick={openAddVideoForm}
                 className="w-full sm:w-auto px-4 py-2 rounded-lg bg-[#F59E0B] hover:bg-[#d97706] text-black text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0 shadow-md shadow-[#F59E0B]/20"
               >
                 <PlusCircle className="w-3.5 h-3.5 text-black" />

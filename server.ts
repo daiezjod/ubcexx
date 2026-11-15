@@ -132,6 +132,36 @@ function silentFloodProtection(req: Request, res: Response, next: NextFunction) 
 
 app.get('/api/videos', async (req: Request, res: Response) => {
   try {
+    const lookup = req.query.lookup ? String(req.query.lookup).trim() : '';
+    if (lookup) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      let cleanLookup = lookup;
+      try {
+        cleanLookup = decodeURIComponent(lookup).trim();
+      } catch {
+      }
+      const numericLookupId = /^\d+$/.test(cleanLookup) ? Number(cleanLookup) : -1;
+      const lookupStmt = d1DB
+        .prepare('SELECT * FROM videos WHERE id = ? OR LOWER(slug) = LOWER(?) LIMIT 1')
+        .bind(numericLookupId, cleanLookup);
+      const matchedVideo = await lookupStmt.first();
+
+      if (!matchedVideo) {
+        return res.status(404).json({ success: false, error: 'Video not found', videos: [] });
+      }
+
+      const relatedStmt = d1DB.prepare('SELECT * FROM videos WHERE category_id = ? LIMIT 8').bind(matchedVideo.category_id);
+      const relatedResult = await relatedStmt.all();
+      const related = (relatedResult.results as any[]).filter((v) => Number(v.id) !== Number(matchedVideo.id));
+
+      return res.json({
+        success: true,
+        video: matchedVideo,
+        videos: [matchedVideo],
+        relatedVideos: related,
+      });
+    }
+
     res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=5, must-revalidate');
     const categoryId = req.query.category_id ? Number(req.query.category_id) : undefined;
     const featured = req.query.featured === '1' || req.query.featured === 'true';
@@ -766,10 +796,19 @@ app.post(['/api/videos', '/api/admin/videos'], async (req: Request, res: Respons
       return res.status(400).json({ success: false, error: 'Title, Primary Video URL, and Thumbnail URL are required' });
     }
 
-    const cleanSlug = (slug || title)
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
+    const baseSlug =
+      (slug || title)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '') || 'stream';
+
+    const existingSlug = await d1DB
+      .prepare('SELECT id FROM videos WHERE slug = ? LIMIT 1')
+      .bind(baseSlug)
+      .first();
+
+    const uniqueSuffix = `${Date.now().toString(36).slice(-4)}${Math.random().toString(36).slice(2, 5)}`;
+    const cleanSlug = existingSlug ? `${baseSlug}-${uniqueSuffix}` : baseSlug;
 
     const insertSql = `
       INSERT INTO videos 
