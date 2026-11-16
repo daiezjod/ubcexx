@@ -916,13 +916,15 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           <iframe
             ref={iframeRef}
             key={`okru-${okRuId}-${iframeMountKey}`}
-            src={`https://ok.ru/videoembed/${okRuId}?autoplay=1`}
+            src={`https://ok.ru/videoembed/${okRuId}?autoplay=1&hd=1&quality=sd`}
             title={title}
+            width="100%"
+            height="100%"
             loading="eager"
             onLoad={() => setIsLoaded(true)}
             {...({ fetchpriority: 'high', fetchPriority: 'high' } as any)}
-            className="absolute -top-[44px] left-0 w-full h-[calc(100%+44px)] border-0"
-            allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+            className="absolute -top-[44px] left-0 w-full h-[calc(100%+44px)] min-w-full min-h-full border-0"
+            allow="autoplay; fullscreen; picture-in-picture; encrypted-media; display-capture"
             allowFullScreen
           />
 
