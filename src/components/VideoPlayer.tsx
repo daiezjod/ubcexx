@@ -362,7 +362,7 @@ export async function resolveAdStreamUrl(adUrl: string, depth = 0): Promise<Reso
 interface VideoPlayerProps {
   videoUrl: string;
   backupVideoUrl?: string;
-  thumbnailUrl: string;
+  thumbnailUrl?: string;
   title: string;
   onFirstPlay?: () => void;
   isTheaterMode?: boolean;
@@ -385,6 +385,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const controlsTimeoutRef = useRef<number | null>(null);
 
   const cleanVideoUrl = (videoUrl || '').trim();
+  const cleanThumbnailUrl = (thumbnailUrl || '').trim();
   const cleanBackupUrl =
     typeof backupVideoUrl === 'string' &&
     backupVideoUrl.trim().length > 0 &&
@@ -394,6 +395,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   const [activeSource, setActiveSource] = useState<string>(cleanVideoUrl);
   const [hasFailedOver, setHasFailedOver] = useState<boolean>(false);
+  const [posterError, setPosterError] = useState<boolean>(false);
   const savedTimestampRef = useRef<number>(0);
   const wasPlayingRef = useRef<boolean>(false);
 
@@ -495,6 +497,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   useEffect(() => {
     setActiveSource(cleanVideoUrl);
     setHasFailedOver(false);
+    setPosterError(false);
     setIsAdActive(false);
     setAdFinished(!shouldShowPreRoll());
     setAdCountdown(preRollAd?.skipOffset || 5);
@@ -513,11 +516,15 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     adClickTrackingRef.current = [];
     adSkipTrackingRef.current = [];
     adCompleteTrackingRef.current = [];
-  }, [cleanVideoUrl, cleanBackupUrl, preRollAd?.videoUrl, preRollAd?.enabled]);
+  }, [cleanVideoUrl, cleanBackupUrl, cleanThumbnailUrl, preRollAd?.videoUrl, preRollAd?.enabled]);
+
+  useEffect(() => {
+    setPosterError(false);
+  }, [cleanThumbnailUrl]);
 
   useEffect(() => {
     setIsLoaded(false);
-  }, [okRuId, iframeMountKey, isAdActive, cleanVideoUrl, cleanBackupUrl]);
+  }, [okRuId, iframeMountKey, isAdActive, cleanVideoUrl, cleanBackupUrl, cleanThumbnailUrl]);
 
   useEffect(() => {
     setIsVideoReady(false);
@@ -924,13 +931,15 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               isLoaded ? 'opacity-0 pointer-events-none' : 'opacity-100'
             }`}
           >
-            {thumbnailUrl ? (
+            {cleanThumbnailUrl && !posterError ? (
               <img
-                key={thumbnailUrl}
-                src={thumbnailUrl}
+                key={`okru-poster-${cleanThumbnailUrl}`}
+                src={cleanThumbnailUrl}
                 alt={title}
                 referrerPolicy="no-referrer"
                 loading="eager"
+                decoding="sync"
+                onError={() => setPosterError(true)}
                 className="absolute inset-0 w-full h-full object-cover z-20"
               />
             ) : (
@@ -952,7 +961,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           <video
             ref={videoRef}
             src={activeSource || cleanVideoUrl || undefined}
-            poster={thumbnailUrl}
+            poster={cleanThumbnailUrl || undefined}
             onClick={togglePlay}
             onError={handleVideoError}
             onTimeUpdate={handleTimeUpdate}
@@ -1001,13 +1010,15 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               isVideoReady && hasStarted ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-none'
             }`}
           >
-            {thumbnailUrl ? (
+            {cleanThumbnailUrl && !posterError ? (
               <img
-                key={thumbnailUrl}
-                src={thumbnailUrl}
+                key={`video-poster-${cleanThumbnailUrl}`}
+                src={cleanThumbnailUrl}
                 alt={title}
                 referrerPolicy="no-referrer"
                 loading="eager"
+                decoding="sync"
+                onError={() => setPosterError(true)}
                 className="absolute inset-0 w-full h-full object-cover z-20"
               />
             ) : (

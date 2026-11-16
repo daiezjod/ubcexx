@@ -212,14 +212,13 @@ export const WatchPage: React.FC<WatchPageProps> = ({
   monetization: initialMonetization,
   navbar,
 }) => {
-  const matchedInitial = findMatchingVideo([initialVideo, ...videos], videoIdOrSlug);
   const [monetization, setMonetization] = useState<MonetizationSettings | null>(initialMonetization || null);
-  const [video, setVideo] = useState<Video | null>(matchedInitial);
+  const [video, setVideo] = useState<Video | null>(null);
   const [relatedVideos, setRelatedVideos] = useState<Video[]>([]);
-  const [loading, setLoading] = useState(!matchedInitial);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isTheaterMode, setIsTheaterMode] = useState(false);
-  const [likes, setLikes] = useState(matchedInitial?.likes || 0);
+  const [likes, setLikes] = useState(0);
   const [hasLiked, setHasLiked] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -325,20 +324,11 @@ export const WatchPage: React.FC<WatchPageProps> = ({
   useEffect(() => {
     let isMounted = true;
     const cleanParam = normalizeLookupParam(videoIdOrSlug);
-    const instantMatch = findMatchingVideo([initialVideo, ...videos], cleanParam);
-    if (instantMatch) {
-      setVideo(instantMatch);
-      setLikes(instantMatch.likes || 0);
-      setLoading(false);
-      if (candidatePoolRef.current.length > 0) {
-        setRelatedVideos(rankRelatedVideos(candidatePoolRef.current, instantMatch, getViewingInterestsProfile()));
-      }
-    } else {
-      setVideo(null);
-      setRelatedVideos([]);
-      setLikes(0);
-      setLoading(true);
-    }
+    setVideo(null);
+    setRelatedVideos([]);
+    setLikes(0);
+    setHasLiked(false);
+    setLoading(true);
     setError(null);
 
     const cacheBust = Date.now();
@@ -404,10 +394,8 @@ export const WatchPage: React.FC<WatchPageProps> = ({
       })
       .catch((err) => {
         if (!isMounted) return;
-        if (!instantMatch) {
-          setVideo(null);
-          setError(err.message || 'Failed to load video');
-        }
+        setVideo(null);
+        setError(err.message || 'Failed to load video');
       })
       .finally(() => {
         if (isMounted) setLoading(false);
@@ -592,19 +580,62 @@ export const WatchPage: React.FC<WatchPageProps> = ({
     }
   };
 
-  if (loading) {
+  const cleanRouteParam = normalizeLookupParam(videoIdOrSlug);
+  const routeKey = cleanRouteParam || (typeof window !== 'undefined' ? window.location.pathname : 'watch');
+  const isVideoSynced = Boolean(
+    video &&
+      (String(video.id) === cleanRouteParam ||
+        (Boolean(video.slug && video.slug.trim()) &&
+          video.slug.trim().toLowerCase() === cleanRouteParam.toLowerCase()))
+  );
+
+  if (loading || (!error && !isVideoSynced)) {
     return (
       <div className="min-h-screen bg-[#080C14] text-[#F8FAFC] flex flex-col justify-between">
-        {navbar}
-        <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col items-center justify-center min-h-[50vh]">
-          <div className="w-10 h-10 border-2 border-[#253349] border-t-[#F59E0B] rounded-full animate-spin" />
+        <div className="flex-1 w-full pb-8 sm:pb-12">
+          <div className="sticky top-0 z-50 bg-[#080C14] shadow-2xl shadow-black/90 border-b border-[#1E293B]/60">
+            {navbar}
+
+            <div className={`w-full mx-auto px-3 sm:px-6 lg:px-8 py-1.5 flex items-center justify-between ${isTheaterMode ? 'max-w-full' : 'max-w-7xl'}`}>
+              <button
+                onClick={onBackToHome}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#94A3B8] hover:text-[#F8FAFC] transition-colors cursor-pointer group py-0.5"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
+                <span>Back to All Streams</span>
+              </button>
+            </div>
+
+            <div className={`w-full mx-auto px-0 sm:px-6 lg:px-8 pb-1 sm:pb-2 ${isTheaterMode ? 'max-w-full' : 'max-w-7xl'}`}>
+              <div
+                className={`relative w-full aspect-video bg-[#080C14] overflow-hidden border border-[#1E293B] shadow-2xl flex items-center justify-center ${
+                  isTheaterMode ? 'rounded-none max-h-[85vh]' : 'rounded-2xl'
+                }`}
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-[#0B111E] via-[#0F172A] to-[#080C14] animate-pulse" />
+                <div className="relative z-10 flex items-center justify-center">
+                  <span className="absolute w-14 h-14 rounded-full bg-[#F59E0B]/20 animate-ping" />
+                  <div className="relative w-12 h-12 rounded-full bg-[#080C14]/80 border border-[#F59E0B]/50 flex items-center justify-center shadow-xl">
+                    <div className="w-6 h-6 rounded-full border-2 border-[#F59E0B]/30 border-t-[#F59E0B] animate-spin" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={`mx-auto px-3 sm:px-6 lg:px-8 ${isTheaterMode ? 'max-w-full' : 'max-w-7xl'}`}>
+            <div className="mt-4 pb-4 border-b border-[#1E293B] space-y-3 animate-pulse">
+              <div className="h-6 sm:h-7 w-2/3 max-w-xl bg-[#131C2E] rounded-lg" />
+              <div className="h-4 w-44 bg-[#131C2E] rounded-md" />
+            </div>
+          </div>
         </div>
         <Footer />
       </div>
     );
   }
 
-  if (error || !video) {
+  if (error || !video || !isVideoSynced) {
     return (
       <div className="min-h-screen bg-[#080C14] text-[#F8FAFC] flex flex-col justify-between">
         {navbar}
@@ -644,10 +675,10 @@ export const WatchPage: React.FC<WatchPageProps> = ({
 
         <div className={`w-full mx-auto px-0 sm:px-6 lg:px-8 pb-1 sm:pb-2 ${isTheaterMode ? 'max-w-full' : 'max-w-7xl'}`}>
           <VideoPlayer
-            key={`watch-player-${playerMountKey}-${video.id}-${encodeURIComponent(video.video_url || '')}`}
+            key={`${routeKey}-${playerMountKey}`}
             videoUrl={video.video_url}
             backupVideoUrl={video.backup_video_url}
-            thumbnailUrl={video.thumbnail_url}
+            thumbnailUrl={video?.thumbnail_url}
             title={video.title}
             onFirstPlay={handleFirstPlay}
             isTheaterMode={isTheaterMode}
