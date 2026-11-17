@@ -18,15 +18,62 @@ export const onRequestOptions: PagesFunction<Env> = async () => {
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   try {
+    try {
+      await context.env.DB.prepare(`
+        UPDATE videos
+        SET category_id = COALESCE(
+          (
+            SELECT id
+            FROM categories
+            WHERE id = 6 OR LOWER(TRIM(slug)) = 'japanese' OR LOWER(TRIM(name)) = 'japanese'
+            ORDER BY CASE WHEN id = 6 THEN 0 ELSE 1 END
+            LIMIT 1
+          ),
+          6
+        )
+        WHERE (
+          category_id IS NULL
+          OR category_id = 0
+          OR category_id = ''
+          OR LOWER(TRIM(CAST(category_id AS TEXT))) = 'japanese'
+        )
+        AND (
+          LOWER(COALESCE(title, '')) LIKE '%japanese%'
+          OR LOWER(COALESCE(tags, '')) LIKE '%japanese%'
+          OR LOWER(TRIM(CAST(category_id AS TEXT))) = 'japanese'
+        )
+      `).run();
+    } catch {
+    }
+
     const stmt = context.env.DB.prepare(`
-      SELECT c.*, COUNT(v.id) as video_count
+      SELECT
+        c.*,
+        (
+          SELECT COUNT(*)
+          FROM videos v
+          WHERE v.category_id = c.id
+            OR CAST(v.category_id AS TEXT) = CAST(c.id AS TEXT)
+            OR (
+              c.slug IS NOT NULL
+              AND TRIM(c.slug) != ''
+              AND (
+                LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(c.slug))
+                OR LOWER(COALESCE(v.title, '')) LIKE '%' || LOWER(TRIM(c.slug)) || '%'
+                OR LOWER(COALESCE(v.tags, '')) LIKE '%' || LOWER(TRIM(c.slug)) || '%'
+              )
+            )
+            OR (
+              c.name IS NOT NULL
+              AND TRIM(c.name) != ''
+              AND (
+                LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(c.name))
+                OR LOWER(COALESCE(v.title, '')) LIKE '%' || LOWER(TRIM(c.name)) || '%'
+                OR LOWER(COALESCE(v.tags, '')) LIKE '%' || LOWER(TRIM(c.name)) || '%'
+              )
+            )
+        ) as video_count
       FROM categories c
-      LEFT JOIN videos v ON (
-        CAST(v.category_id AS TEXT) = CAST(c.id AS TEXT)
-        OR LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(c.slug))
-        OR LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(c.name))
-      )
-      GROUP BY c.id
       ORDER BY c.id ASC
     `);
     const { results } = await stmt.all();
