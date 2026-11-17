@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, ShieldAlert, FileText, Lock, Copyright, Scale, Mail, CheckCircle2 } from 'lucide-react';
+import { X, ShieldAlert, FileText, Lock, Copyright, CheckCircle2 } from 'lucide-react';
 
-type LegalModalType = 'terms' | 'privacy' | 'dmca' | '2257' | 'support' | null;
+type LegalModalType = 'terms' | 'privacy' | 'dmca' | null;
 
 export const Footer: React.FC = () => {
   const [activeModal, setActiveModal] = useState<LegalModalType>(null);
@@ -64,22 +64,6 @@ export const Footer: React.FC = () => {
               >
                 DMCA &amp; Copyright
               </button>
-              <span aria-hidden="true" className="text-[#253349]">·</span>
-              <button
-                type="button"
-                onClick={() => setActiveModal('2257')}
-                className="hover:text-[#F59E0B] transition-colors cursor-pointer"
-              >
-                18 U.S.C. 2257 Compliance
-              </button>
-              <span aria-hidden="true" className="text-[#253349]">·</span>
-              <button
-                type="button"
-                onClick={() => setActiveModal('support')}
-                className="hover:text-[#F59E0B] transition-colors cursor-pointer"
-              >
-                Contact Support
-              </button>
             </div>
           </div>
 
@@ -103,15 +87,11 @@ export const Footer: React.FC = () => {
                 {activeModal === 'terms' && <FileText className="w-5 h-5 text-[#F59E0B]" />}
                 {activeModal === 'privacy' && <Lock className="w-5 h-5 text-[#10B981]" />}
                 {activeModal === 'dmca' && <Copyright className="w-5 h-5 text-[#38BDF8]" />}
-                {activeModal === '2257' && <Scale className="w-5 h-5 text-[#EF4444]" />}
-                {activeModal === 'support' && <Mail className="w-5 h-5 text-[#F59E0B]" />}
                 <div>
                   <h3 className="text-base font-bold text-[#F8FAFC]">
                     {activeModal === 'terms' && 'Terms of Service'}
                     {activeModal === 'privacy' && 'Privacy Policy'}
                     {activeModal === 'dmca' && 'DMCA & Copyright Policy'}
-                    {activeModal === '2257' && '18 U.S.C. 2257 Record-Keeping Compliance'}
-                    {activeModal === 'support' && 'Contact Support & Abuse Helpdesk'}
                   </h3>
                   <span className="text-[11px] text-[#94A3B8] font-mono">UBCEXX Official Compliance</span>
                 </div>
@@ -131,8 +111,6 @@ export const Footer: React.FC = () => {
                 { id: 'terms', label: 'Terms' },
                 { id: 'privacy', label: 'Privacy' },
                 { id: 'dmca', label: 'DMCA' },
-                { id: '2257', label: '2257 Compliance' },
-                { id: 'support', label: 'Support' },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -232,63 +210,6 @@ export const Footer: React.FC = () => {
                   <p className="font-mono text-[#F8FAFC] bg-[#131C2E] p-2.5 rounded-lg border border-[#1E293B]">
                     Email: dmca@ubcexx.com<br />
                     Subject: DMCA Takedown Request - [Video Title/ID]
-                  </p>
-                </>
-              )}
-
-              {activeModal === '2257' && (
-                <>
-                  <div className="p-3 bg-[#2A1218] rounded-xl border border-[#EF4444]/40 flex items-center gap-3 text-[#EF4444]">
-                    <Scale className="w-5 h-5 shrink-0" />
-                    <span className="text-xs font-semibold">
-                      18 U.S.C. § 2257 &amp; 2257A Record-Keeping Exemption &amp; Compliance Statement
-                    </span>
-                  </div>
-                  <h4 className="text-sm font-bold text-[#F8FAFC]">1. Primary Producer Documentation</h4>
-                  <p>
-                    All visual content published or accessible via UBCEXX depicts individuals who were at least 18 years of age at the time of creation. Records required pursuant to 18 U.S.C. 2257 and 28 C.F.R. Part 75 are maintained by the respective original producers and publishers of the content.
-                  </p>
-                  <h4 className="text-sm font-bold text-[#F8FAFC]">2. Non-Producer Status</h4>
-                  <p>
-                    UBCEXX is not a primary producer of visual depictions of actual sexually explicit conduct as defined in 18 U.S.C. 2257. The platform operates as an indexer, distributor, and embedded video provider. In compliance with federal regulations, UBCEXX requires all content contributors, third-party syndicators, and partners to maintain all age verification records in full accordance with federal law.
-                  </p>
-                  <h4 className="text-sm font-bold text-[#F8FAFC]">3. Custodian of Records Inquiries</h4>
-                  <p>
-                    For inquiries concerning the designated custodian of records for any specific stream title, contact our legal compliance team with the relevant video identifier.
-                  </p>
-                  <p className="font-mono text-[#F8FAFC] bg-[#131C2E] p-2.5 rounded-lg border border-[#1E293B]">
-                    Legal Department: compliance@ubcexx.com<br />
-                    Attention: 18 U.S.C. 2257 Record Compliance Officer
-                  </p>
-                </>
-              )}
-
-              {activeModal === 'support' && (
-                <>
-                  <div className="p-3 bg-[#131C2E] rounded-xl border border-[#1E293B] flex items-center gap-3 text-[#F59E0B]">
-                    <Mail className="w-5 h-5 shrink-0" />
-                    <span className="text-xs font-semibold">
-                      24/7 Priority Support &amp; Technical Helpdesk
-                    </span>
-                  </div>
-                  <h4 className="text-sm font-bold text-[#F8FAFC]">How Can We Help You?</h4>
-                  <p>
-                    If you have questions regarding stream playback, content reporting, advertising partnerships, or legal inquiries, please contact our administrative team through the official channels below:
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                    <div className="p-3 rounded-xl bg-[#131C2E] border border-[#1E293B]">
-                      <span className="text-[10px] uppercase font-mono text-[#F59E0B] block mb-1">General Support</span>
-                      <p className="text-xs font-bold text-[#F8FAFC]">support@ubcexx.com</p>
-                      <span className="text-[11px] text-[#94A3B8]">Technical &amp; playback queries</span>
-                    </div>
-                    <div className="p-3 rounded-xl bg-[#131C2E] border border-[#1E293B]">
-                      <span className="text-[10px] uppercase font-mono text-[#EF4444] block mb-1">Content Abuse &amp; Legal</span>
-                      <p className="text-xs font-bold text-[#F8FAFC]">abuse@ubcexx.com</p>
-                      <span className="text-[11px] text-[#94A3B8]">Immediate review within 24h</span>
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-[#94A3B8] pt-2">
-                    You can also report broken streams directly on any video page using the &quot;Report&quot; button beneath the player.
                   </p>
                 </>
               )}

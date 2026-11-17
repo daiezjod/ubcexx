@@ -163,25 +163,25 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   const handleNavHome = () => {
+    setIsMenuOpen(false);
     onSelectCategory(null);
     onSearch('');
     setLocalSearch('');
     onNavigateHome();
-    setIsMenuOpen(false);
   };
 
   const handleNavCategory = (catId: number | null) => {
+    setIsMenuOpen(false);
     onSelectCategory(catId);
     onNavigateHome();
-    setIsMenuOpen(false);
   };
 
   const handleNavMostViewed = () => {
+    setIsMenuOpen(false);
     onSelectCategory(null);
     onSearch('');
     setLocalSearch('');
     onNavigateHome();
-    setIsMenuOpen(false);
   };
 
   return (
@@ -326,184 +326,198 @@ export const Navbar: React.FC<NavbarProps> = ({
       </header>
 
       {isMenuOpen && (
-        <div
-          onClick={() => setIsMenuOpen(false)}
-          className="fixed inset-0 bg-[#080C14]/75 backdrop-blur-sm z-[60] transition-opacity animate-in fade-in duration-200"
-        />
-      )}
-
-      <aside
-        className={`fixed top-0 right-0 h-full w-[85vw] max-w-sm bg-[#0B111E] border-l border-[#1E293B] shadow-2xl z-[60] flex flex-col text-[#F8FAFC] transform transition-transform duration-300 ease-out ${
-          isMenuOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
-        aria-hidden={!isMenuOpen}
-      >
-        <div className="p-4 sm:p-5 border-b border-[#1E293B] flex items-center justify-between bg-[#080C14]/60">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-[#F59E0B] flex items-center justify-center shadow-md shadow-[#F59E0B]/20">
-              <Play className="w-4 h-4 text-black fill-black ml-0.5" />
-            </div>
-            <div className="flex items-baseline">
-              <span className="text-lg font-black tracking-wider text-[#F8FAFC] font-display">UBC</span>
-              <span className="text-lg font-black tracking-wider text-[#F59E0B] font-display">EXX</span>
-            </div>
-          </div>
-
-          <button
+        <>
+          <div
             onClick={() => setIsMenuOpen(false)}
-            aria-label="Close menu"
-            className="w-8 h-8 rounded-lg bg-[#131C2E] border border-[#1E293B] text-[#94A3B8] hover:text-[#F8FAFC] hover:border-[#F59E0B] flex items-center justify-center transition-all cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+            aria-hidden="true"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] cursor-pointer transition-opacity"
+          />
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3">
-          <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#94A3B8]/60 px-1">
-            Menu Navigation
-          </div>
-
-          <button
-            onClick={handleNavHome}
-            className={`w-full flex items-center justify-between p-3.5 rounded-xl border text-left transition-all cursor-pointer group ${
-              selectedCategoryId === null && !searchQuery
-                ? 'bg-[#182234] border-[#F59E0B]/60 text-[#F8FAFC] shadow-sm shadow-[#F59E0B]/10'
-                : 'bg-[#0F172A] border-[#1E293B] text-[#94A3B8] hover:text-[#F8FAFC] hover:border-[#2A3950] hover:bg-[#141E30]'
-            }`}
+          <aside
+            role="dialog"
+            aria-modal="true"
+            aria-label="Navigation Menu"
+            onClick={(e) => e.stopPropagation()}
+            className="fixed top-0 right-0 h-full w-[85vw] max-w-sm bg-[#0B111E] border-l border-[#1E293B] shadow-2xl z-[70] flex flex-col text-[#F8FAFC]"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-[#131C2E] border border-[#1E293B] flex items-center justify-center text-[#F59E0B] group-hover:border-[#F59E0B]/50 transition-colors">
-                <Compass className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-sm font-bold text-[#F8FAFC] group-hover:text-[#F59E0B] transition-colors">
-                  Home / All Streams
+            <div className="relative z-40 p-4 sm:p-5 border-b border-[#1E293B] flex items-center justify-between bg-[#080C14]/60">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-[#F59E0B] flex items-center justify-center shadow-md shadow-[#F59E0B]/20">
+                  <Play className="w-4 h-4 text-black fill-black ml-0.5" />
                 </div>
-                <div className="text-[11px] text-[#94A3B8]">
-                  Browse full video library & featured streams
+                <div className="flex items-baseline">
+                  <span className="text-lg font-black tracking-wider text-[#F8FAFC] font-display">UBC</span>
+                  <span className="text-lg font-black tracking-wider text-[#F59E0B] font-display">EXX</span>
                 </div>
               </div>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMenuOpen(false);
+                }}
+                aria-label="Close menu"
+                className="relative z-50 w-9 h-9 rounded-lg bg-[#131C2E] border border-[#1E293B] text-[#94A3B8] hover:text-[#F8FAFC] hover:border-[#F59E0B] flex items-center justify-center transition-all cursor-pointer touch-manipulation"
+              >
+                <X className="w-4 h-4 pointer-events-none" />
+              </button>
             </div>
-            <ChevronRight className="w-4 h-4 text-[#94A3B8] group-hover:text-[#F59E0B] transition-colors" />
-          </button>
 
-          <div className="rounded-xl border border-[#1E293B] bg-[#0F172A] overflow-hidden transition-all">
-            <button
-              onClick={() => setIsCategoriesExpanded((prev) => !prev)}
-              className="w-full flex items-center justify-between p-3.5 text-left text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#141E30] transition-all cursor-pointer group"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-[#131C2E] border border-[#1E293B] flex items-center justify-center text-[#F59E0B] group-hover:border-[#F59E0B]/50 transition-colors">
-                  <Layers className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-sm font-bold text-[#F8FAFC] group-hover:text-[#F59E0B] transition-colors">
-                    Browse Categories
-                  </div>
-                  <div className="text-[11px] text-[#94A3B8]">
-                    {categories.length} genres available
-                  </div>
-                </div>
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3">
+              <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#94A3B8]/60 px-1">
+                Menu Navigation
               </div>
-              {isCategoriesExpanded ? (
-                <ChevronDown className="w-4 h-4 text-[#F59E0B]" />
-              ) : (
-                <ChevronRight className="w-4 h-4 text-[#94A3B8]" />
-              )}
-            </button>
 
-            {isCategoriesExpanded && (
-              <div className="px-3 pb-3 pt-1 border-t border-[#1E293B]/60 bg-[#080C14]/40 flex flex-wrap gap-1.5 max-h-48 overflow-y-auto no-scrollbar">
+              <button
+                type="button"
+                onClick={handleNavHome}
+                className={`w-full flex items-center justify-between p-3.5 rounded-xl border text-left transition-all cursor-pointer group ${
+                  selectedCategoryId === null && !searchQuery
+                    ? 'bg-[#182234] border-[#F59E0B]/60 text-[#F8FAFC] shadow-sm shadow-[#F59E0B]/10'
+                    : 'bg-[#0F172A] border-[#1E293B] text-[#94A3B8] hover:text-[#F8FAFC] hover:border-[#2A3950] hover:bg-[#141E30]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#131C2E] border border-[#1E293B] flex items-center justify-center text-[#F59E0B] group-hover:border-[#F59E0B]/50 transition-colors">
+                    <Compass className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-[#F8FAFC] group-hover:text-[#F59E0B] transition-colors">
+                      Home / All Streams
+                    </div>
+                    <div className="text-[11px] text-[#94A3B8]">
+                      Browse full video library & featured streams
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[#94A3B8] group-hover:text-[#F59E0B] transition-colors" />
+              </button>
+
+              <div className="rounded-xl border border-[#1E293B] bg-[#0F172A] overflow-hidden transition-all">
                 <button
-                  onClick={() => handleNavCategory(null)}
-                  className={`text-xs px-2.5 py-1 rounded-lg transition-all cursor-pointer border ${
-                    selectedCategoryId === null
-                      ? 'bg-[#F59E0B] text-black font-bold border-[#F59E0B]'
-                      : 'bg-[#131C2E] text-[#94A3B8] hover:text-[#F8FAFC] hover:border-[#F59E0B]/40 border-[#1E293B]'
-                  }`}
+                  type="button"
+                  onClick={() => setIsCategoriesExpanded((prev) => !prev)}
+                  className="w-full flex items-center justify-between p-3.5 text-left text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#141E30] transition-all cursor-pointer group"
                 >
-                  All Genres
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-[#131C2E] border border-[#1E293B] flex items-center justify-center text-[#F59E0B] group-hover:border-[#F59E0B]/50 transition-colors">
+                      <Layers className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-[#F8FAFC] group-hover:text-[#F59E0B] transition-colors">
+                        Browse Categories
+                      </div>
+                      <div className="text-[11px] text-[#94A3B8]">
+                        {categories.length} genres available
+                      </div>
+                    </div>
+                  </div>
+                  {isCategoriesExpanded ? (
+                    <ChevronDown className="w-4 h-4 text-[#F59E0B]" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-[#94A3B8]" />
+                  )}
                 </button>
-                {categories.map((cat) => {
-                  const isCatSelected = selectedCategoryId !== null && Number(selectedCategoryId) === Number(cat.id);
-                  return (
+
+                {isCategoriesExpanded && (
+                  <div className="px-3 pb-3 pt-1 border-t border-[#1E293B]/60 bg-[#080C14]/40 flex flex-wrap gap-1.5 max-h-48 overflow-y-auto no-scrollbar">
                     <button
-                      key={cat.id}
-                      onClick={() => handleNavCategory(Number(cat.id))}
+                      type="button"
+                      onClick={() => handleNavCategory(null)}
                       className={`text-xs px-2.5 py-1 rounded-lg transition-all cursor-pointer border ${
-                        isCatSelected
+                        selectedCategoryId === null
                           ? 'bg-[#F59E0B] text-black font-bold border-[#F59E0B]'
                           : 'bg-[#131C2E] text-[#94A3B8] hover:text-[#F8FAFC] hover:border-[#F59E0B]/40 border-[#1E293B]'
                       }`}
                     >
-                      {cat.name}
+                      All Genres
                     </button>
-                  );
-                })}
+                    {categories.map((cat) => {
+                      const isCatSelected = selectedCategoryId !== null && Number(selectedCategoryId) === Number(cat.id);
+                      return (
+                        <button
+                          type="button"
+                          key={cat.id}
+                          onClick={() => handleNavCategory(Number(cat.id))}
+                          className={`text-xs px-2.5 py-1 rounded-lg transition-all cursor-pointer border ${
+                            isCatSelected
+                              ? 'bg-[#F59E0B] text-black font-bold border-[#F59E0B]'
+                              : 'bg-[#131C2E] text-[#94A3B8] hover:text-[#F8FAFC] hover:border-[#F59E0B]/40 border-[#1E293B]'
+                          }`}
+                        >
+                          {cat.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          <button
-            onClick={handleNavMostViewed}
-            className="w-full flex items-center justify-between p-3.5 rounded-xl border border-[#1E293B] bg-[#0F172A] text-left text-[#94A3B8] hover:text-[#F8FAFC] hover:border-[#2A3950] hover:bg-[#141E30] transition-all cursor-pointer group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-[#131C2E] border border-[#1E293B] flex items-center justify-center text-[#F59E0B] group-hover:border-[#F59E0B]/50 transition-colors">
-                <TrendingUp className="w-4 h-4" />
+              <button
+                type="button"
+                onClick={handleNavMostViewed}
+                className="w-full flex items-center justify-between p-3.5 rounded-xl border border-[#1E293B] bg-[#0F172A] text-left text-[#94A3B8] hover:text-[#F8FAFC] hover:border-[#2A3950] hover:bg-[#141E30] transition-all cursor-pointer group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#131C2E] border border-[#1E293B] flex items-center justify-center text-[#F59E0B] group-hover:border-[#F59E0B]/50 transition-colors">
+                    <TrendingUp className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-[#F8FAFC] group-hover:text-[#F59E0B] transition-colors">
+                      Most Viewed
+                    </div>
+                    <div className="text-[11px] text-[#94A3B8]">
+                      High traffic & trending video streams
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[#94A3B8] group-hover:text-[#F59E0B] transition-colors" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  setShowDmcaModal(true);
+                }}
+                className="w-full flex items-center justify-between p-3.5 rounded-xl border border-[#1E293B] bg-[#0F172A] text-left text-[#94A3B8] hover:text-[#F8FAFC] hover:border-[#2A3950] hover:bg-[#141E30] transition-all cursor-pointer group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#131C2E] border border-[#1E293B] flex items-center justify-center text-[#F59E0B] group-hover:border-[#F59E0B]/50 transition-colors">
+                    <ShieldAlert className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-[#F8FAFC] group-hover:text-[#F59E0B] transition-colors">
+                      DMCA & Disclaimer
+                    </div>
+                    <div className="text-[11px] text-[#94A3B8]">
+                      Copyright policy & safe harbor statement
+                    </div>
+                  </div>
+                </div>
+                <FileText className="w-4 h-4 text-[#94A3B8] group-hover:text-[#F59E0B] transition-colors" />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-5 border-t border-[#1E293B] bg-[#080C14]/80 text-xs">
+              <div className="flex items-center justify-between text-[#94A3B8] mb-1">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-[#94A3B8]/60">Platform</span>
+                <span className="font-mono text-[10px] text-[#F59E0B] flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-pulse" />
+                  Edge Online
+                </span>
               </div>
-              <div>
-                <div className="text-sm font-bold text-[#F8FAFC] group-hover:text-[#F59E0B] transition-colors">
-                  Most Viewed
-                </div>
-                <div className="text-[11px] text-[#94A3B8]">
-                  High traffic & trending video streams
-                </div>
+              <div className="text-[11px] text-[#94A3B8]">
+                UBCEXX Tube · High Performance Video Streaming
               </div>
             </div>
-            <ChevronRight className="w-4 h-4 text-[#94A3B8] group-hover:text-[#F59E0B] transition-colors" />
-          </button>
-
-          <button
-            onClick={() => {
-              setIsMenuOpen(false);
-              setShowDmcaModal(true);
-            }}
-            className="w-full flex items-center justify-between p-3.5 rounded-xl border border-[#1E293B] bg-[#0F172A] text-left text-[#94A3B8] hover:text-[#F8FAFC] hover:border-[#2A3950] hover:bg-[#141E30] transition-all cursor-pointer group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-[#131C2E] border border-[#1E293B] flex items-center justify-center text-[#F59E0B] group-hover:border-[#F59E0B]/50 transition-colors">
-                <ShieldAlert className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-sm font-bold text-[#F8FAFC] group-hover:text-[#F59E0B] transition-colors">
-                  DMCA & Disclaimer
-                </div>
-                <div className="text-[11px] text-[#94A3B8]">
-                  Copyright policy & safe harbor statement
-                </div>
-              </div>
-            </div>
-            <FileText className="w-4 h-4 text-[#94A3B8] group-hover:text-[#F59E0B] transition-colors" />
-          </button>
-        </div>
-
-        <div className="p-4 sm:p-5 border-t border-[#1E293B] bg-[#080C14]/80 text-xs">
-          <div className="flex items-center justify-between text-[#94A3B8] mb-1">
-            <span className="font-mono text-[10px] uppercase tracking-wider text-[#94A3B8]/60">Platform</span>
-            <span className="font-mono text-[10px] text-[#F59E0B] flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-pulse" />
-              Edge Online
-            </span>
-          </div>
-          <div className="text-[11px] text-[#94A3B8]">
-            UBCEXX Tube · High Performance Video Streaming
-          </div>
-        </div>
-      </aside>
+          </aside>
+        </>
+      )}
 
       {showDmcaModal && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-[#080C14]/85 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-[#080C14]/85 backdrop-blur-md">
           <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl max-w-lg w-full p-6 shadow-2xl relative max-h-[90vh] flex flex-col text-[#F8FAFC]">
             <div className="flex items-start justify-between pb-4 border-b border-[#1E293B] mb-4">
               <div className="flex items-center gap-3">
