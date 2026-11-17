@@ -17,6 +17,8 @@ export default defineConfig(() => {
       legalComments: 'none' as const,
     },
     build: {
+      target: ['es2015', 'chrome60', 'safari11', 'edge18', 'firefox60'],
+      cssTarget: ['chrome60', 'safari11'],
       sourcemap: false,
       minify: 'esbuild' as const,
     },

@@ -92,14 +92,14 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     }
 
     let sql = `
-      SELECT 
-        v.id, v.title, v.slug, v.description, v.video_url, v.backup_video_url, v.thumbnail_url,
-        v.duration, v.views, v.likes, v.category_id, v.tags, v.is_featured,
-        v.status, v.created_at,
-        c.name as category_name, c.slug as category_slug
+      SELECT
+        v.*,
+        c.name as category_name,
+        c.slug as category_slug
       FROM videos v
       LEFT JOIN categories c ON (
-        CAST(v.category_id AS TEXT) = CAST(c.id AS TEXT)
+        c.id = v.category_id
+        OR CAST(v.category_id AS TEXT) = CAST(c.id AS TEXT)
         OR LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(c.slug))
         OR LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(c.name))
       )
@@ -110,18 +110,27 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     if (categoryId && parseInt(categoryId, 10) > 0) {
       const targetCatId = parseInt(categoryId, 10);
       sql += ` AND (
-        CAST(v.category_id AS TEXT) = CAST(? AS TEXT)
+        v.category_id = ?
+        OR CAST(v.category_id AS TEXT) = CAST(? AS TEXT)
         OR EXISTS (
           SELECT 1 FROM categories cat_filter
-          WHERE cat_filter.id = ?
+          WHERE (cat_filter.id = ? OR CAST(cat_filter.id AS TEXT) = CAST(? AS TEXT))
             AND (
               CAST(v.category_id AS TEXT) = CAST(cat_filter.id AS TEXT)
-              OR LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(cat_filter.slug))
-              OR LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(cat_filter.name))
+              OR (cat_filter.slug IS NOT NULL AND TRIM(cat_filter.slug) != '' AND LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(cat_filter.slug)))
+              OR (cat_filter.name IS NOT NULL AND TRIM(cat_filter.name) != '' AND LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(cat_filter.name)))
+              OR (cat_filter.name IS NOT NULL AND TRIM(cat_filter.name) != '' AND (
+                LOWER(COALESCE(v.title, '')) LIKE '%' || LOWER(TRIM(cat_filter.name)) || '%'
+                OR LOWER(COALESCE(v.tags, '')) LIKE '%' || LOWER(TRIM(cat_filter.name)) || '%'
+              ))
+              OR (cat_filter.slug IS NOT NULL AND TRIM(cat_filter.slug) != '' AND (
+                LOWER(COALESCE(v.title, '')) LIKE '%' || LOWER(TRIM(cat_filter.slug)) || '%'
+                OR LOWER(COALESCE(v.tags, '')) LIKE '%' || LOWER(TRIM(cat_filter.slug)) || '%'
+              ))
             )
         )
       )`;
-      params.push(targetCatId, targetCatId);
+      params.push(targetCatId, targetCatId, targetCatId, targetCatId);
     }
 
     if (featured === '1' || featured === 'true') {
