@@ -589,12 +589,19 @@ export const WatchPage: React.FC<WatchPageProps> = ({
           video.slug.trim().toLowerCase() === cleanRouteParam.toLowerCase()))
   );
 
+  const watchNavbar = React.isValidElement(navbar)
+    ? React.cloneElement(
+        navbar as React.ReactElement<{ showCategoryPills?: boolean }>,
+        { showCategoryPills: false }
+      )
+    : navbar;
+
   if (loading || (!error && !isVideoSynced)) {
     return (
       <div className="min-h-screen bg-[#080C14] text-[#F8FAFC] flex flex-col justify-between">
         <div className="flex-1 w-full pb-8 sm:pb-12">
           <div className="sticky top-0 z-50 bg-[#080C14] shadow-2xl shadow-black/90 border-b border-[#1E293B]/60">
-            {navbar}
+            {watchNavbar}
 
             <div className={`w-full mx-auto px-3 sm:px-6 lg:px-8 py-1.5 flex items-center justify-between ${isTheaterMode ? 'max-w-full' : 'max-w-7xl'}`}>
               <button
@@ -638,7 +645,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
   if (error || !video || !isVideoSynced) {
     return (
       <div className="min-h-screen bg-[#080C14] text-[#F8FAFC] flex flex-col justify-between">
-        {navbar}
+        {watchNavbar}
         <div className="flex-1 max-w-4xl w-full mx-auto px-4 py-16 text-center flex items-center justify-center">
           <div className="w-full bg-[#0F172A] border border-[#1E293B] rounded-2xl p-8 shadow-xl">
             <h2 className="text-xl font-bold text-[#F8FAFC] mb-2">Video Unavailable</h2>
@@ -661,7 +668,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
     <div className="min-h-screen flex flex-col justify-between">
       <div className="flex-1 w-full pb-8 sm:pb-12">
       <div className="sticky top-0 z-50 bg-[#080C14] shadow-2xl shadow-black/90 border-b border-[#1E293B]/60">
-        {navbar}
+        {watchNavbar}
 
         <div className={`w-full mx-auto px-3 sm:px-6 lg:px-8 py-1.5 flex items-center justify-between ${isTheaterMode ? 'max-w-full' : 'max-w-7xl'}`}>
           <button

@@ -304,6 +304,7 @@ export default function App() {
                 }}
                 onNavigateHome={handleNavigateHome}
                 isSticky={false}
+                showCategoryPills={false}
               />
             }
           />

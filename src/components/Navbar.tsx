@@ -22,6 +22,7 @@ interface NavbarProps {
   onSearch: (query: string) => void;
   onNavigateHome: () => void;
   isSticky?: boolean;
+  showCategoryPills?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -32,6 +33,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSearch,
   onNavigateHome,
   isSticky = true,
+  showCategoryPills = true,
 }) => {
   const [localSearch, setLocalSearch] = useState(searchQuery);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -293,36 +295,40 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        <div className="border-t border-[#1E293B] bg-[#080C14]/90">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 overflow-x-auto no-scrollbar flex items-center gap-2">
-            <button
-              onClick={() => handleNavCategory(null)}
-              className={`px-3.5 py-1.5 rounded-full text-xs whitespace-nowrap transition-all cursor-pointer shrink-0 border ${
-                selectedCategoryId === null && !searchQuery
-                  ? 'bg-[#F59E0B] text-black font-bold border-[#F59E0B] shadow-sm shadow-[#F59E0B]/20'
-                  : 'bg-[#182234] text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#1E293B] border-[#1E293B]'
-              }`}
-            >
-              All Streams
-            </button>
-            {categories.map((cat) => {
-              const isSelected = selectedCategoryId !== null && Number(selectedCategoryId) === Number(cat.id);
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => handleNavCategory(isSelected ? null : Number(cat.id))}
-                  className={`px-3.5 py-1.5 rounded-full text-xs whitespace-nowrap transition-all cursor-pointer shrink-0 border ${
-                    isSelected
-                      ? 'bg-[#F59E0B] text-black font-bold border-[#F59E0B] shadow-sm shadow-[#F59E0B]/30'
-                      : 'bg-[#182234] text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#1E293B] border-[#1E293B]'
-                  }`}
-                >
-                  {cat.name}
-                </button>
-              );
-            })}
+        {showCategoryPills && !(typeof window !== 'undefined' && window.location.pathname.startsWith('/watch/')) && (
+          <div className="border-t border-[#1E293B] bg-[#080C14]/90">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 overflow-x-auto no-scrollbar flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleNavCategory(null)}
+                className={`px-3.5 py-1.5 rounded-full text-xs whitespace-nowrap transition-all cursor-pointer shrink-0 border ${
+                  selectedCategoryId === null && !searchQuery
+                    ? 'bg-[#F59E0B] text-black font-bold border-[#F59E0B] shadow-sm shadow-[#F59E0B]/20'
+                    : 'bg-[#182234] text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#1E293B] border-[#1E293B]'
+                }`}
+              >
+                All Streams
+              </button>
+              {categories.map((cat) => {
+                const isSelected = selectedCategoryId !== null && Number(selectedCategoryId) === Number(cat.id);
+                return (
+                  <button
+                    type="button"
+                    key={cat.id}
+                    onClick={() => handleNavCategory(isSelected ? null : Number(cat.id))}
+                    className={`px-3.5 py-1.5 rounded-full text-xs whitespace-nowrap transition-all cursor-pointer shrink-0 border ${
+                      isSelected
+                        ? 'bg-[#F59E0B] text-black font-bold border-[#F59E0B] shadow-sm shadow-[#F59E0B]/30'
+                        : 'bg-[#182234] text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#1E293B] border-[#1E293B]'
+                    }`}
+                  >
+                    {cat.name}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
       </header>
 
       {isMenuOpen && (

@@ -88,27 +88,63 @@ export const Home: React.FC<HomeProps> = ({
   }, [loading, loadingMore, hasMoreVideos, onLoadMore, videos.length]);
   const activeCategory =
     selectedCategoryId !== null
-      ? categories.find((c) => Number(c.id) === Number(selectedCategoryId)) || null
+      ? categories.find(
+          (c) =>
+            String(c.id) === String(selectedCategoryId) ||
+            Number(c.id) === Number(selectedCategoryId)
+        ) || null
       : null;
 
   const displayedVideos =
     selectedCategoryId === null
       ? videos
       : videos.filter((v) => {
-          const rawVal = String(v.category_id ?? '').trim().toLowerCase();
+          const rawCatId = String(v.category_id ?? '').trim();
+          const rawCatIdLower = rawCatId.toLowerCase();
+          const vCatSlug = String(v.category_slug ?? '').trim().toLowerCase();
+          const vCatName = String(v.category_name ?? '').trim().toLowerCase();
+          const titleLower = String(v.title ?? '').toLowerCase();
+          const tagsLower = String(v.tags ?? '').toLowerCase();
+
           if (activeCategory) {
-            const targetId = String(activeCategory.id);
-            const targetSlug = String(activeCategory.slug || '').trim().toLowerCase();
-            const targetName = String(activeCategory.name || '').trim().toLowerCase();
-            const vCatSlug = String(v.category_slug || '').trim().toLowerCase();
-            const vCatName = String(v.category_name || '').trim().toLowerCase();
-            return (
-              rawVal === targetId ||
-              (Boolean(targetSlug) && (rawVal === targetSlug || vCatSlug === targetSlug)) ||
-              (Boolean(targetName) && (rawVal === targetName || vCatName === targetName))
-            );
+            const targetId = String(activeCategory.id).trim();
+            const targetSlug = String(activeCategory.slug ?? '').trim().toLowerCase();
+            const targetName = String(activeCategory.name ?? '').trim().toLowerCase();
+
+            const matchesId =
+              rawCatId === targetId ||
+              (rawCatId !== '' &&
+                !Number.isNaN(Number(rawCatId)) &&
+                !Number.isNaN(Number(targetId)) &&
+                Number(rawCatId) === Number(targetId));
+
+            const matchesSlugOrName =
+              (Boolean(targetSlug) &&
+                (rawCatIdLower === targetSlug ||
+                  vCatSlug === targetSlug ||
+                  vCatName === targetSlug)) ||
+              (Boolean(targetName) &&
+                (rawCatIdLower === targetName ||
+                  vCatName === targetName ||
+                  vCatSlug === targetName));
+
+            const matchesKeyword =
+              (Boolean(targetName) &&
+                (titleLower.includes(targetName) || tagsLower.includes(targetName))) ||
+              (Boolean(targetSlug) &&
+                (titleLower.includes(targetSlug) || tagsLower.includes(targetSlug)));
+
+            return matchesId || matchesSlugOrName || matchesKeyword;
           }
-          return Number(v.category_id) === Number(selectedCategoryId);
+
+          const selectedStr = String(selectedCategoryId).trim();
+          return (
+            rawCatId === selectedStr ||
+            rawCatIdLower === selectedStr.toLowerCase() ||
+            vCatSlug === selectedStr.toLowerCase() ||
+            vCatName === selectedStr.toLowerCase() ||
+            Number(v.category_id) === Number(selectedCategoryId)
+          );
         });
 
   useEffect(() => {
