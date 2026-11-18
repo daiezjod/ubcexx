@@ -54,8 +54,9 @@ export function recordPreRollShown(): void {
 
 export function parseOkRuVideoId(url: string | undefined | null): string | null {
   if (!url) return null;
-  const trimmed = url.trim();
-  if (!trimmed.includes('ok.ru') && !trimmed.includes('odnoklassniki.ru')) {
+  const trimmed = String(url).trim();
+  const lower = trimmed.toLowerCase();
+  if (!lower.includes('ok.ru') && !lower.includes('odnoklassniki.ru')) {
     return null;
   }
   const match = trimmed.match(/(?:video|videoembed|live)\/(\d+)/i);
@@ -63,7 +64,15 @@ export function parseOkRuVideoId(url: string | undefined | null): string | null 
     return match[1];
   }
   const fallback = trimmed.match(/\/(\d{6,})/);
-  return fallback ? fallback[1] : null;
+  if (fallback && fallback[1]) {
+    return fallback[1];
+  }
+  const paramMatch = trimmed.match(/[?&](?:st\.v|v|id|video_id)=(\d{6,})/i);
+  if (paramMatch && paramMatch[1]) {
+    return paramMatch[1];
+  }
+  const anyDigits = trimmed.match(/(\d{7,})/);
+  return anyDigits ? anyDigits[1] : null;
 }
 
 export interface ResolvedAdPayload {
@@ -411,8 +420,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   const primaryOkRuId = parseOkRuVideoId(cleanVideoUrl);
   const activeOkRuId = isAdActive ? null : parseOkRuVideoId(activeSource);
-  const backupOkRuId = cleanBackupUrl ? parseOkRuVideoId(cleanBackupUrl) : null;
-  const okRuId = (hasFailedOver && cleanBackupUrl ? backupOkRuId : primaryOkRuId) || activeOkRuId;
+  const okRuId = primaryOkRuId || activeOkRuId;
   const isOkRuActive = Boolean(okRuId);
 
   const isPageHiddenRef = useRef<boolean>(false);
@@ -543,13 +551,17 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
     setIsAdActive(false);
     setAdFinished(true);
-    const mainStreamUrl = hasFailedOver && cleanBackupUrl ? cleanBackupUrl : cleanVideoUrl;
+    const isPrimaryOkRu = Boolean(parseOkRuVideoId(cleanVideoUrl));
+    const mainStreamUrl = isPrimaryOkRu
+      ? cleanVideoUrl
+      : hasFailedOver && cleanBackupUrl
+      ? cleanBackupUrl
+      : cleanVideoUrl;
     setActiveSource(mainStreamUrl);
     setCurrentTime(0);
     setDuration(0);
 
-    const isMainOkRu = Boolean(parseOkRuVideoId(mainStreamUrl));
-    if (isMainOkRu) {
+    if (isPrimaryOkRu || Boolean(parseOkRuVideoId(mainStreamUrl))) {
       if (!hasReportedView && onFirstPlay) {
         setHasReportedView(true);
         onFirstPlay();
@@ -644,10 +656,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
 
     if (isOkRuActive) {
-      if (backupOkRuId && cleanBackupUrl && !hasFailedOver && activeSource !== cleanBackupUrl) {
-        setHasFailedOver(true);
-        setActiveSource(cleanBackupUrl);
-      }
       return;
     }
 
@@ -659,7 +667,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setHasFailedOver(true);
       setActiveSource(cleanBackupUrl);
     }
-  }, [isAdActive, handleSkipAd, isOkRuActive, backupOkRuId, cleanBackupUrl, hasFailedOver, activeSource, currentTime, isPlaying, hasStarted]);
+  }, [isAdActive, handleSkipAd, isOkRuActive, cleanBackupUrl, hasFailedOver, activeSource, currentTime, isPlaying, hasStarted]);
 
   useEffect(() => {
     const videoEl = videoRef.current;
@@ -916,15 +924,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           <iframe
             ref={iframeRef}
             key={`okru-${okRuId}-${iframeMountKey}`}
-            src={`https://ok.ru/videoembed/${okRuId}?autoplay=1&hd=1&quality=sd`}
+            src={`https://ok.ru/videoembed/${okRuId}?autoplay=1`}
             title={title}
-            width="100%"
-            height="100%"
             loading="eager"
             onLoad={() => setIsLoaded(true)}
             {...({ fetchpriority: 'high', fetchPriority: 'high' } as any)}
-            className="absolute -top-[44px] left-0 w-full h-[calc(100%+44px)] min-w-full min-h-full border-0"
-            allow="autoplay; fullscreen; picture-in-picture; encrypted-media; display-capture"
+            className="w-full h-full aspect-video border-0"
+            allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
             allowFullScreen
           />
 
