@@ -920,17 +920,19 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }`}
     >
       {isOkRuActive && !isAdActive ? (
-        <div className="relative w-full h-full aspect-video bg-[#080C14] overflow-hidden">
+        <div className="relative w-full h-full min-w-full min-h-full aspect-video bg-[#080C14] overflow-hidden transform-gpu">
           <iframe
             ref={iframeRef}
             key={`okru-${okRuId}-${iframeMountKey}`}
-            src={`https://ok.ru/videoembed/${okRuId}?autoplay=1`}
+            src={`https://ok.ru/videoembed/${okRuId}?autoplay=1&no_controls=0`}
             title={title}
+            width="100%"
+            height="100%"
             loading="eager"
             onLoad={() => setIsLoaded(true)}
             {...({ fetchpriority: 'high', fetchPriority: 'high' } as any)}
-            className="w-full h-full aspect-video border-0"
-            allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+            className="w-full h-full min-w-full min-h-full aspect-video border-0"
+            allow="autoplay; fullscreen; picture-in-picture; encrypted-media; display-capture"
             allowFullScreen
           />
 
