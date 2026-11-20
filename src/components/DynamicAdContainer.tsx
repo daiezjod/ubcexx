@@ -29,6 +29,18 @@ export const DynamicAdContainer: React.FC<DynamicAdContainerProps> = ({
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <base target="_blank">
+  <script>
+    (function() {
+      try {
+        Object.defineProperty(window, 'onbeforeunload', {
+          configurable: false,
+          get: function() { return null; },
+          set: function() {}
+        });
+      } catch (e) {}
+    })();
+  </script>
   <style>
     * { box-sizing: border-box; }
     html, body {
@@ -64,6 +76,8 @@ ${trimmed}
         width={width}
         height={height}
         scrolling="no"
+        sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+        referrerPolicy="no-referrer"
         className="border-0 overflow-hidden shrink-0"
         style={{
           width: `${width}px`,

@@ -99,6 +99,44 @@ export const BannerAd: React.FC<BannerAdProps> = ({
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <base target="_blank">
+  <script>
+    (function() {
+      try {
+        Object.defineProperty(window, 'onbeforeunload', {
+          configurable: false,
+          get: function() { return null; },
+          set: function() {}
+        });
+      } catch (e) {}
+      try {
+        var origAdd = window.addEventListener.bind(window);
+        window.addEventListener = function(type, listener, opts) {
+          if (typeof type === 'string' && type.toLowerCase() === 'beforeunload') return;
+          return origAdd(type, listener, opts);
+        };
+      } catch (e) {}
+      try {
+        var lastClick = 0;
+        document.addEventListener('click', function(ev) {
+          if (ev && ev.isTrusted) {
+            lastClick = Date.now();
+            var target = ev.target && ev.target.closest ? ev.target.closest('a') : null;
+            if (target) {
+              target.setAttribute('target', '_blank');
+              target.setAttribute('rel', 'noopener noreferrer');
+            }
+          }
+        }, true);
+        var origOpen = window.open.bind(window);
+        window.open = function(url, target, features) {
+          if (Date.now() - lastClick > 600) return null;
+          var safeTarget = (!target || target === '_top' || target === '_parent' || target === '_self') ? '_blank' : target;
+          var safeFeatures = features ? (features.indexOf('noopener') !== -1 ? features : features + ',noopener,noreferrer') : 'noopener,noreferrer';
+          return origOpen(url, safeTarget, safeFeatures);
+        };
+      } catch (e) {}
+    })();
+  </script>
   <style>
     * { box-sizing: border-box; }
     html, body {
@@ -139,6 +177,8 @@ ${trimmed}
         width={width}
         height={height}
         scrolling="no"
+        sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+        referrerPolicy="no-referrer"
         className="border-0 overflow-hidden shrink-0"
         style={{
           width: `${width}px`,
