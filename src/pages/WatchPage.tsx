@@ -11,6 +11,7 @@ import {
 import { Video, MonetizationSettings } from '../types.ts';
 import { VideoPlayer } from '../components/VideoPlayer.tsx';
 import { VideoCard } from '../components/VideoCard.tsx';
+import { BannerAd } from '../components/BannerAd.tsx';
 import { AdBanner } from '../components/AdBanner.tsx';
 import { Footer } from '../components/Footer.tsx';
 import { formatViews, formatTimeAgo, formatNumber } from '../utils/formatters.ts';
@@ -140,7 +141,7 @@ function rankRelatedVideos(
   });
 
   scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, 12).map((entry) => entry.video);
+  return scored.slice(0, 36).map((entry) => entry.video);
 }
 
 function getLikedVideoIds(): (string | number)[] {
@@ -664,6 +665,34 @@ export const WatchPage: React.FC<WatchPageProps> = ({
     );
   }
 
+  const isBannerAdEnabled = Boolean(
+    monetization &&
+      (monetization.native_ads_enabled === 1 || monetization.native_enabled === 1)
+  );
+
+  const watchPlacementZones =
+    typeof monetization?.placement_zones === 'string'
+      ? (() => {
+          try {
+            return JSON.parse(monetization.placement_zones as string);
+          } catch {
+            return {};
+          }
+        })()
+      : monetization?.placement_zones || {};
+
+  const infeedBannerCode = (
+    monetization?.banner_infeed_code ||
+    monetization?.native_ads_code ||
+    monetization?.native_code ||
+    ''
+  ).trim();
+
+  const showWatchInFeedBanner =
+    isBannerAdEnabled &&
+    Boolean(infeedBannerCode) &&
+    watchPlacementZones.in_feed !== false;
+
   return (
     <div className="min-h-screen flex flex-col justify-between">
       <div className="flex-1 w-full pb-8 sm:pb-12">
@@ -809,15 +838,29 @@ export const WatchPage: React.FC<WatchPageProps> = ({
               </div>
             ) : (
               <div className="grid grid-cols-2 min-[440px]:grid-cols-3 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-4">
-                {relatedVideos.map((rel) => (
-                  <VideoCard
-                    key={rel.id}
-                    video={rel}
-                    onSelect={(selectedVideo) => {
-                      onSelectVideo(selectedVideo);
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                  />
+                {relatedVideos.map((rel, index) => (
+                  <React.Fragment key={rel.id}>
+                    <VideoCard
+                      video={rel}
+                      onSelect={(selectedVideo) => {
+                        onSelectVideo(selectedVideo);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                    />
+
+                    {(index + 1) % 9 === 0 && showWatchInFeedBanner && (
+                      <div className="col-span-full w-full flex justify-center my-3 px-2">
+                        <BannerAd
+                          key={`watch-infeed-${videoIdOrSlug}-${index}`}
+                          adHtml={infeedBannerCode}
+                          width={300}
+                          height={250}
+                          placement="infeed"
+                          className="my-0"
+                        />
+                      </div>
+                    )}
+                  </React.Fragment>
                 ))}
               </div>
             )}
