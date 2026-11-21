@@ -478,14 +478,81 @@ app.all('/api/proxy-ad', async (req: Request, res: Response) => {
 
 let adminFailedAttempts = 0;
 let adminLockoutUntil = 0;
+const localEphemeralSessions = new Map<string, { id: number; username: string; issuedAt: number; lastVerifiedAt: number }>();
+const localRevokedTokens = new Set<string>();
+
+function stripExpressNetworkHeaders(req: Request): void {
+  const telemetryKeys = [
+    'cf-connecting-ip',
+    'x-forwarded-for',
+    'x-real-ip',
+    'true-client-ip',
+    'forwarded',
+    'via',
+    'x-client-ip',
+    'cf-ipcountry',
+    'cf-ray',
+    'cf-visitor',
+    'user-agent',
+  ];
+  for (const key of telemetryKeys) {
+    delete req.headers[key];
+  }
+}
+
+function applyAnonymousAuthHeaders(res: Response): void {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+}
 
 app.get('/api/admin/login', (req: Request, res: Response) => {
+  stripExpressNetworkHeaders(req);
+  applyAnonymousAuthHeaders(res);
   const now = Date.now();
   const isLocked = now < adminLockoutUntil;
   if (!isLocked && adminLockoutUntil > 0) {
     adminFailedAttempts = 0;
     adminLockoutUntil = 0;
   }
+
+  const authHeader = String(req.headers.authorization || '');
+  if (authHeader.toLowerCase().startsWith('bearer ')) {
+    const token = authHeader.slice(7).trim();
+    if (!token || localRevokedTokens.has(token)) {
+      return res.status(401).json({
+        success: false,
+        authenticated: false,
+        error: 'Admin session has been logged out.',
+      });
+    }
+    const session = localEphemeralSessions.get(token);
+    if (session) {
+      if (now - session.lastVerifiedAt > 2 * 60 * 1000) {
+        localEphemeralSessions.delete(token);
+        return res.status(401).json({
+          success: false,
+          authenticated: false,
+          error: 'Session expired due to inactivity.',
+        });
+      }
+      session.lastVerifiedAt = now;
+      return res.json({
+        success: true,
+        authenticated: true,
+        locked: isLocked,
+        lockoutUntil: isLocked ? adminLockoutUntil : 0,
+        remainingSeconds: isLocked ? Math.ceil((adminLockoutUntil - now) / 1000) : 0,
+        failedAttempts: isLocked ? 2 : adminFailedAttempts,
+        admin: {
+          id: session.id,
+          username: session.username,
+          role: 'Administrator',
+        },
+      });
+    }
+  }
+
   res.json({
     success: true,
     locked: isLocked,
@@ -495,9 +562,43 @@ app.get('/api/admin/login', (req: Request, res: Response) => {
   });
 });
 
+app.delete('/api/admin/login', (req: Request, res: Response) => {
+  stripExpressNetworkHeaders(req);
+  applyAnonymousAuthHeaders(res);
+  const authHeader = String(req.headers.authorization || '');
+  const token = authHeader.toLowerCase().startsWith('bearer ') ? authHeader.slice(7).trim() : '';
+  if (token) {
+    localEphemeralSessions.delete(token);
+    localRevokedTokens.add(token);
+  }
+  res.json({
+    success: true,
+    loggedOut: true,
+    message: 'Admin session cleared anonymously.',
+  });
+});
+
 app.post('/api/admin/login', async (req: Request, res: Response) => {
+  stripExpressNetworkHeaders(req);
+  applyAnonymousAuthHeaders(res);
   try {
     const now = Date.now();
+    if (String(req.body?.action || '').toLowerCase() === 'logout') {
+      const authHeader = String(req.headers.authorization || '');
+      const token = authHeader.toLowerCase().startsWith('bearer ')
+        ? authHeader.slice(7).trim()
+        : String(req.body?.token || '').trim();
+      if (token) {
+        localEphemeralSessions.delete(token);
+        localRevokedTokens.add(token);
+      }
+      return res.json({
+        success: true,
+        loggedOut: true,
+        message: 'Admin session cleared anonymously.',
+      });
+    }
+
     if (now < adminLockoutUntil) {
       const remainingSeconds = Math.ceil((adminLockoutUntil - now) / 1000);
       return res.status(429).json({
@@ -515,7 +616,7 @@ app.post('/api/admin/login', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'Email and password required' });
     }
 
-    const stmt = d1DB.prepare('SELECT * FROM admins WHERE username = ?').bind(identifier);
+    const stmt = d1DB.prepare('SELECT id, username, password_hash FROM admins WHERE username = ?').bind(identifier);
     const admin = await stmt.first();
 
     const isMatch = Boolean(
@@ -544,7 +645,13 @@ app.post('/api/admin/login', async (req: Request, res: Response) => {
     adminFailedAttempts = 0;
     adminLockoutUntil = 0;
 
-    const token = `ubcexx_admin_${Buffer.from(`${admin.id}:${admin.username}:${Date.now()}`).toString('base64')}`;
+    const token = `ubcexx_admin_${Buffer.from(`${admin.id}:${admin.username}:${now}:${Math.random().toString(36).slice(2)}`).toString('base64')}`;
+    localEphemeralSessions.set(token, {
+      id: admin.id,
+      username: admin.username,
+      issuedAt: now,
+      lastVerifiedAt: now,
+    });
 
     res.json({
       success: true,
