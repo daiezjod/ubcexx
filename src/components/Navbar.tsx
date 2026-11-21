@@ -504,6 +504,31 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
                 <FileText className="w-4 h-4 text-[#94A3B8] group-hover:text-[#F59E0B] transition-colors" />
               </button>
+
+              <a
+                href="https://t.me/ubcexx_web"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setIsMenuOpen(false)}
+                className="w-full flex items-center justify-between p-3.5 rounded-2xl border border-[#1E293B] bg-[#0F172A] text-left text-[#94A3B8] hover:text-[#F8FAFC] hover:border-[#F59E0B]/40 hover:bg-[#141E30] transition-all cursor-pointer group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#131C2E] border border-[#38BDF8]/30 shadow-[0_0_12px_rgba(56,189,248,0.2)] flex items-center justify-center text-[#38BDF8] group-hover:text-[#F59E0B] group-hover:border-[#F59E0B]/50 group-hover:shadow-[0_0_12px_rgba(245,158,11,0.25)] transition-all shrink-0">
+                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M20.665 3.717l-17.73 6.837c-1.21.486-1.203 1.161-.222 1.462l4.552 1.42 10.532-6.645c.498-.303.953-.14.579.192l-8.533 7.701-.314 4.692c.46 0 .663-.211.921-.46l2.211-2.15 4.599 3.397c.848.467 1.457.227 1.668-.785l3.019-14.228c.309-1.239-.473-1.8-1.282-1.434z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-[#F8FAFC] group-hover:text-[#F59E0B] transition-colors">
+                      Official Telegram Channel
+                    </div>
+                    <div className="text-[11px] text-[#94A3B8]">
+                      Join our community for daily stream updates & announcements
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 shrink-0 text-[#94A3B8] group-hover:text-[#F59E0B] transition-colors" />
+              </a>
             </div>
 
             <div className="p-4 sm:p-5 border-t border-[#1E293B] bg-[#080C14]/80 text-xs">
