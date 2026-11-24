@@ -94,8 +94,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     let sql = `
       SELECT
         v.*,
-        c.name as category_name,
-        c.slug as category_slug
+        c.name AS category_name,
+        c.slug AS category_slug
       FROM videos v
       LEFT JOIN categories c ON (
         c.id = v.category_id
@@ -107,30 +107,33 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     `;
     const params: any[] = [];
 
-    if (categoryId && parseInt(categoryId, 10) > 0) {
-      const targetCatId = parseInt(categoryId, 10);
-      sql += ` AND (
-        v.category_id = ?
-        OR CAST(v.category_id AS TEXT) = CAST(? AS TEXT)
-        OR EXISTS (
-          SELECT 1 FROM categories cat_filter
-          WHERE (cat_filter.id = ? OR CAST(cat_filter.id AS TEXT) = CAST(? AS TEXT))
-            AND (
-              CAST(v.category_id AS TEXT) = CAST(cat_filter.id AS TEXT)
-              OR (cat_filter.slug IS NOT NULL AND TRIM(cat_filter.slug) != '' AND LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(cat_filter.slug)))
-              OR (cat_filter.name IS NOT NULL AND TRIM(cat_filter.name) != '' AND LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(cat_filter.name)))
-              OR (cat_filter.name IS NOT NULL AND TRIM(cat_filter.name) != '' AND (
-                LOWER(COALESCE(v.title, '')) LIKE '%' || LOWER(TRIM(cat_filter.name)) || '%'
-                OR LOWER(COALESCE(v.tags, '')) LIKE '%' || LOWER(TRIM(cat_filter.name)) || '%'
-              ))
-              OR (cat_filter.slug IS NOT NULL AND TRIM(cat_filter.slug) != '' AND (
-                LOWER(COALESCE(v.title, '')) LIKE '%' || LOWER(TRIM(cat_filter.slug)) || '%'
-                OR LOWER(COALESCE(v.tags, '')) LIKE '%' || LOWER(TRIM(cat_filter.slug)) || '%'
-              ))
-            )
-        )
-      )`;
-      params.push(targetCatId, targetCatId, targetCatId, targetCatId);
+    if (categoryId && categoryId.trim() !== '') {
+      const cleanCatParam = categoryId.trim();
+      const targetCatId = /^\d+$/.test(cleanCatParam) ? parseInt(cleanCatParam, 10) : -1;
+      if (targetCatId > 0) {
+        sql += ` AND (
+          v.category_id = ?
+          OR CAST(v.category_id AS TEXT) = CAST(? AS TEXT)
+          OR c.id = ?
+          OR EXISTS (
+            SELECT 1 FROM categories cat_filter
+            WHERE (cat_filter.id = ? OR CAST(cat_filter.id AS TEXT) = CAST(? AS TEXT))
+              AND (
+                CAST(v.category_id AS TEXT) = CAST(cat_filter.id AS TEXT)
+                OR (cat_filter.slug IS NOT NULL AND TRIM(cat_filter.slug) != '' AND LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(cat_filter.slug)))
+                OR (cat_filter.name IS NOT NULL AND TRIM(cat_filter.name) != '' AND LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(TRIM(cat_filter.name)))
+              )
+          )
+        )`;
+        params.push(targetCatId, targetCatId, targetCatId, targetCatId, targetCatId);
+      } else {
+        sql += ` AND (
+          LOWER(TRIM(CAST(v.category_id AS TEXT))) = LOWER(?)
+          OR LOWER(TRIM(COALESCE(c.slug, ''))) = LOWER(?)
+          OR LOWER(TRIM(COALESCE(c.name, ''))) = LOWER(?)
+        )`;
+        params.push(cleanCatParam, cleanCatParam, cleanCatParam);
+      }
     }
 
     if (featured === '1' || featured === 'true') {

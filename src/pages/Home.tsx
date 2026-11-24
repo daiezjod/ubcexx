@@ -128,8 +128,17 @@ export const Home: React.FC<HomeProps> = ({
           const rawCatIdLower = rawCatId.toLowerCase();
           const vCatSlug = String(v.category_slug ?? '').trim().toLowerCase();
           const vCatName = String(v.category_name ?? '').trim().toLowerCase();
-          const titleLower = String(v.title ?? '').toLowerCase();
-          const tagsLower = String(v.tags ?? '').toLowerCase();
+
+          const mappedVideoCategory =
+            categories.find(
+              (c) =>
+                (rawCatId !== '' &&
+                  !Number.isNaN(Number(rawCatId)) &&
+                  c.id === Number(v.category_id)) ||
+                String(c.id).trim() === rawCatId ||
+                (Boolean(c.slug) && c.slug.trim().toLowerCase() === rawCatIdLower) ||
+                (Boolean(c.name) && c.name.trim().toLowerCase() === rawCatIdLower)
+            ) || null;
 
           if (activeCategory) {
             const targetId = String(activeCategory.id).trim();
@@ -143,7 +152,18 @@ export const Home: React.FC<HomeProps> = ({
                 !Number.isNaN(Number(targetId)) &&
                 Number(rawCatId) === Number(targetId));
 
-            const matchesSlugOrName =
+            const mappedSlug = String(mappedVideoCategory?.slug ?? '').trim().toLowerCase();
+            const mappedName = String(mappedVideoCategory?.name ?? '').trim().toLowerCase();
+
+            const matchesMappedCategory = Boolean(
+              mappedVideoCategory &&
+                (Number(mappedVideoCategory.id) === Number(activeCategory.id) ||
+                  String(mappedVideoCategory.id).trim() === targetId ||
+                  (Boolean(targetSlug) && (mappedSlug === targetSlug || mappedName === targetSlug)) ||
+                  (Boolean(targetName) && (mappedName === targetName || mappedSlug === targetName)))
+            );
+
+            const matchesJoinedMetadata =
               (Boolean(targetSlug) &&
                 (rawCatIdLower === targetSlug ||
                   vCatSlug === targetSlug ||
@@ -153,22 +173,17 @@ export const Home: React.FC<HomeProps> = ({
                   vCatName === targetName ||
                   vCatSlug === targetName));
 
-            const matchesKeyword =
-              (Boolean(targetName) &&
-                (titleLower.includes(targetName) || tagsLower.includes(targetName))) ||
-              (Boolean(targetSlug) &&
-                (titleLower.includes(targetSlug) || tagsLower.includes(targetSlug)));
-
-            return matchesId || matchesSlugOrName || matchesKeyword;
+            return matchesId || matchesMappedCategory || matchesJoinedMetadata;
           }
 
           const selectedStr = String(selectedCategoryId).trim();
+          const selectedLower = selectedStr.toLowerCase();
           return (
             rawCatId === selectedStr ||
-            rawCatIdLower === selectedStr.toLowerCase() ||
-            vCatSlug === selectedStr.toLowerCase() ||
-            vCatName === selectedStr.toLowerCase() ||
-            Number(v.category_id) === Number(selectedCategoryId)
+            rawCatIdLower === selectedLower ||
+            vCatSlug === selectedLower ||
+            vCatName === selectedLower ||
+            (rawCatId !== '' && Number(v.category_id) === Number(selectedCategoryId))
           );
         });
 

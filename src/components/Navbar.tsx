@@ -45,25 +45,50 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const suppressNextSuggestRef = useRef<boolean>(true);
 
   useEffect(() => {
+    suppressNextSuggestRef.current = true;
     setLocalSearch(searchQuery);
+    setSuggestions([]);
+    setIsOpenSuggestions(false);
+    setSelectedIndex(-1);
   }, [searchQuery]);
 
   useEffect(() => {
+    const handlePopState = () => {
+      suppressNextSuggestRef.current = true;
+      setSuggestions([]);
+      setIsOpenSuggestions(false);
+      setSelectedIndex(-1);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
     const query = localSearch.trim();
-    if (!query) {
+    if (!query || suppressNextSuggestRef.current) {
       setSuggestions([]);
       setIsOpenSuggestions(false);
       setSelectedIndex(-1);
       return;
     }
 
+    const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/search/suggest?q=${encodeURIComponent(query)}`);
-        if (!res.ok) return;
+        if (suppressNextSuggestRef.current || document.activeElement !== searchInputRef.current) {
+          return;
+        }
+        const res = await fetch(`/api/search/suggest?q=${encodeURIComponent(query)}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok || controller.signal.aborted) return;
         const data = await res.json();
+        if (suppressNextSuggestRef.current || document.activeElement !== searchInputRef.current) {
+          return;
+        }
         const list: string[] = Array.isArray(data)
           ? data
           : Array.isArray(data?.suggestions)
@@ -73,22 +98,31 @@ export const Navbar: React.FC<NavbarProps> = ({
         setIsOpenSuggestions(list.length > 0);
         setSelectedIndex(-1);
       } catch {
-        setSuggestions([]);
-        setIsOpenSuggestions(false);
+        if (!controller.signal.aborted) {
+          setSuggestions([]);
+          setIsOpenSuggestions(false);
+        }
       }
     }, 200);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [localSearch]);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
       if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
         setIsOpenSuggestions(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
 
   useEffect(() => {
@@ -105,9 +139,12 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const executeSearchNavigation = (rawQuery: string) => {
     const trimmed = rawQuery.trim();
+    suppressNextSuggestRef.current = true;
     setLocalSearch(trimmed);
+    setSuggestions([]);
     setIsOpenSuggestions(false);
     setSelectedIndex(-1);
+    searchInputRef.current?.blur();
     onSelectCategory(null);
 
     if (typeof window !== 'undefined') {
@@ -122,9 +159,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
 
     onSearch(trimmed);
-    if (searchInputRef.current) {
-      searchInputRef.current.blur();
-    }
   };
 
   const handleSelectSuggestion = (suggestion: string) => {
@@ -226,9 +260,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                   ref={searchInputRef}
                   type="text"
                   value={localSearch}
-                  onChange={(e) => setLocalSearch(e.target.value)}
+                  onChange={(e) => {
+                    suppressNextSuggestRef.current = false;
+                    setLocalSearch(e.target.value);
+                  }}
                   onFocus={() => {
-                    if (suggestions.length > 0) {
+                    if (!suppressNextSuggestRef.current && suggestions.length > 0) {
                       setIsOpenSuggestions(true);
                     }
                   }}
