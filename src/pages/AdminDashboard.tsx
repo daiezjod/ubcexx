@@ -59,12 +59,14 @@ function doesVideoBelongToCategory(v: Video, cat: Category): boolean {
 }
 
 function resolveVideoCategoryId(v: Video, cats: Category[]): number {
-  if (!cats || cats.length === 0) return Number(v.category_id) || 1;
+  if (!cats || cats.length === 0) return Number(v.category_id) || 6;
   const matched = cats.find((c) => doesVideoBelongToCategory(v, c));
   if (matched) return Number(matched.id);
   const numeric = Number(v.category_id);
-  if (!Number.isNaN(numeric) && numeric > 0) return numeric;
-  return Number(cats[0].id) || 1;
+  if (!Number.isNaN(numeric) && numeric > 0 && cats.some((c) => Number(c.id) === numeric)) {
+    return numeric;
+  }
+  return Number(cats[0].id) || 6;
 }
 
 interface AdminDashboardProps {
@@ -161,7 +163,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [backupVideoUrl, setBackupVideoUrl] = useState('');
   const [thumbnailUrl, setThumbnailUrl] = useState('');
   const [duration, setDuration] = useState('');
-  const [categoryId, setCategoryId] = useState<number>(1);
+  const [categoryId, setCategoryId] = useState<number>(0);
   const [tags, setTags] = useState('action, 4k, stream, ubcexx');
   const [isFeatured, setIsFeatured] = useState(false);
   const [status, setStatus] = useState('published');
@@ -178,6 +180,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setThumbnailUrl('');
     setDuration('');
     setIsFeatured(false);
+    if (categories.length > 0 && !categories.some((c) => Number(c.id) === Number(categoryId))) {
+      setCategoryId(Number(categories[0].id));
+    }
     lastDetectedUrlRef.current = '';
     setActiveTab('add_video');
   };
@@ -185,7 +190,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editingVideo, setEditingVideo] = useState<Video | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editDuration, setEditDuration] = useState('');
-  const [editCategoryId, setEditCategoryId] = useState<number>(1);
+  const [editCategoryId, setEditCategoryId] = useState<number>(0);
   const [editVideoUrl, setEditVideoUrl] = useState('');
   const [editBackupVideoUrl, setEditBackupVideoUrl] = useState('');
   const [editThumbnailUrl, setEditThumbnailUrl] = useState('');
@@ -334,8 +339,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               const catsData = await catsRes.json();
               if (catsData?.success && catsData.categories) {
                 setCategories(catsData.categories);
-                if (catsData.categories.length > 0 && !categoryId) {
-                  setCategoryId(Number(catsData.categories[0].id));
+                if (catsData.categories.length > 0) {
+                  const firstActiveId = Number(catsData.categories[0].id);
+                  setCategoryId((prev) =>
+                    catsData.categories.some((c: Category) => Number(c.id) === Number(prev))
+                      ? prev
+                      : firstActiveId
+                  );
                 }
               }
             }
@@ -428,8 +438,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const trimmedVideoUrl = videoUrl.trim();
     const trimmedBackupUrl = backupVideoUrl ? backupVideoUrl.trim() : '';
     const trimmedThumbUrl = thumbnailUrl.trim();
-    const selectedCatId = Number(categoryId) || (categories[0] ? Number(categories[0].id) : 1);
-    const matchedCat = categories.find((c) => Number(c.id) === selectedCatId);
+    const validCategory = categories.find((c) => Number(c.id) === Number(categoryId));
+    const selectedCatId = validCategory
+      ? Number(validCategory.id)
+      : categories[0]
+      ? Number(categories[0].id)
+      : 6;
+    const matchedCat = validCategory || categories[0];
 
     const baseSubmissionSlug =
       (slug || trimmedTitle)
@@ -610,7 +625,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     setIsUpdating(true);
     const parsedDur = parseDurationToSeconds(editDuration);
-    const targetCategoryId = Number(editCategoryId) || (categories[0] ? Number(categories[0].id) : 1);
+    const validEditCategory = categories.find((c) => Number(c.id) === Number(editCategoryId));
+    const targetCategoryId = validEditCategory
+      ? Number(validEditCategory.id)
+      : categories[0]
+      ? Number(categories[0].id)
+      : 6;
     const prevCategoryId = resolveVideoCategoryId(editingVideo, categories);
 
     try {
@@ -887,9 +907,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           totalCategories: nextCount,
         };
       });
-      if (categoryId === id) {
+      if (Number(categoryId) === Number(id)) {
         const remaining = categories.filter((c) => Number(c.id) !== Number(id));
-        setCategoryId(remaining.length > 0 ? remaining[0].id : 1);
+        setCategoryId(remaining.length > 0 ? Number(remaining[0].id) : 0);
       }
       showNotification('success', `Category "${name}" (#${id}) removed from D1`);
       if (onVideoUpdated) onVideoUpdated();
@@ -1746,7 +1766,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     Category (from D1)
                   </label>
                   <select
-                    value={Number(categoryId)}
+                    value={
+                      categories.some((c) => Number(c.id) === Number(categoryId))
+                        ? Number(categoryId)
+                        : Number(categories[0]?.id || 0)
+                    }
                     onChange={(e) => setCategoryId(Number(e.target.value))}
                     className="w-full bg-[#131C2E] text-sm text-[#F8FAFC] px-3.5 py-2.5 rounded-xl border border-[#253349] focus:outline-none focus:border-[#F59E0B] cursor-pointer"
                   >
@@ -2836,7 +2860,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       Category *
                     </label>
                     <select
-                      value={Number(editCategoryId)}
+                      value={
+                        categories.some((c) => Number(c.id) === Number(editCategoryId))
+                          ? Number(editCategoryId)
+                          : Number(categories[0]?.id || 0)
+                      }
                       onChange={(e) => setEditCategoryId(Number(e.target.value))}
                       className="w-full bg-[#131C2E] text-sm text-[#F8FAFC] px-3.5 py-2.5 rounded-xl border border-[#253349] focus:outline-none focus:border-[#F59E0B]"
                     >

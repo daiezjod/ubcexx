@@ -16,6 +16,33 @@ export const onRequestOptions: PagesFunction<Env> = async () => {
   });
 };
 
+async function resolveActiveCategoryId(db: D1Database, rawCategoryId: unknown): Promise<number> {
+  const rawStr = String(rawCategoryId ?? '').trim();
+  const numeric = /^\d+$/.test(rawStr) ? Number(rawStr) : NaN;
+
+  if (!Number.isNaN(numeric) && numeric > 0) {
+    const byId = await db
+      .prepare('SELECT id FROM categories WHERE id = ? LIMIT 1')
+      .bind(numeric)
+      .first<{ id: number }>();
+    if (byId?.id) return Number(byId.id);
+  }
+
+  if (rawStr) {
+    const bySlugOrName = await db
+      .prepare('SELECT id FROM categories WHERE LOWER(TRIM(slug)) = LOWER(?) OR LOWER(TRIM(name)) = LOWER(?) LIMIT 1')
+      .bind(rawStr, rawStr)
+      .first<{ id: number }>();
+    if (bySlugOrName?.id) return Number(bySlugOrName.id);
+  }
+
+  const firstActive = await db
+    .prepare('SELECT id FROM categories ORDER BY id ASC LIMIT 1')
+    .first<{ id: number }>();
+
+  return firstActive?.id ? Number(firstActive.id) : 6;
+}
+
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const url = new URL(context.request.url);
   const lookup = url.searchParams.get('lookup');
@@ -229,6 +256,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
     }
 
+    const resolvedCategoryId = await resolveActiveCategoryId(context.env.DB, category_id);
+
     const stmt = context.env.DB.prepare(`
       INSERT INTO videos 
       (title, slug, description, video_url, backup_video_url, thumbnail_url, duration, category_id, tags, is_featured, status)
@@ -241,7 +270,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       backup_video_url ? String(backup_video_url).trim() : '',
       thumbnail_url,
       parsedDuration,
-      Number(category_id) || 1,
+      resolvedCategoryId,
       tags || '',
       is_featured ? 1 : 0,
       status || 'published'
@@ -300,6 +329,8 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       }
     }
 
+    const resolvedCategoryId = await resolveActiveCategoryId(context.env.DB, category_id);
+
     const stmt = context.env.DB.prepare(`
       UPDATE videos 
       SET title = ?, duration = ?, category_id = ?, video_url = ?, backup_video_url = ?, thumbnail_url = ? 
@@ -307,7 +338,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     `).bind(
       String(title || '').trim(),
       parsedDuration,
-      Number(category_id) || 1,
+      resolvedCategoryId,
       String(video_url || '').trim(),
       backup_video_url ? String(backup_video_url).trim() : '',
       String(thumbnail_url || '').trim(),
