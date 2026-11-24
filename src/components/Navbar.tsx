@@ -103,16 +103,32 @@ export const Navbar: React.FC<NavbarProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const handleSelectSuggestion = (suggestion: string) => {
-    setLocalSearch(suggestion);
+  const executeSearchNavigation = (rawQuery: string) => {
+    const trimmed = rawQuery.trim();
+    setLocalSearch(trimmed);
     setIsOpenSuggestions(false);
     setSelectedIndex(-1);
     onSelectCategory(null);
-    onSearch(suggestion);
-    onNavigateHome();
+
+    if (typeof window !== 'undefined') {
+      if (trimmed) {
+        const targetUrl = `/?q=${encodeURIComponent(trimmed)}`;
+        if (`${window.location.pathname}${window.location.search}` !== targetUrl) {
+          window.history.pushState({ searchQuery: trimmed }, '', targetUrl);
+        }
+      } else if (window.location.pathname === '/' && window.location.search) {
+        window.history.replaceState({}, '', '/');
+      }
+    }
+
+    onSearch(trimmed);
     if (searchInputRef.current) {
       searchInputRef.current.blur();
     }
+  };
+
+  const handleSelectSuggestion = (suggestion: string) => {
+    executeSearchNavigation(suggestion);
   };
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -144,13 +160,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       handleSelectSuggestion(suggestions[selectedIndex]);
       return;
     }
-    setSelectedIndex(-1);
-    onSelectCategory(null);
-    onSearch(localSearch);
-    onNavigateHome();
-    if (searchInputRef.current) {
-      searchInputRef.current.blur();
-    }
+    executeSearchNavigation(localSearch);
   };
 
   const handleClear = () => {
@@ -158,6 +168,9 @@ export const Navbar: React.FC<NavbarProps> = ({
     setSuggestions([]);
     setIsOpenSuggestions(false);
     setSelectedIndex(-1);
+    if (typeof window !== 'undefined' && window.location.pathname === '/' && window.location.search) {
+      window.history.replaceState({}, '', '/');
+    }
     onSearch('');
     if (searchInputRef.current) {
       searchInputRef.current.focus();
@@ -174,6 +187,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const handleNavCategory = (catId: number | null) => {
     setIsMenuOpen(false);
+    onSearch('');
+    setLocalSearch('');
     onSelectCategory(catId);
     onNavigateHome();
   };
@@ -295,7 +310,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        {showCategoryPills && !(typeof window !== 'undefined' && window.location.pathname.startsWith('/watch/')) && (
+        {showCategoryPills &&
+          !searchQuery.trim() &&
+          !(typeof window !== 'undefined' && Boolean((new URLSearchParams(window.location.search).get('q') || '').trim())) &&
+          !(typeof window !== 'undefined' && window.location.pathname.startsWith('/watch/')) && (
           <div className="border-t border-[#1E293B] bg-[#080C14]/90">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 overflow-x-auto no-scrollbar flex items-center gap-2">
               <button

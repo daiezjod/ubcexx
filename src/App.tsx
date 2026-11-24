@@ -48,7 +48,13 @@ export default function App() {
   const [featuredVideos, setFeaturedVideos] = useState<Video[]>([]);
   const [monetization, setMonetization] = useState<MonetizationSettings | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => {
+    if (typeof window !== 'undefined' && window.location.pathname === '/') {
+      const params = new URLSearchParams(window.location.search);
+      return (params.get('q') || params.get('search') || '').trim();
+    }
+    return '';
+  });
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMoreVideos, setHasMoreVideos] = useState(false);
@@ -115,6 +121,9 @@ export default function App() {
         }
       }
 
+      const params = new URLSearchParams(window.location.search);
+      const urlQuery = (params.get('q') || params.get('search') || '').trim();
+      setSearchQuery((prev) => (prev === urlQuery ? prev : urlQuery));
       setCurrentView('home');
     };
 
@@ -223,7 +232,9 @@ export default function App() {
     setCurrentView('home');
     setSelectedVideo(null);
     setActiveVideoId(null);
-    window.history.pushState({}, '', '/');
+    if (window.location.pathname !== '/' || window.location.search !== '') {
+      window.history.pushState({}, '', '/');
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -299,8 +310,16 @@ export default function App() {
                 }}
                 searchQuery={searchQuery}
                 onSearch={(q) => {
-                  setSearchQuery(q);
-                  handleNavigateHome();
+                  const trimmed = q.trim();
+                  setSearchQuery(trimmed);
+                  if (trimmed) {
+                    lastSyncAtRef.current = 0;
+                    setSelectedCategoryId(null);
+                    setCurrentView('home');
+                    setSelectedVideo(null);
+                    setActiveVideoId(null);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }
                 }}
                 onNavigateHome={handleNavigateHome}
                 isSticky={false}

@@ -47,6 +47,31 @@ export const Home: React.FC<HomeProps> = ({
   onRevalidate,
 }) => {
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+  const searchQueryRef = useRef(searchQuery);
+  searchQueryRef.current = searchQuery;
+
+  useEffect(() => {
+    const syncSearchFromUrl = () => {
+      if (typeof window === 'undefined' || window.location.pathname !== '/') return;
+      const params = new URLSearchParams(window.location.search);
+      const urlQuery = (params.get('q') || params.get('search') || '').trim();
+      if (urlQuery !== searchQueryRef.current) {
+        onSearch(urlQuery);
+      }
+    };
+
+    syncSearchFromUrl();
+    window.addEventListener('popstate', syncSearchFromUrl);
+    return () => window.removeEventListener('popstate', syncSearchFromUrl);
+  }, [onSearch]);
+
+  const handleResetToAllStreams = () => {
+    if (typeof window !== 'undefined' && window.location.pathname === '/' && window.location.search) {
+      window.history.replaceState({}, '', '/');
+    }
+    onSearch('');
+    onSelectCategory(null);
+  };
 
   useEffect(() => {
     if (!onRevalidate) return;
@@ -218,6 +243,11 @@ export const Home: React.FC<HomeProps> = ({
     Boolean(infeedBannerCode) &&
     placementZones.in_feed !== false;
 
+  const hasUrlSearch =
+    typeof window !== 'undefined' &&
+    Boolean((new URLSearchParams(window.location.search).get('q') || '').trim());
+  const isSearchActive = Boolean(searchQuery.trim()) || hasUrlSearch;
+
   return (
     <div className="min-h-screen bg-[#080C14] text-[#F8FAFC] flex flex-col justify-between selection:bg-[#F59E0B] selection:text-black">
       <Navbar
@@ -227,6 +257,7 @@ export const Home: React.FC<HomeProps> = ({
         searchQuery={searchQuery}
         onSearch={onSearch}
         onNavigateHome={onNavigateHome}
+        showCategoryPills={!isSearchActive}
       />
 
       {showTopBanner && (
@@ -256,10 +287,7 @@ export const Home: React.FC<HomeProps> = ({
 
           {(searchQuery || selectedCategoryId !== null) && (
             <button
-              onClick={() => {
-                onSearch('');
-                onSelectCategory(null);
-              }}
+              onClick={handleResetToAllStreams}
               className="text-xs font-semibold text-[#F59E0B] hover:text-[#d97706] cursor-pointer self-start sm:self-auto"
             >
               Reset to All Streams
@@ -281,10 +309,7 @@ export const Home: React.FC<HomeProps> = ({
                 : 'There are currently no videos in this category.'}
             </p>
             <button
-              onClick={() => {
-                onSearch('');
-                onSelectCategory(null);
-              }}
+              onClick={handleResetToAllStreams}
               className="px-4 py-2 bg-[#F59E0B] hover:bg-[#d97706] text-black text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-md shadow-[#F59E0B]/20"
             >
               Show All Streams
